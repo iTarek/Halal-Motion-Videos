@@ -529,4 +529,4 @@ const server = http.createServer(async (req, res) => {
 process.on("uncaughtException", (e) => console.error("[dashboard] error (kept running):", e));
 process.on("unhandledRejection", (e) => console.error("[dashboard] error (kept running):", e));
 
-server.listen(PORT, "127.0.0.1", () => console.log(`Motion dashboard → http://localhost:${PORT}`));
+server.listen(PORT, "127.0.0.1", () => console.log(`Halal Motion Videos dashboard → http://localhost:${PORT}`));

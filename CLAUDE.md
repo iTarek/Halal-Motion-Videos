@@ -10,6 +10,8 @@ The usual request is **"make a new video for X"**. Follow the workflow near the 
 
 ## Setup
 
+Double-click `Start.command` (macOS): the first time it runs setup, then it starts the dashboard and opens it. Closing its window stops it. Or, from a terminal:
+
 ```bash
 npm run setup     # installs npm packages, Remotion's headless Chrome, a Python .venv (numpy + scipy); checks the rest
 npm run doctor    # system check (also in the dashboard → Settings)
@@ -62,6 +64,7 @@ public/_shared/             any brand: img/grain.png, sfx/ (fallback sound kit)
 out/<brand>/<video>/        renders + stills (git-ignored)
 
 styles/library.json         your saved video styles (git-ignored; built-in ones are in tools/styles.mjs)
+Start.command               double-click launcher: setup on first run, then the dashboard
 tools/                      CLIs: new, render, stills, shot, synth_sfx.py, voice, copy-asset, setup, doctor
 tools/dashboard/            the local dashboard: server.mjs, director.mjs (Claude chat), index.html
 .director/                  git-ignored local state:

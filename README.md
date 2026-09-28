@@ -12,6 +12,8 @@ Open the dashboard, describe the video, and a Claude-powered **Director** does t
 
 Every video belongs to a **brand** (an app or product), and one source renders every format: 9:16, 16:9, 1:1 and 4:5.
 
+![The Halal Motion Videos dashboard: brands on the left, the Director chat and video settings in the middle, preview, render and outputs on the right](docs/dashboard.png)
+
 > [!WARNING]
 > **Use this only to create halal videos.**
 >
@@ -26,6 +28,14 @@ Every video belongs to a **brand** (an app or product), and one source renders e
 > If you're not sure whether something is halal, ask a knowledgeable scholar before you make it.
 
 ## Quick start
+
+**On a Mac:** double-click **`Start.command`**.
+
+- **First time:** it installs what it needs.
+- **Then:** it starts the dashboard and opens it in your browser.
+- **To stop:** close the Terminal window.
+
+**From a terminal:**
 
 ```bash
 git clone <this repo> && cd <this repo>
