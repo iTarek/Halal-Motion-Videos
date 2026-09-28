@@ -1,0 +1,41 @@
+{
+  "name": "motion-videos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Halal Motion Videos — a local machine for motion-graphics videos: brands → videos, a Claude-powered Director, voice-over, code-made sound design and real screenshots, rendered with Remotion.",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node tools/dashboard/server.mjs",
+    "setup": "node tools/setup.mjs",
+    "doctor": "node tools/doctor.mjs",
+    "studio": "remotion studio",
+    "new": "node tools/new.mjs",
+    "render": "node tools/render.mjs",
+    "stills": "node tools/stills.mjs",
+    "shot": "node tools/shot.mjs",
+    "sfx": "node tools/run-python.mjs tools/synth_sfx.py",
+    "voice": "node tools/voice.mjs",
+    "copy-asset": "node tools/copy-asset.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.529",
+    "@remotion/cli": "4.0.529",
+    "@remotion/fonts": "4.0.529",
+    "@remotion/media": "4.0.529",
+    "@remotion/renderer": "4.0.529",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.529"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  }
+}

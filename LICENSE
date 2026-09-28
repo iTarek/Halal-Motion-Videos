@@ -1,0 +1,68 @@
+# Halal Motion Videos License
+
+Copyright © 2026 [LICENSOR NAME]
+
+This software ("the Software") is source-available under a two-tier license. Individuals and small organizations may use it for free, including commercially. Larger for-profit organizations need a Company License. The exact terms are below.
+
+- [Free License](#free-license)
+- [Company License](#company-license)
+- [Terms for everyone](#terms-for-everyone)
+
+---
+
+## Free License
+
+### Who is eligible
+
+You may use the Software for free if you are:
+
+- an individual;
+- a for-profit organization with **up to 3 employees**, counting all its affiliates together;
+- a non-profit or not-for-profit organization; or
+- evaluating whether the Software fits your needs, and not yet using it commercially.
+
+### What you may do
+
+If you are eligible, you are granted a free, worldwide, non-exclusive license to:
+
+- use the Software, commercially or not, to create videos, images and audio;
+- copy and modify the Software for your own use;
+- share your modifications publicly as contributions back to this project.
+
+### What you may not do
+
+You may not:
+
+- sell, rent, lease, license, sublicense or otherwise commercially distribute the Software, or any modified or derived version of it;
+- offer the Software, or a derived version, to third parties as a hosted or managed service;
+- remove or change this license or the copyright notice.
+
+## Company License
+
+If you are not eligible for the Free License, you must obtain a **Company License** before using the Software. That includes for-profit organizations with 4 or more employees.
+
+A Company License permits the same uses as the Free License, for the licensed organization.
+
+To get one, contact [CONTACT EMAIL OR URL].
+
+## Terms for everyone
+
+### Your videos are yours
+
+The videos, images and audio you create with the Software belong to you. This license makes no claim on them.
+
+### Third-party components
+
+The Software depends on third-party software and services with their own terms, most importantly **Remotion**, which has a separate license and its own company-license requirement. Brands you create, and any third-party assets or fonts you add to them, are not covered by this license. See [NOTICE.md](NOTICE.md).
+
+### Contributions
+
+By submitting a contribution (for example a pull request), you agree that the Licensor may use, modify and relicense it under these terms, including under Company Licenses. You also confirm you have the right to grant this.
+
+### Termination
+
+If you break these terms, your license ends automatically. It is restored if you fix the breach within 30 days of learning about it.
+
+### No warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

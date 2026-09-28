@@ -1,0 +1,18 @@
+node_modules
+out/
+.DS_Store
+.playwright-mcp/
+.director/
+.venv/
+__pycache__/
+
+# Your brands and their files stay on your machine — a fresh clone starts with none.
+# Only the starter template, the brand finder and the shared sound kit are published.
+src/brands/*
+!src/brands/_starter/
+!src/brands/index.ts
+public/*
+!public/_shared/
+
+# Styles you save in the dashboard stay local; the built-in styles ship in tools/styles.mjs.
+styles/library.json

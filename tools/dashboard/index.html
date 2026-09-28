@@ -1,0 +1,1253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Halal Motion Videos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23d9a35f'/%3E%3Cpath d='M12 9.5v13l11-6.5z' fill='%23140f0a'/%3E%3C/svg%3E" />
+<script>
+  try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+</script>
+<style>
+  :root {
+    --bg: #0d0c0b; --bg2: #121110; --panel: #181614; --panel2: #1f1c19; --line: #2a2622; --line2: #36312b;
+    --text: #f3ede4; --muted: #968e83; --faint: #6b645b;
+    --accent: #e0a860; --accent2: #f2c98e; --accent-ink: #1a1208; --accent-soft: rgba(224,168,96,.12);
+    --good: #8cc152; --bad: #f0715f; --warn: #e8b76c;
+    --radius: 14px; --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 12px 32px rgba(0,0,0,.35);
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    color-scheme: dark;
+  }
+  /* Theme: System follows the Mac; Settings → Appearance can force Light or Dark (data-theme on <html>). */
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f5f2ed; --bg2: #efebe4; --panel: #ffffff; --panel2: #faf8f4; --line: #e6e0d6; --line2: #d8d0c3;
+      --text: #1d1a16; --muted: #756d62; --faint: #a39a8d;
+      --accent: #a8641c; --accent2: #c7822f; --accent-ink: #ffffff; --accent-soft: rgba(168,100,28,.1);
+      --good: #3c8a2e; --bad: #c2412f; --warn: #a8641c;
+      --shadow: 0 1px 2px rgba(40,30,20,.05), 0 8px 24px rgba(40,30,20,.06);
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+      --bg: #f5f2ed; --bg2: #efebe4; --panel: #ffffff; --panel2: #faf8f4; --line: #e6e0d6; --line2: #d8d0c3;
+      --text: #1d1a16; --muted: #756d62; --faint: #a39a8d;
+      --accent: #a8641c; --accent2: #c7822f; --accent-ink: #ffffff; --accent-soft: rgba(168,100,28,.1);
+      --good: #3c8a2e; --bad: #c2412f; --warn: #a8641c;
+      --shadow: 0 1px 2px rgba(40,30,20,.05), 0 8px 24px rgba(40,30,20,.06);
+      color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+  svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  button, input, select { font: inherit; color: inherit; }
+  button {
+    display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line2); background: var(--panel2);
+    border-radius: 10px; padding: 7px 13px; cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s, transform .1s;
+  }
+  button:hover { border-color: var(--accent); }
+  button:active { transform: translateY(1px); }
+  button.primary { background: linear-gradient(180deg, var(--accent2), var(--accent)); border-color: transparent; color: var(--accent-ink); font-weight: 650; box-shadow: 0 6px 18px var(--accent-soft); }
+  button.primary:hover { filter: brightness(1.06); }
+  button.ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 5px 8px; }
+  button.ghost:hover { color: var(--text); background: var(--panel2); }
+  button:disabled { opacity: .45; cursor: default; }
+  input[type=text], input[type=password], input[type=number], input:not([type]) { border: 1px solid var(--line2); background: var(--bg2); border-radius: 10px; padding: 8px 12px; outline: none; }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- header */
+  header {
+    height: 60px; display: flex; align-items: center; gap: 12px; padding: 0 20px;
+    border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 5;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo .mark { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(145deg, var(--accent2), var(--accent)); display: grid; place-items: center; box-shadow: 0 4px 14px var(--accent-soft); }
+  .logo .mark svg { width: 13px; height: 13px; fill: var(--accent-ink); stroke: none; margin-left: 2px; }
+  .logo b { font-size: 15px; letter-spacing: -.01em; }
+  .logo span { color: var(--faint); font-size: 12px; margin-left: 2px; }
+  header .spacer { flex: 1; }
+  .pill { white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); padding: 5px 11px; border: 1px solid var(--line); border-radius: 99px; }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .pill.on { color: var(--text); }
+  .pill.on .dot { background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent); }
+
+  /* ---------- layout */
+  .layout { display: grid; grid-template-columns: 268px minmax(0, 1fr) 320px; min-height: calc(100vh - 60px); }
+  nav { border-right: 1px solid var(--line); padding: 18px 12px; background: var(--bg2); }
+  main { padding: 28px 32px 80px; min-width: 0; }
+  aside { border-left: 1px solid var(--line); padding: 18px 16px; background: var(--bg2); }
+  nav, aside { position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; }
+  @media (max-width: 1180px) {
+    .layout { grid-template-columns: 230px minmax(0, 1fr); }
+    aside { grid-column: 2; position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); }
+  }
+  @media (max-width: 720px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { grid-column: 1; }
+    nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    main { padding: 20px 16px 60px; }
+    header { padding: 0 14px; gap: 8px; }
+    header .logo span, #studioBtn .lbl, #settingsBtn .lbl, #newBrandBtn .lbl, .pill .lbl { display: none; }
+    .pill { padding: 8px; }
+  }
+  .section-label { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin: 0 8px 10px; }
+
+  /* ---------- sidebar */
+  .brand { margin-bottom: 18px; }
+  .brand-head { display: flex; align-items: center; gap: 8px; padding: 6px 4px 6px 8px; }
+  .mono { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 12.5px; color: #fff; flex: none; }
+  .brand-head .bn { font-weight: 650; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .brand-head button { padding: 4px 6px; }
+  .vids { margin-left: 20px; padding-left: 12px; border-left: 1px solid var(--line); }
+  .vid {
+    display: flex; width: 100%; justify-content: space-between; border: 0; background: transparent; padding: 7px 10px; border-radius: 9px; color: var(--muted);
+  }
+  .vid:hover { background: var(--panel2); color: var(--text); }
+  .vid.sel { background: var(--accent-soft); color: var(--accent2); font-weight: 600; }
+  .vid .count { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .vid.sel .count { color: var(--accent); }
+
+  /* ---------- main */
+  .crumbs { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+  .hero { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+  .hero h2 { margin: 0; font-size: 30px; letter-spacing: -.02em; line-height: 1.15; }
+  .hero .sub { color: var(--muted); margin-top: 4px; }
+  .hero .tools { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 18px; box-shadow: var(--shadow); }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .card-head h3 { margin: 0; font-size: 13px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
+  .card-head h3 svg { color: var(--accent); }
+  .card-head .note { color: var(--faint); font-size: 12px; }
+
+  /* format tiles, drawn at their real aspect ratio */
+  .formats { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; }
+  .tile {
+    position: relative; border-radius: 12px; overflow: hidden; cursor: pointer; padding: 0; border: 1px solid var(--line2);
+    background: radial-gradient(120% 90% at 70% 10%, var(--accent-soft), transparent 60%), linear-gradient(180deg, var(--panel2), var(--bg2));
+    display: block; color: var(--text); transition: transform .2s, border-color .2s, box-shadow .2s;
+  }
+  .tile:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 14px 30px rgba(0,0,0,.35); }
+  .tile .guide { position: absolute; inset: 30px 9% 34px; border: 1px dashed color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 6px; }
+  .tile .id { position: absolute; left: 10px; top: 9px; right: 10px; text-align: left; font: 10.5px var(--mono); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
+  .tile .play {
+    position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
+    background: rgba(0,0,0,.45); backdrop-filter: blur(6px); display: grid; place-items: center; border: 1px solid rgba(255,255,255,.18);
+    transition: transform .2s, background .2s;
+  }
+  .tile:hover .play { transform: scale(1.08); background: var(--accent); }
+  .tile .play svg { width: 16px; height: 16px; fill: #fff; stroke: none; margin-left: 3px; }
+  .tile:hover .play svg { fill: var(--accent-ink); }
+  .tile .cap {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 10px 8px; text-align: left; font-size: 12px;
+    background: linear-gradient(transparent, rgba(0,0,0,.65)); color: #fff; display: flex; justify-content: space-between;
+  }
+  .tile .cap b { font-weight: 650; text-transform: capitalize; }
+  .tile .cap span { opacity: .75; }
+
+  /* controls */
+  .ctl-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .ctl-row + .ctl-row { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  .ctl-label { color: var(--muted); font-size: 12.5px; width: 62px; }
+  .seg { display: inline-flex; background: var(--bg2); border: 1px solid var(--line2); border-radius: 11px; padding: 3px; }
+  .seg button { border: 0; background: transparent; border-radius: 8px; padding: 5px 12px; color: var(--muted); text-transform: capitalize; }
+  .seg button.on { background: var(--panel2); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.25); border: 1px solid var(--line2); }
+  .switch { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; color: var(--muted); font-size: 13px; }
+  .switch input { display: none; }
+  .switch i { width: 34px; height: 20px; border-radius: 99px; background: var(--line2); position: relative; transition: background .2s; }
+  .switch i::after { content: ""; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .switch input:checked + i { background: var(--accent); }
+  .switch input:checked + i::after { transform: translateX(14px); }
+  .switch input:checked ~ span { color: var(--text); }
+  .push { margin-left: auto; }
+
+  /* outputs */
+  .outputs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .out { background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .out video, .out img { width: 100%; height: 220px; background: #000; display: block; object-fit: contain; }
+  .out .meta { padding: 9px 11px; font-size: 12px; }
+  .out .meta b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .out .meta span { color: var(--faint); }
+
+  .empty-box { border: 1px dashed var(--line2); border-radius: 12px; padding: 26px; text-align: center; color: var(--muted); }
+  .empty-box svg { width: 26px; height: 26px; color: var(--faint); margin-bottom: 6px; }
+
+  /* docs */
+  .tabs { display: inline-flex; gap: 4px; }
+  .tabs button { border: 0; background: transparent; color: var(--muted); padding: 5px 10px; border-radius: 8px; }
+  .tabs button.on { background: var(--accent-soft); color: var(--accent2); }
+  .doc { overflow-x: auto; color: color-mix(in srgb, var(--text) 88%, var(--muted)); }
+  .doc h1, .doc h2, .doc h3 { font-size: 14.5px; color: var(--text); margin: 20px 0 8px; }
+  .doc > :first-child { margin-top: 0; }
+  .doc p { margin: 6px 0; }
+  .doc table { border-collapse: collapse; margin: 10px 0; font-size: 13px; width: 100%; }
+  .doc td, .doc th { border-bottom: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+  .doc th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  .doc code { background: var(--bg2); border: 1px solid var(--line); padding: 1px 6px; border-radius: 6px; font: 12px var(--mono); }
+  .doc ul { padding-left: 18px; margin: 6px 0; }
+  .doc li { margin: 3px 0; }
+  .doc pre { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font: 12px/1.5 var(--mono); overflow-x: auto; }
+
+  /* welcome */
+  .welcome { max-width: 640px; margin: 40px auto; text-align: center; }
+  .welcome h2 { font-size: 30px; letter-spacing: -.02em; margin: 16px 0 8px; }
+  .welcome p { color: var(--muted); margin: 0 0 26px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: left; margin: 26px 0; }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .step b { display: block; margin: 6px 0 2px; }
+  .step span { color: var(--muted); font-size: 12.5px; }
+  .step .n { width: 22px; height: 22px; border-radius: 50%; background: var(--accent-soft); color: var(--accent2); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+  @media (max-width: 720px) { .steps { grid-template-columns: 1fr; } }
+
+  /* jobs */
+  .job { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; background: var(--panel); }
+  .job .top { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+  .job .name { font-weight: 600; font-size: 13px; line-height: 1.35; }
+  .job .when { color: var(--faint); font-size: 11.5px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .badge { font-size: 11px; font-weight: 650; padding: 2px 8px; border-radius: 99px; white-space: nowrap; text-transform: capitalize; background: var(--panel2); color: var(--muted); }
+  .badge.running { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .badge.done { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+  .badge.failed, .badge.cancelled { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+  .bar { height: 5px; background: var(--line); border-radius: 5px; margin: 10px 0 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 5px; transition: width .5s; }
+  .job .row { display: flex; gap: 2px; margin-top: 6px; }
+  .log { font: 11px/1.5 var(--mono); white-space: pre-wrap; max-height: 170px; overflow: auto; color: var(--muted); margin-top: 8px; background: var(--bg2); border-radius: 8px; padding: 8px; }
+  .queue-empty { color: var(--faint); font-size: 13px; padding: 8px; }
+
+
+  /* director */
+  .director { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+  .phase { font-size: 11.5px; font-weight: 650; padding: 3px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--accent2); }
+  .phase.build { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
+  .chat { max-height: 540px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 2px 2px 6px; scroll-behavior: smooth; }
+  .msg { max-width: 88%; }
+  .msg.user { align-self: flex-end; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 14px 14px 4px 14px; padding: 9px 13px; white-space: pre-wrap; }
+  .msg.claude { align-self: flex-start; display: flex; gap: 10px; }
+  .msg.claude .av { width: 26px; height: 26px; border-radius: 8px; flex: none; display: grid; place-items: center; background: linear-gradient(145deg, var(--accent2), var(--accent)); color: var(--accent-ink); margin-top: 2px; }
+  .msg.claude .av svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
+  .msg.claude .body { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px 14px 14px 14px; padding: 9px 14px; min-width: 0; }
+  .msg.claude .body.doc p:first-child { margin-top: 0; } .msg.claude .body.doc p:last-child { margin-bottom: 0; }
+  .stepgroup { align-self: flex-start; display: block; max-width: calc(100% - 36px); margin-left: 36px; font-size: 12.5px; color: var(--muted); }
+  .stepgroup summary { cursor: pointer; list-style: none; display: flex; width: fit-content; max-width: 100%; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); background: var(--bg2); }
+  .stepgroup summary::-webkit-details-marker { display: none; }
+  .stepgroup summary::before { content: "▸"; font-size: 10px; transition: transform .15s; }
+  .stepgroup[open] summary::before { transform: rotate(90deg); }
+  .stepgroup ol { display: block; margin: 8px 0 0; padding-left: 22px; word-break: break-all; font: 12px/1.7 var(--mono); color: var(--faint); }
+  .msg.system { align-self: center; max-width: 100%; font-size: 12px; color: var(--muted); background: var(--bg2); border: 1px solid var(--line); padding: 3px 12px; border-radius: 99px; }
+  .msg.meta { align-self: flex-start; margin-left: 36px; font-size: 11px; color: var(--faint); margin-top: -6px; font-variant-numeric: tabular-nums; }
+  .working { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line); font-size: 13px; }
+  .working .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .working .el { color: var(--faint); font-variant-numeric: tabular-nums; font-size: 12px; }
+  .spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line2); border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .approve { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+  .approve .t { flex: 1; min-width: 200px; font-size: 13px; }
+  .approve .t b { display: block; }
+  .approve .t span { color: var(--muted); }
+  .ask { margin-top: 14px; padding: 14px; border-radius: 16px;
+    background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 16%, var(--panel)), color-mix(in srgb, var(--accent) 7%, var(--panel)));
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 6%, transparent); }
+  .ask-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .ask-av { width: 30px; height: 30px; border-radius: 9px; flex: none; display: grid; place-items: center; background: linear-gradient(145deg, var(--accent2), var(--accent)); color: var(--accent-ink); box-shadow: 0 4px 12px var(--accent-soft); }
+  .ask-av svg { width: 15px; height: 15px; fill: currentColor; stroke: none; }
+  .ask-head > div > b { display: block; font-size: 14px; }
+  .ask-head > div > span { display: block; font-size: 12px; color: var(--muted); }
+  .ask .composer { margin-top: 0; background: var(--panel); }
+  .composer { display: flex; gap: 8px; align-items: flex-end; margin-top: 12px; border: 1px solid var(--line2); border-radius: 14px; padding: 8px 8px 8px 14px; background: var(--bg2); transition: border-color .15s, box-shadow .15s; }
+  .composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .composer textarea { flex: 1; resize: none; border: 0; background: transparent; outline: none; font: inherit; color: inherit; min-height: 42px; max-height: 220px; padding: 9px 0; line-height: 1.45; }
+  .composer-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .composer-bar .model { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 10px 3px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent2); }
+  .composer-bar .model svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+  .composer-bar .muted-note { font-size: 11.5px; }
+  .seg.small { padding: 2px; border-radius: 9px; }
+  .seg.small button { padding: 3px 10px; font-size: 12px; text-transform: none; }
+  .composer .hint { font-size: 11.5px; color: var(--faint); margin-top: 6px; }
+  .intro { color: var(--muted); font-size: 13.5px; padding: 6px 2px 2px; }
+  .intro b { color: var(--text); }
+  .sugg { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .sugg button { font-size: 12.5px; border-radius: 99px; padding: 6px 12px; color: var(--muted); }
+  .sugg button:hover { color: var(--text); }
+
+  /* materials */
+  .field { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .field input { flex: 1; min-width: 220px; }
+  .field .flabel { width: 110px; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; flex: none; }
+  .field .flabel svg { width: 14px; height: 14px; color: var(--accent); }
+  #folderInput { font-family: var(--mono); font-size: 12.5px; }
+  @media (max-width: 720px) { .field .flabel { width: 100%; } }
+  .drop { margin-top: 14px; border: 1.5px dashed var(--line2); border-radius: 12px; padding: 20px; text-align: center; color: var(--muted); cursor: pointer; transition: border-color .15s, background .15s; }
+  .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .drop svg { width: 22px; height: 22px; color: var(--accent); margin-bottom: 4px; }
+  .drop b { color: var(--text); }
+  .drop .sub { font-size: 12px; color: var(--faint); margin-top: 2px; }
+  .drop-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .fgroup { margin-top: 14px; }
+  .fgroup h4 { margin: 0 0 8px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .files { display: flex; flex-wrap: wrap; gap: 8px; }
+  .file { position: relative; display: flex; align-items: center; gap: 8px; padding: 5px 28px 5px 5px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg2); font-size: 12px; max-width: 240px; }
+  .file .th { width: 36px; height: 36px; border-radius: 7px; background: var(--panel2); display: grid; place-items: center; overflow: hidden; flex: none; color: var(--faint); font: 10px var(--mono); text-transform: uppercase; }
+  .file .th img { width: 100%; height: 100%; object-fit: cover; }
+  .file .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file .x { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); padding: 2px 6px; border: 0; background: transparent; color: var(--faint); }
+  .file .x:hover { color: var(--bad); }
+  .muted-note { color: var(--faint); font-size: 12.5px; }
+
+  /* settings + voice */
+  #settingsBtn { position: relative; }
+  .dot-warn { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); position: absolute; top: 5px; right: 5px; }
+  #settingsDialog { width: min(560px, 94vw); max-height: 90vh; overflow-y: auto; }
+  .doctor { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .doc-row { display: grid; grid-template-columns: 18px 1fr; gap: 8px; font-size: 12.5px; align-items: start; }
+  .doc-row .m { font-weight: 700; }
+  .doc-row .m.ok { color: var(--good); } .doc-row .m.bad { color: var(--bad); } .doc-row .m.opt { color: var(--faint); }
+  .doc-row b { font-weight: 600; }
+  .doc-row .d { color: var(--muted); }
+  .doc-row .fix { color: var(--warn); font-size: 12px; margin-top: 2px; }
+  .doc-row code { font: 11.5px var(--mono); background: var(--panel); border: 1px solid var(--line); padding: 0 4px; border-radius: 4px; }
+  .set-section { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--bg2); margin-top: 14px; }
+  .set-section h4 { margin: 0 0 2px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .set-section h4 svg { color: var(--accent); }
+  .set-section .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 6px; }
+  .set-section label { margin-top: 12px; }
+  .set-section input, .set-section select { width: 100%; }
+  .set-section select { border: 1px solid var(--line2); background: var(--panel); border-radius: 10px; padding: 8px 10px; }
+  .keyrow { display: flex; gap: 8px; }
+  .keyrow input { flex: 1; font-family: var(--mono); font-size: 12.5px; }
+  .ok-line { font-size: 12.5px; margin-top: 10px; color: var(--good); }
+  .vo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg2); font-size: 13px; }
+  .vo-row .lbl2 { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+  .vo-row .lbl2 svg { color: var(--accent); }
+  .vo-row input { font-family: var(--mono); font-size: 12px; padding: 5px 9px; width: 210px; }
+  .vo-row { gap: 8px; }
+  #langRow { flex-direction: column; align-items: stretch; gap: 8px; }
+  .vrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #langSave { margin-left: auto; }
+  .vo-row .note { color: var(--faint); font-size: 12px; }
+  .vo-row .warn { color: var(--warn); font-size: 12.5px; }
+  .switch.locked { opacity: .55; cursor: not-allowed; }
+  .file .th.audio { cursor: pointer; color: var(--accent); }
+  .file .th.audio svg { width: 16px; height: 16px; }
+
+  /* style card */
+  .style-card select { flex: 1; min-width: 220px; border: 1px solid var(--line2); background: var(--bg2); border-radius: 10px; padding: 8px 10px; }
+  .style-card textarea { flex: 1; min-width: 220px; border: 1px solid var(--line2); background: var(--bg2); border-radius: 10px; padding: 9px 12px; font: inherit; color: inherit; resize: vertical; min-height: 84px; outline: none; line-height: 1.45; }
+  .style-card textarea:focus, .style-card select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
+  .style-card .field { align-items: flex-start; }
+  .style-card .field .flabel { padding-top: 9px; }
+  .style-actions { display: flex; align-items: center; gap: 8px; margin: 12px 0 0 118px; flex-wrap: wrap; }
+  .style-actions .muted-note { flex: 1; font-size: 11.5px; }
+  .in-use { font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 99px; background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
+  @media (max-width: 720px) { .style-actions { margin-left: 0; } }
+
+  /* sidebar: preview, render, outputs */
+  .card.side { padding: 14px; margin-bottom: 14px; }
+  .card.side .card-head { margin-bottom: 10px; }
+  .side-formats { flex-wrap: nowrap; align-items: flex-end; }
+  .side-formats .tile .play { width: 36px; height: 36px; margin: -18px 0 0 -18px; }
+  .side-formats .tile .cap { font-size: 11px; padding: 18px 8px 6px; }
+  .side-seg { display: flex; width: 100%; }
+  .side-seg button { flex: 1; padding: 5px 6px; }
+  .side-btn { width: 100%; justify-content: center; margin-top: 12px; padding: 9px 12px; }
+  .side-stills { display: flex; gap: 6px; margin-top: 10px; }
+  .side-stills input { flex: 1; min-width: 0; padding: 7px 10px; }
+  .side-note { color: var(--faint); font-size: 11.5px; margin-top: 8px; word-break: break-all; }
+  .side-outputs { grid-template-columns: 1fr; gap: 10px; }
+  .side-outputs video, .side-outputs img { height: auto; max-height: 360px; }
+  .side-hint { border: 1px dashed var(--line2); border-radius: 12px; padding: 18px; text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .side-hint svg { width: 22px; height: 22px; color: var(--faint); margin-bottom: 4px; }
+
+  .no-claude { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; padding: 12px 14px; border-radius: 12px; font-size: 13px;
+    background: color-mix(in srgb, var(--warn) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); }
+  .no-claude b { color: var(--warn); }
+  .no-claude code { font: 12px var(--mono); background: var(--panel); border: 1px solid var(--line); padding: 0 5px; border-radius: 5px; }
+
+  .theme-seg { display: flex; width: 100%; margin-top: 10px; }
+  .theme-seg button { flex: 1; justify-content: center; gap: 6px; }
+
+  /* danger */
+  button.danger { color: var(--bad); }
+  button.danger:hover { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); border-color: transparent; }
+  button.danger-solid { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 650; }
+  button.danger-solid:hover { filter: brightness(1.08); border-color: var(--bad); }
+  .brand-head .icon-btn { padding: 4px; opacity: .5; }
+  .brand-head .icon-btn svg { width: 15px; height: 15px; }
+  .brand-head:hover .icon-btn, .brand-head .icon-btn:focus-visible { opacity: 1; }
+  #confirmDialog .warn-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 12px;
+    background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+  #confirmDialog .warn-ico svg { width: 20px; height: 20px; }
+  #confirmDialog ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+  #confirmDialog li { margin: 3px 0; }
+  #confirmDialog code { font: 12px var(--mono); background: var(--bg2); border: 1px solid var(--line); padding: 1px 5px; border-radius: 5px; color: var(--text); }
+  #confirmDialog .typed { margin-top: 14px; }
+
+  /* dialog + toast */
+  dialog { border: 1px solid var(--line2); border-radius: 16px; background: var(--panel); color: var(--text); padding: 22px; width: min(440px, 92vw); box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+  dialog::backdrop { background: rgba(0,0,0,.5); backdrop-filter: blur(3px); }
+  dialog h3 { margin: 0 0 4px; font-size: 18px; }
+  dialog .lead { color: var(--muted); margin: 0 0 16px; font-size: 13px; }
+  dialog label { display: block; margin: 12px 0 6px; font-size: 12.5px; color: var(--muted); }
+  dialog input { width: 100%; }
+  dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .err { color: var(--bad); font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translate(-50%, 8px); background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 10; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 7.5h4M17 7.5h4M3 12h18M3 16.5h4M17 16.5h4"/></symbol>
+  <symbol id="i-render" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 13h6M10 17h6"/></symbol>
+  <symbol id="i-studio" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3M10 8.5v5l4-2.5z"/></symbol>
+  <symbol id="i-files" viewBox="0 0 24 24"><path d="M20 7h-3a2 2 0 0 1-2-2V2"/><path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2Z"/><path d="M3 7.6v12.8A1.6 1.6 0 0 0 4.6 22h9.8"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.6a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.6a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2a10 10 0 0 0 0 20c.9 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1a1.6 1.6 0 0 1 1.6-1.7h2A5.6 5.6 0 0 0 22 11c0-5-4.5-9-10-9z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z"/></symbol>
+</svg>
+
+<header>
+  <div class="logo">
+    <div class="mark"><svg viewBox="0 0 24 24"><path d="M5 3.5v17l15-8.5z"/></svg></div>
+    <b>Halal Motion Videos</b><span>video machine</span>
+  </div>
+  <span class="spacer"></span>
+  <span class="pill" id="studioState" title="Remotion Studio"><span class="dot"></span><span class="lbl">Studio off</span></span>
+  <button id="settingsBtn" title="Settings — ElevenLabs voice-over"><svg class="i"><use href="#i-gear"/></svg><span class="lbl">Settings</span><span class="dot-warn" id="settingsDot" hidden></span></button>
+  <button id="studioBtn"><svg class="i"><use href="#i-studio"/></svg><span class="lbl">Open Studio</span></button>
+  <button class="primary" id="newBrandBtn"><svg class="i"><use href="#i-plus"/></svg><span class="lbl">New brand</span></button>
+</header>
+
+<div class="layout">
+  <nav><div class="section-label">Brands</div><div id="nav"></div></nav>
+  <main id="main"></main>
+  <aside>
+    <div id="sideTop"></div>
+    <div class="section-label">Render queue</div><div id="jobs"></div>
+    <div id="sideOutputs"></div>
+  </aside>
+</div>
+
+<dialog id="newDialog">
+  <form method="dialog" id="newForm">
+    <h3 id="newTitle">New brand</h3>
+    <p class="lead" id="newLead">Creates the brand kit and its first video from the starter.</p>
+    <label for="newBrand">Brand (app or product)</label>
+    <input id="newBrand" placeholder="my-app" pattern="[a-z][a-z0-9-]*" autocomplete="off" required />
+    <label for="newVideo">Video name <span style="color:var(--faint)">— optional, defaults to the next videoNN</span></label>
+    <input id="newVideo" placeholder="video01" pattern="[a-z][a-z0-9-]*" autocomplete="off" />
+    <div class="err" id="newErr"></div>
+    <div class="actions">
+      <button type="button" id="newCancel">Cancel</button>
+      <button class="primary" value="ok"><svg class="i"><use href="#i-plus"/></svg>Create</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="settingsDialog">
+  <form method="dialog" id="settingsForm">
+    <h3>Settings</h3>
+    <p class="lead">Appearance is remembered in this browser. Voice-over settings are saved on this Mac in <code style="font:12px var(--mono)">.director/settings.json</code> (not in git, never shown to Claude).</p>
+    <div class="set-section">
+      <h4><svg class="i"><use href="#i-sun"/></svg>Appearance</h4>
+      <div class="sub">How this dashboard looks. System follows your Mac.</div>
+      <div class="seg theme-seg" id="themeSeg">
+        <button type="button" data-theme-pick="system"><svg class="i"><use href="#i-monitor"/></svg>System</button>
+        <button type="button" data-theme-pick="light"><svg class="i"><use href="#i-sun"/></svg>Light</button>
+        <button type="button" data-theme-pick="dark"><svg class="i"><use href="#i-moon"/></svg>Dark</button>
+      </div>
+    </div>
+    <div class="set-section">
+      <h4><svg class="i"><use href="#i-mic"/></svg>ElevenLabs voice-over</h4>
+      <div class="sub">Claude uses this to narrate videos with Eleven v4 — emotions, pacing and non-verbal cues included.</div>
+      <label for="elKey">API key</label>
+      <div class="keyrow"><input id="elKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk_…" /></div>
+      <div class="muted-note" id="elKeyHint" style="margin-top:4px"></div>
+      <label for="elVoice">Default voice ID</label>
+      <input id="elVoice" autocomplete="off" spellcheck="false" style="font-family:var(--mono);font-size:12.5px" />
+      <label for="elModel">Model</label>
+      <select id="elModel"></select>
+      <div class="ok-line" id="elOk" hidden></div>
+    </div>
+    <div class="set-section">
+      <h4><svg class="i"><use href="#i-check"/></svg>System check</h4>
+      <div class="sub">What this Mac has for each part of the machine. Run <code style="font:12px var(--mono)">npm run setup</code> to install what's missing.</div>
+      <div id="doctorList" class="doctor"><span class="muted-note">Checking…</span></div>
+    </div>
+    <div class="err" id="settingsErr"></div>
+    <div class="actions" style="justify-content:space-between">
+      <button type="button" id="elTest"><svg class="i"><use href="#i-volume"/></svg>Test voice</button>
+      <span style="display:flex;gap:8px">
+        <button type="button" id="settingsCancel">Close</button>
+        <button class="primary" value="ok">Save</button>
+      </span>
+    </div>
+  </form>
+</dialog>
+<dialog id="confirmDialog">
+  <form method="dialog" id="confirmForm">
+    <div class="warn-ico"><svg class="i"><use href="#i-trash"/></svg></div>
+    <h3 id="confirmTitle">Delete?</h3>
+    <div class="lead" id="confirmBody"></div>
+    <div class="typed" id="confirmTyped" hidden>
+      <label for="confirmInput" style="display:block;margin:0 0 6px;font-size:12.5px;color:var(--muted)">Type <b id="confirmWord"></b> to confirm</label>
+      <input id="confirmInput" autocomplete="off" spellcheck="false" style="width:100%" />
+    </div>
+    <div class="err" id="confirmErr"></div>
+    <div class="actions">
+      <button type="button" id="confirmCancel">Cancel</button>
+      <button class="danger-solid" id="confirmOk" value="ok"><svg class="i"><use href="#i-trash"/></svg><span id="confirmOkLabel">Delete</span></button>
+    </div>
+  </form>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const icon = (n) => `<svg class="i"><use href="#i-${n}"/></svg>`;
+const RATIO = { vertical: [9, 16], horizontal: [16, 9], square: [1, 1], portrait: [4, 5] };
+
+let state = { brands: [], jobs: [], studio: { running: false, url: "" } };
+let sel = null, fmt = "", docTab = "brief";
+try { sel = JSON.parse(localStorage.getItem("sel")); } catch {}
+const openLogs = new Set();
+
+const toast = (msg) => { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2600); };
+const api = async (path, body) => {
+  const r = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+};
+const hue = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 17);
+const fmtSize = (b) => b > 1e6 ? (b / 1e6).toFixed(1) + " MB" : Math.round(b / 1e3) + " KB";
+const fmtTime = (ms) => new Date(ms).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const fmtDur = (ms) => { const s = Math.round(ms / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`; };
+
+// ---- tiny markdown for BRIEF / README / BRAND
+const inline = (s) => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1");
+const md = (src) => {
+  const lines = src.split("\n"); let html = ""; let i = 0;
+  while (i < lines.length) {
+    const l = lines[i];
+    if (/^```/.test(l)) { let code = ""; i++; while (i < lines.length && !/^```/.test(lines[i])) code += lines[i++] + "\n"; i++; html += `<pre>${esc(code)}</pre>`; continue; }
+    const h = l.match(/^(#{1,3})\s+(.*)/); if (h) { html += `<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`; i++; continue; }
+    if (/^\|/.test(l)) {
+      const rows = []; while (i < lines.length && /^\|/.test(lines[i])) rows.push(lines[i++]);
+      const cells = (r) => r.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      html += "<table>" + rows.filter((r) => !/^\|\s*-/.test(r)).map((r, ri) => "<tr>" + cells(r).map((c) => ri ? `<td>${inline(c)}</td>` : `<th>${inline(c)}</th>`).join("") + "</tr>").join("") + "</table>";
+      continue;
+    }
+    if (/^\s*[-*]\s+/.test(l)) { html += "<ul>"; while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) html += `<li>${inline(lines[i++].replace(/^\s*[-*]\s+/, ""))}</li>`; html += "</ul>"; continue; }
+    if (l.trim()) html += `<p>${inline(l)}</p>`;
+    i++;
+  }
+  return html;
+};
+
+const current = () => {
+  if (!sel) return null;
+  const b = state.brands.find((b) => b.brand === sel.brand);
+  const v = b?.videos.find((v) => v.video === sel.video);
+  return v ? { brand: b, video: v } : null;
+};
+const select = (brand, video) => { sel = { brand, video }; fmt = ""; docTab = "brief"; try { localStorage.setItem("sel", JSON.stringify(sel)); } catch {} skeletonKey = ""; };
+
+// ---- sidebar
+function renderNav() {
+  $("#nav").innerHTML = state.brands.length ? state.brands.map((b) => `
+    <div class="brand">
+      <div class="brand-head">
+        <span class="mono" style="background:hsl(${hue(b.brand)} 45% 42%)">${esc(b.brand[0].toUpperCase())}</span>
+        <span class="bn">${esc(b.brand)}</span>
+        <button class="ghost icon-btn" data-newvideo="${esc(b.brand)}" title="New video in ${esc(b.brand)}">${icon("plus")}</button>
+        <button class="ghost icon-btn danger" data-delbrand="${esc(b.brand)}" title="Delete ${esc(b.brand)} and all its videos">${icon("trash")}</button>
+      </div>
+      <div class="vids">
+        ${b.videos.map((v) => `<button class="vid ${sel && sel.brand === b.brand && sel.video === v.video ? "sel" : ""}" data-brand="${esc(b.brand)}" data-video="${esc(v.video)}">
+          <span>${esc(v.video)}</span><span class="count">${v.outputs.videos.length ? v.outputs.videos.length + " mp4" : ""}</span></button>`).join("")}
+      </div>
+    </div>`).join("") : `<div class="queue-empty">No brands yet.</div>`;
+}
+
+// ---- main panel
+function welcome() {
+  return `<div class="welcome">
+    <div class="logo" style="justify-content:center"><div class="mark" style="width:52px;height:52px;border-radius:15px"><svg viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M5 3.5v17l15-8.5z"/></svg></div></div>
+    <h2>Make a motion video</h2>
+    <p>Every video lives in a brand. Pick one on the left, or start a new brand.</p>
+    <button class="primary" data-action="new-brand">${icon("plus")}New brand</button>
+    <div class="steps">
+      <div class="step"><span class="n">1</span><b>Create</b><span>New brand, or + next to a brand for another video.</span></div>
+      <div class="step"><span class="n">2</span><b>Build</b><span>Ask Claude to fill the brief, copy and scenes.</span></div>
+      <div class="step"><span class="n">3</span><b>Preview & render</b><span>Scrub it in Studio, then render MP4s here.</span></div>
+    </div>
+  </div>`;
+}
+
+// The video page is split into parts that refresh independently, so a live chat
+// never resets a playing video or what you're typing.
+let dir = null; // Director state for the selected video
+let skeletonKey = "", restKey = "", chatKey = "", matKey = "";
+let uploadScope = "brand", uploading = "";
+let effort = null; // thinking level picked in the Director; defaults to the video's last one
+const q = () => `brand=${encodeURIComponent(sel.brand)}&video=${encodeURIComponent(sel.video)}`;
+
+function renderMain() {
+  const c = current();
+  if (!c) {
+    $("#main").innerHTML = welcome();
+    $("#sideTop").innerHTML = `<div class="side-hint">${icon("film")}<div>Pick a video to preview and render it here.</div></div>`;
+    $("#sideOutputs").innerHTML = "";
+    return;
+  }
+  const { brand: b, video: v } = c;
+  $("#main").innerHTML = `
+    <div class="crumbs"><span class="mono" style="width:20px;height:20px;border-radius:6px;font-size:11px;background:hsl(${hue(b.brand)} 45% 42%)">${esc(b.brand[0].toUpperCase())}</span>${esc(b.brand)}</div>
+    <div class="hero">
+      <div><h2>${esc(v.video)}</h2><div class="sub" id="heroSub"></div></div>
+      <div class="tools">
+        <button class="ghost" data-reveal="src">${icon("code")}Code</button>
+        <button class="ghost" data-reveal="public">${icon("files")}Files</button>
+        <button class="ghost" data-reveal="out">${icon("folder")}Output</button>
+        <button class="ghost danger" data-delvideo="1" title="Delete this video and all its files">${icon("trash")}Delete</button>
+      </div>
+    </div>
+
+    <div class="card director">
+      <div class="card-head"><h3>${icon("star")}Director</h3><div class="row" id="dirHead" style="display:flex;gap:6px;align-items:center"></div></div>
+      <div class="chat" id="chat"></div>
+      <div id="dirStatus"></div>
+      <div class="ask">
+        <div class="ask-head">
+          <span class="ask-av"><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z"/></svg></span>
+          <div><b>Chat with Claude, your AI Director</b><span>Describe the video or give notes. It edits this video's files and Studio updates live.</span></div>
+        </div>
+        <form class="composer" id="composer">
+          <textarea id="prompt" rows="1" placeholder="Message Claude…"></textarea>
+          <button class="primary" id="sendBtn" type="submit">${icon("send")}Send</button>
+        </form>
+        <div class="composer-bar">
+          <span class="model">${icon("star")}<span id="modelName">Opus 5.5</span></span>
+          <span class="muted-note">Thinking</span>
+          <div class="seg small" id="effortSeg"></div>
+          <span class="muted-note push">Enter to send · Shift+Enter for a new line</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>${icon("film")}Video settings</h3><span class="note">Claude follows these automatically</span></div>
+      <div class="vo-row" id="langRow" style="margin-top:0"></div>
+      <div class="vo-row" id="voRow" style="margin-top:8px"></div>
+    </div>
+
+    <div id="styleCard"></div>
+    <div id="materials"></div>
+    <div id="rest"></div>`;
+  chatKey = matKey = restKey = styleKey = ""; styleDirty = false;
+  const ta = $("#prompt");
+  const grow = () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 220) + "px"; };
+  ta.addEventListener("input", grow);
+  ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); $("#composer").requestSubmit(); } });
+  $("#composer").onsubmit = async (e) => {
+    e.preventDefault();
+    const text = ta.value.trim();
+    if (!text || dir?.running) return;
+    try { dir = await api("/api/director/send", { ...sel, text, effort }); ta.value = ""; grow(); renderDirector(); refresh(); }
+    catch (err) { toast(err.message); }
+  };
+}
+
+function introHtml() {
+  const sugg = [
+    "App Store promo that shows the main features",
+    "Teaser for Instagram Reels",
+    "Explain how the app works in 3 simple steps",
+  ];
+  return `<div class="intro"><b>Tell Claude what this video should be.</b> It writes the brief first and waits for your OK, then builds the scenes and checks its own frames. Add the product link and files under Materials so it uses the real thing.</div>
+    <div class="sugg">${sugg.map((t) => `<button data-sugg="${esc(t)}">${esc(t)}</button>`).join("")}</div>`;
+}
+
+function chatHtml() {
+  if (!dir.messages.length) return introHtml();
+  const out = []; let steps = [];
+  const flush = () => {
+    if (!steps.length) return;
+    out.push(`<details class="stepgroup"><summary>${steps.length} step${steps.length === 1 ? "" : "s"} · ${esc(steps.at(-1))}</summary><ol>${steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol></details>`);
+    steps = [];
+  };
+  for (const m of dir.messages) {
+    if (m.role === "step") { steps.push(m.text); continue; }
+    flush();
+    if (m.role === "user") out.push(`<div class="msg user">${esc(m.text)}</div>`);
+    else if (m.role === "claude") out.push(`<div class="msg claude"><span class="av"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg></span><div class="body doc">${md(m.text)}</div></div>`);
+    else if (m.role === "system") out.push(`<div class="msg system">${esc(m.text)}</div>`);
+    else if (m.role === "meta") out.push(`<div class="msg meta">${esc(m.text)}</div>`);
+  }
+  flush();
+  return out.join("");
+}
+
+function renderDirector() {
+  if (!dir || !$("#chat")) return;
+  $("#dirHead").innerHTML = `<span class="phase ${dir.phase}">${dir.phase === "brief" ? "Step 1 · Brief" : "Step 2 · Build"}</span>
+    ${dir.phase === "build" && !dir.running ? `<button class="ghost" data-dir="reopen" title="Claude goes back to editing the brief only">Back to brief</button>` : ""}
+    ${dir.messages.length && !dir.running ? `<button class="ghost" data-dir="reset" title="Clear this chat and start a fresh Claude session">New chat</button>` : ""}`;
+  const key = `${dir.messages.length}:${dir.messages.at(-1)?.ts ?? 0}`;
+  if (key !== chatKey) {
+    const el = $("#chat");
+    const atBottom = !chatKey || el.scrollHeight - el.scrollTop - el.clientHeight < 90;
+    chatKey = key;
+    el.innerHTML = chatHtml();
+    if (atBottom) el.scrollTop = el.scrollHeight;
+  }
+  let st = "";
+  if (dir.running) st = `<div class="working"><span class="spin"></span><span class="t">${esc(dir.step || "Working…")}</span><span class="el">${fmtDur(dir.elapsed)}</span><button class="ghost" data-dir="stop">Stop</button></div>`;
+  else if (dir.phase === "brief" && dir.briefExists && dir.messages.some((m) => m.role === "claude"))
+    st = `<div class="approve"><div class="t"><b>Brief ready for review</b><span>Read it under Docs below, then approve — or reply with changes.</span></div><button class="primary" data-dir="approve">${icon("check")}Approve & build</button></div>`;
+  // No Claude Code (missing, outdated or logged out)? Say so and how to fix it; the rest of the page still works.
+  const cl = dir.claude;
+  if (cl && !cl.ok) {
+    const code = (t) => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>");
+    st = `<div class="no-claude">
+      <b>Claude Code isn't working on this Mac</b>
+      <span>${esc(cl.reason === "missing" ? "It isn't installed." : cl.reason === "old" ? `It's too old (${cl.detail}).` : "It isn't logged in.")} → ${code(cl.fix)}</span>
+      <span class="muted-note">The Director chat needs it. Everything else here works without it: Preview, Render, screenshots, sound design and voice-over (from the command line).</span>
+    </div>` + st;
+  }
+  $("#dirStatus").innerHTML = st;
+  $("#sendBtn").disabled = dir.running || (cl && !cl.ok);
+  $("#prompt").disabled = !!(cl && !cl.ok);
+  $("#prompt").placeholder = cl && !cl.ok ? "Set up Claude Code to chat with the Director" : "Message Claude…";
+  renderVoiceRow();
+  if (!effort || !dir.efforts[effort]) effort = dir.effort;
+  $("#modelName").textContent = dir.model;
+  $("#effortSeg").innerHTML = Object.entries(dir.efforts)
+    .map(([k, label]) => `<button type="button" data-effort="${k}" class="${k === effort ? "on" : ""}">${esc(label)}</button>`).join("");
+}
+
+const fileUrl = (p) => "/public/" + p.split("/").map(encodeURIComponent).join("/");
+function fileChips(list) {
+  return `<div class="files">${list.map((p) => {
+    const name = p.split("/").pop(), ext = (name.split(".").pop() || "").toLowerCase();
+    const img = /^(png|jpe?g|webp|gif|svg|avif)$/.test(ext), audio = /^(mp3|wav|m4a|aac|ogg)$/.test(ext);
+    const th = img ? `<span class="th"><img src="${fileUrl(p)}" loading="lazy" alt="" /></span>`
+      : audio ? `<button class="th audio" data-playfile="${esc(p)}" title="Play">${icon("play")}</button>` : `<span class="th">${esc(ext)}</span>`;
+    return `<div class="file" title="${esc(p)}">${th}<span class="nm">${esc(name)}</span><button class="x" data-del="${esc(p)}" title="Delete">✕</button></div>`;
+  }).join("")}</div>`;
+}
+
+function renderMaterials() {
+  if (!dir || !$("#materials")) return;
+  if (["urlInput", "folderInput"].includes(document.activeElement?.id)) return; // don't clobber typing
+  const key = JSON.stringify([dir.url, dir.folder, dir.folderOk, dir.materials, uploadScope, uploading]);
+  if (key === matKey) return;
+  matKey = key;
+  const m = dir.materials;
+  $("#materials").innerHTML = `<div class="card">
+    <div class="card-head"><h3>${icon("box")}Materials</h3><span class="note">Claude builds from these</span></div>
+    <div class="field">
+      <span class="flabel">${icon("link")}Website</span>
+      <input id="urlInput" placeholder="https://example.com" value="${esc(dir.url || "")}" />
+      <button id="urlSave">Save</button>
+    </div>
+    <div class="field" style="margin-top:8px">
+      <span class="flabel">${icon("folder")}Project folder</span>
+      <input id="folderInput" placeholder="/Users/you/Projects/MyApp" value="${esc(dir.folder || "")}" spellcheck="false" />
+      <button id="folderSave">Save</button>
+      ${dir.folderOk ? `<button class="ghost" data-reveal="project" title="Open in Finder">Open</button>` : ""}
+    </div>
+    <div class="muted-note" style="margin:6px 0 0 118px;font-size:11.5px">${dir.folder && !dir.folderOk ? `<span style="color:var(--bad)">That folder isn't there anymore.</span> ` : ""}Claude can read it and copy assets out — never changes it. Tip: in Finder, select the folder and press ⌥⌘C to copy its path.</div>
+    <div class="drop-bar">
+      <span class="muted-note">Upload to</span>
+      <div class="seg">
+        <button style="text-transform:none" data-scope="brand" class="${uploadScope === "brand" ? "on" : ""}">Brand · every ${esc(sel.brand)} video</button>
+        <button style="text-transform:none" data-scope="video" class="${uploadScope === "video" ? "on" : ""}">This video only</button>
+      </div>
+    </div>
+    <div class="drop" id="drop">
+      ${icon("upload")}
+      <div>${uploading ? esc(uploading) : "<b>Drop files here</b> or click to choose"}</div>
+      <div class="sub">Logo, screenshots, fonts, sounds — sorted into img/, fonts/, sfx/ automatically</div>
+      <input type="file" id="fileInput" multiple hidden />
+    </div>
+    ${m.brand.length ? `<div class="fgroup"><h4>Brand files · ${m.brand.length}</h4>${fileChips(m.brand)}</div>` : ""}
+    ${m.video.length ? `<div class="fgroup"><h4>This video · ${m.video.length}</h4>${fileChips(m.video)}</div>` : ""}
+  </div>`;
+  $("#fileInput").onchange = (e) => uploadFiles(e.target.files);
+}
+
+async function uploadFiles(files) {
+  files = [...files];
+  if (!files.length || !sel) return;
+  let done = 0;
+  try {
+    for (const f of files) {
+      await new Promise((resolve, reject) => {
+        const x = new XMLHttpRequest();
+        x.open("POST", `/api/upload?${q()}&scope=${uploadScope}&name=${encodeURIComponent(f.name)}`);
+        x.upload.onprogress = (e) => { uploading = `Uploading ${f.name} — ${Math.round((e.loaded / e.total) * 100)}%`; matKey = ""; renderMaterials(); };
+        x.onload = () => (x.status === 200 ? resolve() : reject(new Error(JSON.parse(x.responseText || "{}").error || "Upload failed")));
+        x.onerror = () => reject(new Error("Upload failed"));
+        x.send(f);
+      });
+      done++;
+    }
+    toast(`Uploaded ${done} file${done === 1 ? "" : "s"}`);
+  } catch (err) { toast(err.message); }
+  uploading = ""; matKey = ""; refresh();
+}
+
+function renderRest() {
+  const c = current();
+  if (!c || !$("#rest")) return;
+  const { brand: b, video: v } = c;
+  const id = (f) => `${b.brand}-${v.video}-${f}`;
+  const outs = v.outputs;
+  $("#heroSub").textContent = `${v.formats.length} format${v.formats.length === 1 ? "" : "s"} · ${outs.videos.length} render${outs.videos.length === 1 ? "" : "s"}`;
+  const latestFor = (f) => outs.videos.find((o) => o.name.includes(`-${f}`));
+
+  // Preview tiles at their real aspect ratio, all on one row, sized to the sidebar.
+  const ratios = v.formats.map((f) => RATIO[f] || [16, 9]);
+  const avail = Math.max(200, ($("#sideTop").clientWidth || 288) - 30);
+  const gap = 10;
+  const tileH = Math.floor(Math.min(190, (avail - gap * (ratios.length - 1)) / ratios.reduce((t, [rw, rh]) => t + rw / rh, 0)));
+  const tiles = v.formats.map((f, i) => {
+    const [rw, rh] = ratios[i];
+    const w = Math.round((tileH * rw) / rh);
+    const last = latestFor(f);
+    return `<button class="tile" data-preview="${esc(id(f))}" style="width:${w}px;height:${tileH}px" title="Open ${esc(f)} in Studio">
+      ${last ? `<video src="${last.url}#t=1.5" muted playsinline preload="metadata"></video>` : `<span class="guide"></span>`}
+      <span class="play"><svg viewBox="0 0 24 24"><path d="M5 3.5v17l15-8.5z"/></svg></span>
+      <span class="cap">${w >= 110 ? `<b>${esc(f)}</b><span>${rw}:${rh}</span>` : `<b style="margin:auto">${rw}:${rh}</b>`}</span>
+    </button>`;
+  }).join("");
+
+  $("#sideTop").innerHTML = `
+    <div class="card side">
+      <div class="card-head"><h3>${icon("studio")}Preview</h3><span class="note">opens in Studio</span></div>
+      <div class="formats side-formats" style="gap:${gap}px">${tiles}</div>
+    </div>
+
+    <div class="card side">
+      <div class="card-head"><h3>${icon("render")}Render</h3></div>
+      ${v.formats.length > 1 ? `<div class="seg side-seg">${["", ...v.formats].map((f) => `<button data-fmt="${esc(f)}" class="${fmt === f ? "on" : ""}">${f ? esc(f) : "All"}</button>`).join("")}</div>` : ""}
+      <label class="switch" style="margin-top:10px"><input type="checkbox" id="quick" /><i></i><span>Quick check · first 3 s</span></label>
+      <button class="primary side-btn" id="renderBtn">${icon("render")}Render MP4</button>
+      <div class="side-stills">
+        <input id="stillFrames" placeholder="Stills: 0, 60, 120" />
+        <button id="stillsBtn" title="Make stills">${icon("image")}Stills</button>
+      </div>
+      <div class="side-note">Saved to out/${esc(b.brand)}/${esc(v.video)}/</div>
+    </div>`;
+
+  $("#sideOutputs").innerHTML = `
+    <div class="section-label" style="margin-top:22px">Outputs <span style="text-transform:none;letter-spacing:0;font-weight:500">· ${outs.videos.length + outs.stills.length} files</span></div>
+    ${outs.videos.length || outs.stills.length ? `<div class="outputs side-outputs">
+        ${outs.videos.map((o) => `<div class="out"><video src="${o.url}" controls preload="metadata"></video><div class="meta"><b>${esc(o.name)}</b><span>${fmtSize(o.size)} · ${fmtTime(o.mtime)}</span></div></div>`).join("")}
+        ${outs.stills.map((o) => `<div class="out"><a href="${o.url}" target="_blank"><img src="${o.url}?t=${o.mtime}" alt="${esc(o.name)}" loading="lazy" /></a><div class="meta"><b>${esc(o.name)}</b><span>${fmtTime(o.mtime)}</span></div></div>`).join("")}
+      </div>` : `<div class="queue-empty">Nothing rendered yet — renders and stills show up here.</div>`}`;
+
+  const docs = [v.doc && ["brief", "Brief", v.doc], b.brandDoc && ["brand", "Brand kit", b.brandDoc]].filter(Boolean);
+  if (!docs.find((d) => d[0] === docTab) && docs.length) docTab = docs[0][0];
+  const doc = docs.find((d) => d[0] === docTab);
+  $("#rest").innerHTML = doc ? `<div class="card">
+      <div class="card-head"><h3>${icon("doc")}Docs</h3>
+        <div class="tabs">${docs.map((d) => `<button data-tab="${d[0]}" class="${d[0] === docTab ? "on" : ""}">${d[1]}</button>`).join("")}</div></div>
+      <div class="doc">${md(doc[2])}</div>
+    </div>` : "";
+}
+
+// ---- queue
+function renderJobs() {
+  const now = Date.now();
+  $("#jobs").innerHTML = state.jobs.length ? state.jobs.map((j) => {
+    const live = j.status === "running" || j.status === "queued";
+    const when = j.status === "running" ? `${j.progress}% · ${fmtDur(now - j.started)}` : j.ended ? `took ${fmtDur(j.ended - j.started)}` : "waiting";
+    return `<div class="job">
+      <div class="top"><div><div class="name">${esc(j.label)}</div><div class="when">${when}</div></div><span class="badge ${j.status}">${j.status}</span></div>
+      ${live ? `<div class="bar"><i style="width:${Math.max(j.progress, 2)}%"></i></div>` : ""}
+      <div class="row">
+        <button class="ghost" data-log="${j.id}">${openLogs.has(j.id) ? "Hide log" : "Log"}</button>
+        ${live ? `<button class="ghost" data-cancel="${j.id}">Cancel</button>` : ""}
+      </div>
+      ${openLogs.has(j.id) ? `<div class="log">${esc(j.log.slice(-60).join("\n")) || "…"}</div>` : ""}
+    </div>`;
+  }).join("") : `<div class="queue-empty">Renders and stills you start appear here with live progress.</div>`;
+}
+
+function renderStudio() {
+  const on = state.studio.running;
+  $("#studioState").className = `pill ${on ? "on" : ""}`;
+  $("#studioState").innerHTML = `<span class="dot"></span><span class="lbl">Studio ${on ? "running" : "off"}</span>`;
+}
+
+async function refresh() {
+  try { state = await api("/api/state"); } catch { return; }
+  renderNav(); renderJobs(); renderStudio();
+  const c = current();
+  const sk = JSON.stringify(c ? [sel.brand, sel.video] : null);
+  if (sk !== skeletonKey) { skeletonKey = sk; dir = null; effort = null; renderMain(); }
+  if (!c) return;
+  try { dir = await api(`/api/director?${q()}`); } catch { dir = null; }
+  renderDirector(); renderStyle(); renderMaterials();
+  const rk = JSON.stringify([fmt, docTab, c.video.outputs, c.video.doc, c.brand.brandDoc]);
+  if (rk !== restKey) {
+    const quick = $("#quick")?.checked, frames = $("#stillFrames")?.value;
+    restKey = rk; renderRest();
+    if ($("#quick")) $("#quick").checked = !!quick;
+    if ($("#stillFrames") && frames) $("#stillFrames").value = frames;
+  }
+}
+
+// ---- Studio: start on demand, wait until it answers, then open
+async function openStudio(compId) {
+  const win = window.open("about:blank", "_blank");
+  if (!state.studio.running) { await api("/api/studio", {}); toast("Starting Studio…"); }
+  const url = state.studio.url || "http://localhost:3000";
+  for (let i = 0; i < 90; i++) {
+    try { await fetch(url, { mode: "no-cors" }); const to = compId ? `${url}/${compId}` : url; win ? (win.location = to) : window.open(to, "_blank"); refresh(); return; }
+    catch { await new Promise((r) => setTimeout(r, 1000)); }
+  }
+  win?.close();
+  toast("Studio didn't start — try `npm run studio` in a terminal.");
+}
+
+// ---- events
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("button"); if (!t) return;
+  const d = t.dataset;
+  if (d.brand) { select(d.brand, d.video); refresh(); }
+  else if (d.newvideo) openNew(d.newvideo);
+  else if (d.action === "new-brand") openNew();
+  else if (d.preview) openStudio(d.preview);
+  else if (d.fmt !== undefined) { fmt = d.fmt; refresh(); }
+  else if (d.tab) { docTab = d.tab; refresh(); }
+  else if (d.log) { const id = Number(d.log); openLogs.has(id) ? openLogs.delete(id) : openLogs.add(id); renderJobs(); }
+  else if (d.cancel) { await api(`/api/jobs/${d.cancel}/cancel`, {}); refresh(); }
+  else if (d.reveal) api("/api/reveal", { ...sel, where: d.reveal }).catch((err) => toast(err.message));
+  else if (d.dir) {
+    if (d.dir === "reset" && !confirm("Clear this chat and start a fresh Claude session? Files stay as they are.")) return;
+    try { dir = await api(`/api/director/${d.dir}`, { ...sel, effort }); chatKey = ""; renderDirector(); refresh(); }
+    catch (err) { toast(err.message); }
+  }
+  else if (d.sugg) { const ta = $("#prompt"); ta.value = d.sugg; ta.focus(); ta.dispatchEvent(new Event("input")); }
+  else if (t.id === "styleSave") { if (await styleAction("style-save", { name: $("#styleName").value, text: $("#styleText").value })) toast("Style saved and applied"); }
+  else if (t.id === "styleDel") {
+    const name = $("#styleSel").selectedOptions[0]?.textContent;
+    if (confirm(`Delete the style “${name}” from the library? Videos using it go back to no style.`) && (await styleAction("style-delete", { styleId: $("#styleSel").value }))) toast("Style deleted");
+  }
+  else if (d.formats) {
+    try { dir = await api("/api/director/formats", { ...sel, formats: d.formats }); $("#langRow").dataset.key = ""; renderLangRow(); restKey = ""; refresh(); toast(`Format: ${t.textContent} — Preview and Render updated`); }
+    catch (err) { toast(err.message); }
+  }
+  else if (d.themePick) applyTheme(d.themePick);
+  else if (t.id === "langSave") saveVoice({ length: $("#vidLength").value, videoLanguage: $("#langVideo").value, ...($("#langVoice") ? { voiceLanguage: $("#langVoice").value } : {}) });
+  else if (t.id === "voSave") saveVoice({ voiceId: $("#voVoice").value.trim() });
+  else if (t.id === "voPlay") playVoice($("#voVoice")?.value.trim() || dir?.voice?.defaultVoiceId, t);
+  else if (d.openSettings) openSettings();
+  else if (d.playfile) { testAudio?.pause(); testAudio = new Audio(fileUrl(d.playfile)); testAudio.play(); }
+  else if (d.delvideo && sel) askDelete({ brand: sel.brand, video: sel.video });
+  else if (d.delbrand) askDelete({ brand: d.delbrand });
+  else if (d.effort) { effort = d.effort; renderDirector(); }
+  else if (d.scope) { uploadScope = d.scope; matKey = ""; renderMaterials(); }
+  else if (d.del) {
+    if (!confirm(`Delete ${d.del}?`)) return;
+    try { await api("/api/files/delete", { file: d.del }); matKey = ""; refresh(); } catch (err) { toast(err.message); }
+  }
+  else if (t.id === "urlSave" || t.id === "folderSave") {
+    const isUrl = t.id === "urlSave";
+    const body = isUrl ? { url: $("#urlInput").value } : { folder: $("#folderInput").value };
+    try { await api("/api/brand-settings", { brand: sel.brand, ...body }); t.blur(); matKey = ""; toast(isUrl ? "Website saved" : "Project folder saved"); refresh(); }
+    catch (err) { toast(err.message); }
+  }
+  else if (t.id === "renderBtn") {
+    try { await api("/api/render", { ...sel, format: fmt || undefined, frames: $("#quick").checked ? "0-89" : undefined }); toast("Render queued"); refresh(); }
+    catch (err) { toast(err.message); }
+  } else if (t.id === "stillsBtn") {
+    try { await api("/api/stills", { ...sel, format: fmt || undefined, frames: $("#stillFrames").value }); toast("Stills queued"); refresh(); }
+    catch (err) { toast(err.message); }
+  }
+});
+// re-fit the sidebar preview tiles on resize
+let resizeT;
+window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { restKey = ""; refresh(); }, 200); });
+
+// materials drop zone
+document.addEventListener("click", (e) => { if (e.target.closest("#drop") && !e.target.closest("input")) $("#fileInput")?.click(); });
+document.addEventListener("dragover", (e) => { const z = e.target.closest("#drop"); if (z) { e.preventDefault(); z.classList.add("over"); } });
+document.addEventListener("dragleave", (e) => { const z = e.target.closest("#drop"); if (z && !z.contains(e.relatedTarget)) z.classList.remove("over"); });
+document.addEventListener("drop", (e) => { const z = e.target.closest("#drop"); if (z) { e.preventDefault(); z.classList.remove("over"); uploadFiles(e.dataTransfer.files); } });
+// render tile previews on hover
+document.addEventListener("mouseover", (e) => { const v = e.target.closest(".tile")?.querySelector("video"); if (v && v.paused) v.play().catch(() => {}); });
+document.addEventListener("mouseout", (e) => { const t = e.target.closest(".tile"); if (t && !t.contains(e.relatedTarget)) t.querySelector("video")?.pause(); });
+$("#studioBtn").onclick = () => openStudio();
+$("#newBrandBtn").onclick = () => openNew();
+
+// ---- video style: a shared library of named styles; each video picks one
+let styleKey = "", styleDirty = false;
+function renderStyle() {
+  const box = $("#styleCard");
+  if (!dir || !box) return;
+  if (styleDirty || ["styleName", "styleText", "styleSel"].includes(document.activeElement?.id)) return;
+  const key = JSON.stringify([dir.styleId, dir.styles]);
+  if (key === styleKey) return;
+  styleKey = key;
+  const cur = dir.styles.find((x) => x.id === dir.styleId);
+  box.innerHTML = `<div class="card style-card">
+    <div class="card-head"><h3>${icon("palette")}Style</h3>
+      ${cur ? `<span class="in-use">Using “${esc(cur.name)}”</span>` : `<span class="note">Saved styles work on any video, any brand</span>`}</div>
+    <div class="field">
+      <span class="flabel">${icon("palette")}Choose</span>
+      <select id="styleSel">
+        <option value="">— No style (new) —</option>
+        ${dir.styles.map((x) => `<option value="${esc(x.id)}" ${x.id === dir.styleId ? "selected" : ""}>${esc(x.name)}</option>`).join("")}
+      </select>
+    </div>
+    <div class="field" style="margin-top:8px">
+      <span class="flabel">Name</span>
+      <input id="styleName" placeholder="e.g. Calm & cinematic" value="${esc(cur?.name ?? "")}" maxlength="60" />
+    </div>
+    <div class="field" style="margin-top:8px">
+      <span class="flabel">Description</span>
+      <textarea id="styleText" placeholder="Describe the look and feel: motion, pacing, transitions, typography, mood, sound…">${esc(cur?.text ?? "")}</textarea>
+    </div>
+    <div class="style-actions">
+      <span class="muted-note">Save with the same name to update it · a new name makes a new style · Claude uses it from your next message</span>
+      ${cur ? `<button class="ghost danger" type="button" id="styleDel">${icon("trash")}Delete</button>` : ""}
+      <button class="primary" type="button" id="styleSave">${icon("check")}Save style</button>
+    </div>
+  </div>`;
+  const markDirty = () => { styleDirty = true; };
+  $("#styleName").oninput = markDirty;
+  $("#styleText").oninput = markDirty;
+  $("#styleSel").onchange = async (e) => {
+    try { dir = await api("/api/director/style", { ...sel, styleId: e.target.value || null }); styleDirty = false; styleKey = ""; e.target.blur(); renderStyle(); toast(e.target.value ? "Style applied to this video" : "No style for this video"); }
+    catch (err) { toast(err.message); }
+  };
+}
+async function styleAction(action, body) {
+  try { dir = await api(`/api/director/${action}`, { ...sel, ...body }); styleDirty = false; styleKey = ""; document.activeElement?.blur(); renderStyle(); return true; }
+  catch (err) { toast(err.message); return false; }
+}
+
+// ---- voice-over (per video) and Settings (machine-wide)
+function renderLangRow() {
+  const v = dir?.voice; const row = $("#langRow");
+  if (!v || !row || ["langVideo", "langVoice", "vidLength"].includes(document.activeElement?.id)) return;
+  const key = JSON.stringify([v.videoLanguage, v.voiceLanguage, v.enabled, v.length, dir.formats]);
+  if (row.dataset.key === key) return;
+  row.dataset.key = key;
+  row.innerHTML = `
+    <div class="vrow">
+      <span class="lbl2">${icon("film")}Video</span>
+      <span class="note">Format</span>
+      <div class="seg small" title="Output format — updates the video right away">
+        ${[["vertical", "9:16"], ["horizontal", "16:9"], ["both", "Both"]].map(([k, l]) => `<button type="button" data-formats="${k}" class="${dir.formats === k ? "on" : ""}">${l}</button>`).join("")}
+      </div>
+      <span class="note">Length</span><input id="vidLength" type="number" min="3" max="600" step="1" value="${v.length}" style="width:62px;font-family:inherit" title="Target length in seconds" /><span class="note">s</span>
+    </div>
+    <div class="vrow">
+      <span class="lbl2" style="visibility:hidden">${icon("film")}Video</span>
+      <span class="note">Language</span><input id="langVideo" value="${esc(v.videoLanguage)}" placeholder="English" style="width:120px;font-family:inherit" title="Language of all on-screen text" />
+      ${v.enabled ? `<span class="note">Voice</span><input id="langVoice" value="${esc(v.voiceLanguage)}" placeholder="English — American accent" style="width:200px;font-family:inherit" title="Language and accent of the voice-over" />` : ""}
+      <button class="ghost" id="langSave" type="button">Save</button>
+    </div>`;
+}
+
+function renderVoiceRow() {
+  renderLangRow();
+  const v = dir?.voice; const row = $("#voRow");
+  if (!v || !row || document.activeElement?.id === "voVoice") return;
+  const key = JSON.stringify(v);
+  if (row.dataset.key === key) return;
+  row.dataset.key = key;
+  row.innerHTML = `
+    <span class="lbl2">${icon("mic")}Voice-over</span>
+    <label class="switch ${v.configured ? "" : "locked"}" title="${v.configured ? "" : "Needs an ElevenLabs API key"}"><input type="checkbox" id="voOn" ${v.enabled ? "checked" : ""} ${v.configured ? "" : "disabled"} /><i></i><span>${v.enabled ? "On — Claude narrates this video" : v.configured ? "Off" : "Off — needs an ElevenLabs key"}</span></label>
+    ${!v.configured ? `<span class="warn">Add your key in <button class="ghost" type="button" data-open-settings="1" style="padding:0 2px;color:var(--accent2)">Settings</button> to turn it on.</span>` : ""}
+    ${v.enabled ? `
+      <span class="note">Voice ID</span>
+      <input id="voVoice" placeholder="${esc(v.defaultVoiceId)}" value="${esc(v.voiceId)}" title="Voice ID for this video — leave empty to use the default from Settings" />
+      <span class="note">empty = default</span>
+      <button class="ghost" id="voSave" type="button">Save</button>
+      <button class="ghost" id="voPlay" type="button" title="Hear this voice">${icon("volume")}</button>
+      <span class="note">${v.voiceId ? "custom voice" : `using default${v.defaultVoiceName ? ` · ${esc(v.defaultVoiceName)}` : ""}`} · ${esc(v.model === "eleven_v4_turbo" ? "v4 Turbo" : "Eleven v4")}</span>` : ""}`;
+  $("#voOn").onchange = (e) => saveVoice({ enabled: e.target.checked });
+}
+async function saveVoice(patch) {
+  try { dir = await api("/api/director/voiceover", { ...sel, ...patch }); renderVoiceRow(); toast("Saved — Claude uses it from your next message"); }
+  catch (err) { toast(err.message); }
+}
+let testAudio = null;
+async function playVoice(voiceId, btn) {
+  try {
+    btn && (btn.disabled = true);
+    const r = await fetch("/api/voice/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ voiceId }) });
+    if (!r.ok) throw new Error((await r.json()).error);
+    testAudio?.pause();
+    testAudio = new Audio(URL.createObjectURL(await r.blob()));
+    testAudio.play();
+  } catch (err) { toast(err.message); $("#settingsErr") && ($("#settingsErr").textContent = $("#settingsDialog").open ? err.message : ""); }
+  finally { btn && (btn.disabled = false); }
+}
+
+let settings = null;
+async function loadSettings() {
+  try { settings = await api("/api/settings"); } catch { return; }
+  $("#settingsDot").hidden = settings.elevenlabs.hasKey;
+}
+async function loadDoctor() {
+  const box = $("#doctorList");
+  try {
+    const { checks } = await api("/api/doctor");
+    const code = (t) => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>");
+    box.innerHTML = checks.map((c) => `<div class="doc-row">
+      <span class="m ${c.ok ? "ok" : c.required ? "bad" : "opt"}">${c.ok ? "✓" : c.required ? "✕" : "○"}</span>
+      <div><b>${esc(c.label)}</b> <span class="d">· ${esc(c.detail)} · for ${esc(c.needs)}</span>${c.ok ? "" : `<div class="fix">→ ${code(c.fix)}</div>`}</div>
+    </div>`).join("");
+  } catch (err) { box.innerHTML = `<span class="muted-note">${esc(err.message)}</span>`; }
+}
+// ---- appearance: system / light / dark (remembered in this browser)
+const currentTheme = () => { try { return localStorage.getItem("theme") || "system"; } catch { return "system"; } };
+function applyTheme(t) {
+  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme;
+  try { t === "system" ? localStorage.removeItem("theme") : localStorage.setItem("theme", t); } catch {}
+  document.querySelectorAll("[data-theme-pick]").forEach((b) => b.classList.toggle("on", b.dataset.themePick === t));
+}
+applyTheme(currentTheme());
+async function openSettings() {
+  applyTheme(currentTheme());
+  await loadSettings();
+  loadDoctor();
+  const el = settings.elevenlabs;
+  $("#elKey").value = "";
+  $("#elKey").placeholder = el.hasKey ? `Saved (${el.keyHint}) — paste a new key to replace it` : "sk_…";
+  $("#elKeyHint").textContent = el.hasKey ? "" : "Get it at elevenlabs.io → Developers → API keys.";
+  $("#elVoice").value = el.voiceId;
+  $("#elModel").innerHTML = Object.entries(el.models).map(([k, l]) => `<option value="${k}" ${k === el.model ? "selected" : ""}>${esc(l)}</option>`).join("");
+  $("#elOk").hidden = !(el.hasKey && el.voiceName);
+  $("#elOk").textContent = el.voiceName ? `✓ Key works · default voice: ${el.voiceName}` : "";
+  $("#settingsErr").textContent = "";
+  $("#settingsDialog").showModal();
+}
+$("#settingsBtn").onclick = openSettings;
+$("#settingsCancel").onclick = () => $("#settingsDialog").close();
+$("#elTest").onclick = (e) => playVoice($("#elVoice").value.trim(), e.currentTarget);
+$("#settingsForm").onsubmit = async (e) => {
+  e.preventDefault();
+  $("#settingsErr").textContent = "Checking with ElevenLabs…";
+  try {
+    settings = await api("/api/settings", { apiKey: $("#elKey").value.trim(), voiceId: $("#elVoice").value.trim(), model: $("#elModel").value });
+    $("#settingsErr").textContent = "";
+    $("#elKey").value = "";
+    $("#elKey").placeholder = `Saved (${settings.elevenlabs.keyHint}) — paste a new key to replace it`;
+    $("#elOk").hidden = !settings.elevenlabs.voiceName;
+    $("#elOk").textContent = `✓ Saved · default voice: ${settings.elevenlabs.voiceName}`;
+    $("#settingsDot").hidden = settings.elevenlabs.hasKey;
+    if ($("#voRow")) $("#voRow").dataset.key = "";
+    toast("Settings saved"); refresh();
+  } catch (err) { $("#settingsErr").textContent = err.message; }
+};
+loadSettings();
+
+// ---- delete a video or a whole brand (moved to the macOS Trash)
+let pendingDelete = null;
+function askDelete(target) {
+  pendingDelete = target;
+  const b = state.brands.find((x) => x.brand === target.brand);
+  const whole = !target.video;
+  const vids = b?.videos.map((v) => v.video) ?? [];
+  const where = whole ? target.brand : `${target.brand}/${target.video}`;
+  $("#confirmTitle").textContent = whole ? `Delete the brand “${target.brand}”?` : `Delete ${where}?`;
+  $("#confirmBody").innerHTML = `${whole
+      ? `This deletes the brand kit and <b>${vids.length === 1 ? "its only video" : vids.length ? `all ${vids.length} videos` : "its settings"}</b>${vids.length ? ` (${vids.map(esc).join(", ")})` : ""}.`
+      : "This deletes the video and everything that belongs to it."}
+    <ul>
+      <li>Code — <code>src/brands/${esc(where)}/</code></li>
+      <li>Files — <code>public/${esc(where)}/</code></li>
+      <li>Renders — <code>out/${esc(where)}/</code></li>
+      <li>Director chat${whole ? "s" : ""}</li>
+    </ul>
+    <p style="margin:10px 0 0">Everything moves to the <b>macOS Trash</b>, so you can still get it back from Finder.</p>`;
+  $("#confirmTyped").hidden = !whole;
+  $("#confirmWord").textContent = target.brand;
+  $("#confirmInput").value = "";
+  $("#confirmErr").textContent = "";
+  $("#confirmOkLabel").textContent = whole ? "Delete brand" : "Delete video";
+  $("#confirmDialog").showModal();
+  (whole ? $("#confirmInput") : $("#confirmCancel")).focus();
+}
+$("#confirmCancel").onclick = () => $("#confirmDialog").close();
+$("#confirmForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const t = pendingDelete; if (!t) return;
+  if (!t.video && $("#confirmInput").value.trim() !== t.brand) { $("#confirmErr").textContent = `Type ${t.brand} exactly to confirm.`; return; }
+  try {
+    await api(t.video ? "/api/delete-video" : "/api/delete-brand", t);
+    $("#confirmDialog").close();
+    if (sel && sel.brand === t.brand && (!t.video || sel.video === t.video)) {
+      sel = null; try { localStorage.removeItem("sel"); } catch {}
+      skeletonKey = "";
+    }
+    toast(`Deleted ${t.video ? `${t.brand}/${t.video}` : t.brand} — it's in the Trash`);
+    refresh();
+  } catch (err) { $("#confirmErr").textContent = err.message; }
+};
+
+// ---- new brand / new video dialog
+function openNew(brand) {
+  $("#newTitle").textContent = brand ? `New video in ${brand}` : "New brand";
+  $("#newLead").textContent = brand ? "Uses this brand's colours, fonts and files." : "Creates the brand kit and its first video from the starter.";
+  $("#newBrand").value = brand || ""; $("#newBrand").readOnly = !!brand;
+  const nums = (state.brands.find((b) => b.brand === brand)?.videos || []).map((v) => +(v.video.match(/^video(\d+)$/) || [])[1] || 0);
+  $("#newVideo").placeholder = `video${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(2, "0")}`;
+  $("#newVideo").value = ""; $("#newErr").textContent = "";
+  $("#newDialog").showModal(); (brand ? $("#newVideo") : $("#newBrand")).focus();
+}
+$("#newCancel").onclick = () => $("#newDialog").close();
+$("#newForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const brand = $("#newBrand").value.trim(), video = $("#newVideo").value.trim();
+  try {
+    const r = await api("/api/new", { brand, video: video || undefined });
+    const made = r.output.match(/New video: ([^/\s]+)\/(\S+)/);
+    $("#newDialog").close();
+    if (made) select(made[1], made[2]);
+    toast(made ? `Created ${made[1]}/${made[2]}` : "Created"); refresh();
+  } catch (err) { $("#newErr").textContent = err.message; }
+};
+
+// poll: fast while something is running
+(async function loop() {
+  await refresh();
+  const busy = state.jobs.some((j) => j.status === "running" || j.status === "queued") || dir?.running;
+  setTimeout(loop, busy ? 1000 : 4000);
+})();
+</script>
+</body>
+</html>
