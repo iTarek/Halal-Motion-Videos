@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { ROOT } from "./lib.mjs";
+import { describe, fixAudio } from "./audiofix.mjs";
 
 const [srcArg, destArg] = process.argv.slice(2);
 const fail = (m) => {
@@ -27,4 +28,6 @@ const isDir = fs.statSync(src).isDirectory();
 if (!isDir && (destArg.endsWith("/") || (fs.existsSync(dest) && fs.statSync(dest).isDirectory()))) dest = path.join(dest, path.basename(src));
 fs.mkdirSync(isDir ? dest : path.dirname(dest), { recursive: true });
 fs.cpSync(src, dest, { recursive: true, filter: (p) => path.basename(p) !== ".DS_Store" });
+// Apple apps often ship sounds as Apple Lossless (ALAC), which Remotion and Chrome can't play: convert them.
+for (const c of fixAudio(dest)) console.log(describe(c).replace(ROOT + path.sep, ""));
 console.log(`copied ${src} → ${path.relative(ROOT, dest)}`);

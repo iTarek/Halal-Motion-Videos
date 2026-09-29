@@ -30,3 +30,47 @@ export const noise = (x: number, seed = 0) => {
   const k = t * t * (3 - 2 * t);
   return (a + (b - a) * k) * 2 - 1;
 };
+
+// ---------- springs: motion with weight (speeds up, overshoots a hair, settles)
+// Closed-form, so any frame can be computed on its own — renders stay deterministic.
+
+export type SpringFeel = { freq: number; damping: number };
+/** Ready-made feels. freq = oscillations per second, damping 0–1 (lower = more bounce). */
+export const SPRING = {
+  snappy: { freq: 4, damping: 0.72 }, // UI that clicks into place
+  bouncy: { freq: 3, damping: 0.45 }, // playful pop with a visible overshoot
+  soft: { freq: 1.6, damping: 0.85 }, // big, heavy things; camera moves
+} satisfies Record<string, SpringFeel>;
+
+/** Damped spring from 0 to 1, `tau` seconds after it starts. Overshoots slightly past 1, then settles. */
+export const springStep = (tau: number, { freq, damping }: SpringFeel = SPRING.snappy) => {
+  if (tau <= 0) return 0;
+  const z = Math.min(damping, 0.999);
+  const w = 2 * Math.PI * freq;
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * tau) * (Math.cos(wd * tau) + ((z * w) / wd) * Math.sin(wd * tau));
+};
+
+/** Spring progress (0 → ~1) at `frame`, starting at frame `start`. Use it instead of prog() for things with mass. */
+export const springAt = (frame: number, start: number, fps: number, feel: SpringFeel = SPRING.snappy) =>
+  springStep((frame - start) / fps, feel);
+
+/**
+ * A value that springs to new targets over time: begins at `base`, and at each [startFrame, target]
+ * springs onward from wherever it is. e.g. springTo(f, fps, 0, [[10, 400], [60, 250]]) for an x position.
+ */
+export const springTo = (
+  frame: number,
+  fps: number,
+  base: number,
+  changes: Array<[number, number]>,
+  feel: SpringFeel = SPRING.snappy,
+) => {
+  let v = base;
+  let prev = base;
+  for (const [start, to] of changes) {
+    v += (to - prev) * springAt(frame, start, fps, feel);
+    prev = to;
+  }
+  return v;
+};

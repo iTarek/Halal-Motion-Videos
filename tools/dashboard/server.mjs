@@ -11,6 +11,7 @@ import { spawn, execFile } from "node:child_process";
 import { createDirector } from "./director.mjs";
 import { deleteStyle, saveStyle } from "../styles.mjs";
 import { checks as systemChecks, claudeStatus } from "../doctor.mjs";
+import { fixAudio } from "../audiofix.mjs";
 
 // Is the Director usable (Claude Code installed + logged in)? Cached: `claude auth status` spawns a process.
 let claudeCache = { at: 0, value: null };
@@ -65,10 +66,12 @@ const outputsOf = (brand, video) => {
     if (!fs.existsSync(d)) return [];
     return fs
       .readdirSync(d)
-      .filter((f) => re.test(f))
+      .filter((f) => re.test(f) && !f.startsWith(".")) // hidden = still rendering
       .map((f) => {
         const st = fs.statSync(path.join(d, f));
-        return { name: f, url: `/out/${brand}/${video}/${sub ? sub + "/" : ""}${f}`, size: st.size, mtime: st.mtimeMs };
+        const rel = `${sub ? sub + "/" : ""}${f}`;
+        // ?v= changes with every new version, so the browser never plays a stale or half-written copy
+        return { name: f, rel, url: `/out/${brand}/${video}/${rel}?v=${Math.round(st.mtimeMs)}`, size: st.size, mtime: st.mtimeMs };
       })
       .sort((a, b) => b.mtime - a.mtime);
   };
@@ -415,6 +418,7 @@ const server = http.createServer(async (req, res) => {
       out.on("finish", () => {
         if (size > MAX_UPLOAD) return fs.rmSync(tmp, { force: true });
         fs.renameSync(tmp, dest);
+        fixAudio(dest); // e.g. Apple Lossless .m4a → AAC, so Remotion and Chrome can play it
         send(res, 200, { path: path.relative(PUBLIC, dest) });
       });
       req.on("error", () => fs.rmSync(tmp, { force: true }));
@@ -444,12 +448,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && p === "/api/render") {
-      const { brand, video, format, frames } = await readBody(req);
+      const { brand, video, format, frames, blur } = await readBody(req);
       if (!validVideo(brand, video)) return send(res, 400, { error: "Unknown video." });
       if (format && !NAME.test(format)) return send(res, 400, { error: "Bad format." });
       if (frames && !/^\d+-\d+$/.test(frames)) return send(res, 400, { error: "Frames look like 0-89." });
-      const args = [path.join(ROOT, "tools", "render.mjs"), brand, video, ...(format ? [format] : []), ...(frames ? [`--frames=${frames}`] : [])];
-      const job = addJob(`Render ${brand}/${video}${format ? " · " + format : " · all formats"}${frames ? ` · frames ${frames}` : ""}`, args, brand, video);
+      const args = [path.join(ROOT, "tools", "render.mjs"), brand, video, ...(format ? [format] : []), ...(frames ? [`--frames=${frames}`] : []), ...(blur ? ["--blur"] : [])];
+      const job = addJob(`Render ${brand}/${video}${format ? " · " + format : " · all formats"}${frames ? ` · frames ${frames}` : ""}${blur ? " · film look" : ""}`, args, brand, video);
       return send(res, 200, publicJob(job));
     }
 
@@ -501,6 +505,18 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         return send(res, 500, { error: `Couldn't delete: ${e.message}` });
       }
+      return send(res, 200, { ok: true });
+    }
+
+    // ---- delete one output (render or still) → macOS Trash
+    if (req.method === "POST" && p === "/api/outputs/delete") {
+      const { brand, video, file } = await readBody(req);
+      if (!validVideo(brand, video)) return send(res, 400, { error: "Unknown video." });
+      const base = path.join(OUT, brand, video);
+      const abs = path.resolve(base, String(file ?? ""));
+      if (!abs.startsWith(base + path.sep) || path.basename(abs).startsWith(".") || !fs.existsSync(abs) || !fs.statSync(abs).isFile())
+        return send(res, 400, { error: "Can't delete that." });
+      trash([abs], `${brand}-${video}-${path.basename(abs)}`);
       return send(res, 200, { ok: true });
     }
 

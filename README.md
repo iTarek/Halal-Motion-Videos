@@ -4,11 +4,12 @@ A local machine for making motion-graphics videos — product promos, App Store 
 
 Open the dashboard, describe the video, and a Claude-powered **Director** does the work:
 
-- writes the brief, then waits for your approval before building
+- writes the brief, then shows you a **4-frame storyboard** before building everything
 - captures **real screenshots** of your site or web app in a headless browser
-- designs **sound effects by code** (no samples, no stock library)
+- designs **sound effects by code** (no samples, no stock library), landing each one on its peak
 - generates **voice-over** with ElevenLabs Eleven v4 (optional)
-- builds the scenes in React, type-checks them, and checks its own frames
+- builds the scenes in React with springs and masked type, then **grades its own video** (hook, readability at phone size, motion, variety, composition, accuracy, sound sync) and fixes it until every score is 8/10+
+- optional **film look**: real motion blur on fast moves
 
 Every video belongs to a **brand** (an app or product), and one source renders every format: 9:16, 16:9, 1:1 and 4:5.
 
@@ -70,7 +71,8 @@ npm start          # → http://localhost:4000
 | `npm start` | the dashboard |
 | `npm run new -- <brand> [video]` | new brand, or the next video in a brand |
 | `npm run studio` | Remotion Studio |
-| `npm run render -- <brand> [video] [format] [--frames=a-b]` | render MP4s (audio mastered to -16 LUFS) |
+| `npm run render -- <brand> [video] [format] [--frames=a-b] [--blur]` | render MP4s (audio mastered to -16 LUFS; `--blur` adds motion blur) |
+| `npm run review -- <brand> <video>` | review sheets for checking a video |
 | `npm run shot -- <brand> [video]` | real screenshots from `shots.json` |
 | `npm run sfx -- <brand> [video] [--look]` | design sounds from `sfx.json` |
 | `npm run voice -- <brand> <video>` | ElevenLabs voice-over from `voiceover.json` |

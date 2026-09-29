@@ -15,6 +15,7 @@
     "new": "node tools/new.mjs",
     "render": "node tools/render.mjs",
     "stills": "node tools/stills.mjs",
+    "review": "node tools/review.mjs",
     "shot": "node tools/shot.mjs",
     "sfx": "node tools/run-python.mjs tools/synth_sfx.py",
     "voice": "node tools/voice.mjs",

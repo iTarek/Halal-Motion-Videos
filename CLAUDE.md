@@ -84,8 +84,9 @@ tools/dashboard/            the local dashboard: server.mjs, director.mjs (Claud
 | `npm run setup` / `npm run doctor` | install what's missing / system check |
 | `npm run new -- <brand> [video]` | new brand + its `video01`, or the next video in an existing brand |
 | `npm run studio` | Remotion Studio: brand folder → video folder → one composition per format |
-| `npm run render -- <brand> [video] [format] [--frames=a-b]` | MP4s to `out/<brand>/<video>/`, audio mastered to -16 LUFS |
+| `npm run render -- <brand> [video] [format] [--frames=a-b] [--blur]` | MP4s to `out/<brand>/<video>/`, audio mastered to -16 LUFS; `--blur` = film-look motion blur (~8× slower) |
 | `npm run stills -- <brand> <video> <frame…> [--format=…] [--dir=…]` | JPGs to `out/<brand>/<video>/stills/` (or `--dir`) |
+| `npm run review -- <brand> <video> [--strip=12.5,31]` | review sheets for the critique loop → `.director/tmp/<brand>-<video>/review/` |
 | `npm run shot -- <brand> [video]` | real screenshots of the live site/app from `shots.json` → `public/<brand>/…/img/shots/` |
 | `npm run sfx -- <brand> [video] [--look]` | design sounds by code: the brand's kit (no video) or one video's → `public/<brand>/…/sfx/` |
 | `npm run voice -- <brand> <video> [--only=id] [--force]` | ElevenLabs v4 voice-over from `voiceover.json` → `public/<brand>/<video>/vo/` + `voiceover.gen.ts` |
@@ -106,8 +107,8 @@ Composition ids are `<brand>-<video>-<format>`, e.g. `my-app-video01-vertical`.
 | **Style** | pick or save a named style from the shared library |
 | **Materials** | product website + project folder (per brand); drag-and-drop uploads (brand-wide or this video) |
 | **Preview** | opens each format in Remotion Studio |
-| **Render** | MP4 or stills, with a live queue on the right |
-| **Outputs** | renders and stills |
+| **Render** | MP4 or stills, optional **film look** (motion blur), with a live queue on the right |
+| **Outputs** | renders and stills, each with **Download** and **Delete** (to the Trash). A render only appears once it's finished. |
 | **Docs** | the brief and the brand kit |
 
 - **Deleting:** Delete (top right) removes a video. Deletes go to the macOS Trash (`~/.Trash/MotionVideos …`).
@@ -119,8 +120,9 @@ Each video page has a **Director** chat. It runs Claude Code headless in this re
 - **Model:** Opus 5.5 (`claude-opus-5-5`) on whatever Claude Code is logged in with. Needs Claude Code CLI 2.1.280+. Set in `tools/dashboard/director.mjs` → `MODEL`.
 - **Claude Code check:** the dashboard runs `claude auth status` (no tokens). If Claude Code is missing, too old or logged out, the Director shows how to fix it and disables Send; the rest of the dashboard keeps working.
 - **Thinking:** chosen per message: Medium, High (default) or Extra high (`--effort medium|high|xhigh`). The last choice is remembered per video.
-- **Step 1 · Brief:** Claude fills the brand kit (if it's still the starter) and `BRIEF.md`, then stops and asks for approval. The page shows **Approve & build**.
-- **Step 2 · Build:** Claude captures screenshots, designs sound, generates voice-over, builds the scenes, runs `npm run typecheck`, and checks its own frames with temporary stills.
+- **Step 1 of 3 · Brief:** Claude fills the brand kit (if it's still the starter) and `BRIEF.md`, then stops. The page shows **Approve brief**.
+- **Step 2 of 3 · Storyboard:** Claude captures the real product and builds the look, then renders **4 key frames** (hook, key feature, climax, end card) into `out/<brand>/<video>/storyboard/` and stops. The page shows them with **Approve storyboard & build**; a wrong look costs minutes here, not a whole build.
+- **Step 3 of 3 · Build:** Claude builds the whole video in that look: sound, voice-over, every scene. It runs `npm run typecheck`, then the **critique loop** (below) until every score is 8+.
 - **Allowed without asking:**
   - Read, edit and search files in the repo; web fetch and search.
   - Download assets with `curl`.
@@ -142,6 +144,40 @@ The dashboard sends these into every Director message; follow them without being
 - **Voice language / accent:** default "English — American accent". See Voice-over below.
 - **Style:** a named description of look and motion from the shared library `styles/library.json`. Any video of any brand can use it, and it's managed in the Style card. Apply it within the brand kit's colours and fonts.
 - **Website / project folder / files:** where to find the real product (see Screenshots and the project-folder note above).
+
+## Design quality (no "mid")
+
+"Mid" is the default AI look: centered text on a gradient, everything fading in, every scene the same layout. Avoid it:
+
+- **A new composition every scene:** change the layout, the scale, the angle. Something new every 2–4 s.
+- **Motion with weight:** use springs (`springAt`, `springTo`, `SPRING.snappy | bouncy | soft`) for anything that moves into place. It speeds up, overshoots a hair and settles. Use `prog`/`ease` only for camera drifts and fades.
+- **Premium type:** headlines rise word by word from behind a mask (`MaskRise`), not a plain fade.
+- **Connected scenes:** match cuts (an element carries across the cut), camera pushes and pulls, a light sweep at cuts.
+- **The first 2 s are the hook:** the most striking frame of the film goes there, not a logo fading in.
+- **Real data or a label:** anything illustrative (made-up numbers, sample accounts) carries `<ExampleBadge />`, which shows "Example data". Show real integrations only.
+- **References:** when the user gives one, copy its grammar (pacing, type, transitions), never its content.
+
+## Critique loop (Claude reviews its own video)
+
+`npm run review -- <brand> <video>` renders frames at phone size and lays them out in `.director/tmp/<brand>-<video>/review/`:
+
+| Sheet | What | Judge |
+| --- | --- | --- |
+| `contact-<format>-N.png` | a frame every 0.5 s, 24 per sheet | pacing, variety, composition |
+| `phone-<format>-N.png` | a frame every 2 s at real phone size (360 px wide) | can every word be read on a phone? |
+| `strip-<format>-<t>.png` (with `--strip=<t>,…`) | 12 consecutive frames around second t | fast moves: glitches, blur, overlaps |
+
+Be a harsh motion director, not a proud author. Read every sheet and score each item 1–10:
+
+1. **Hook:** does the first 2 s grab you?
+2. **Readability:** can you read every word at phone size?
+3. **Motion quality:** springs and eased moves, nothing robotic or floaty.
+4. **Variety:** something new every 2–4 s.
+5. **Composition:** a clear focal point; nothing clipped, overlapping or crowded.
+6. **Data accuracy:** every claim is real, illustrative numbers are labelled.
+7. **Sound sync:** every cut, reveal and tap has its cue on the right frame.
+
+Fix the 3 biggest problems, re-run, and repeat until every score is 8+ (at most 4 rounds in a Director run). The sheets are temporary.
 
 ## Screenshots (a real headless browser)
 
@@ -203,7 +239,10 @@ You are the sound designer. **Invent sounds that fit the video's style and motio
 | **This video** only | `src/brands/<brand>/<video>/sfx.json` | `npm run sfx -- <brand> <video> --look` | `public/<brand>/<video>/sfx/` | `asset("sfx/<id>.wav")` |
 
 - **Flags:** `--only=a,b` redoes some; `--force` redoes all. Unchanged sounds are skipped.
+- **Peaks:** each run also writes `sfx.gen.ts` next to the `sfx.json`, with `SFX["<id>"] = { src, seconds, peak }`. The shared kit's table is `SHARED_SFX` in the engine. `peak` is when the sound is loudest.
+- **Cues land on the peak:** give a cue `peak` and its `at` becomes the frame where the loudest moment hits, e.g. `{ at: S.feature.from, src: asset(SFX["whoosh-in"].src), peak: SFX["whoosh-in"].peak, vol: 0.45 }`. A whoosh peaks exactly on the cut, with no guessing how early to start it.
 - **Brand sounds:** add to the brand kit, but don't change a brand sound other videos already use. Make a new id instead.
+- **The product's own sounds:** Apple apps often ship them as Apple Lossless (ALAC), which Remotion and Chrome can't play. `copy-asset`, uploads and `render` convert them automatically: `.m4a` to AAC under the same name, `.caf`/`.aiff` to a `.wav` beside it. For a file you downloaded yourself, run `node tools/audiofix.mjs <file>`.
 
 ### Three levels of creativity
 
@@ -260,10 +299,10 @@ def heartbeat(p, kit):
 
 ### Mixing habits that work
 
-- **A cue on every cut:** whoosh 6 frames before, a hit or soft thump on the cut.
+- **A cue on every cut:** a whoosh whose peak lands on the cut, plus a hit or soft thump on it.
 - **Ticks on UI beats:** light ticks as each item lands.
 - **Reveals:** shimmer on a logo or mark reveal.
-- **The end:** riser about 34 frames before the endcard, then an impact on it.
+- **The end:** a riser that peaks on the endcard, plus an impact on it.
 - **Levels:** bed around 0.2; whooshes 0.3–0.5; hits 0.5–0.85; under a voice-over, halve everything.
 
 Running `npm run sfx` with no arguments rebuilds the shared fallback kit in `public/_shared/sfx/`. It reproduces the existing files exactly.
@@ -353,22 +392,24 @@ In the dashboard this is: **New brand** (or `+`) → fill Materials → pick Sty
    - Put font files in `public/<brand>/brand/fonts/` and load them in `fonts.ts`.
    - Put the logo and the app's own sounds in `public/<brand>/brand/`.
 3. **Screenshots.** Capture the real product with `shots.json` + `npm run shot`.
+   **Storyboard.** Build the look and 4 key frames (hook, key feature, climax, end) and get them approved before building everything.
 4. **Brief.** Fill in `<video>/BRIEF.md`: goal, platform, formats, length, story table by seconds (with a voice-over column if narrated).
 5. **Copy.** Put every on-screen word in `copy.ts`. Quote the product's own site or store listing.
 6. **Timeline.** Set scene lengths in `timeline.ts` (to the voice-over durations if narrated) and list the scenes in `Film.tsx`.
 7. **Scenes.** Build each scene in `scenes/` from engine parts and the screenshots. Use `p(vertical, horizontal)` for per-format values.
 8. **Sound.** Design sounds (`sfx.json` + `npm run sfx`), generate voice-over (`voiceover.json` + `npm run voice`), and place every cue in `Soundtrack.tsx` relative to `SCENES.<key>.from`.
-9. **Verify.** Run `npm run typecheck`, check a few stills, then ask the user to review it in Studio.
+9. **Verify.** Run `npm run typecheck`, run the critique loop (`npm run review`) until every score is 8+, then ask the user to review it in Studio.
 
 ## Engine parts (`src/engine`)
 
 - **Timing:** `buildTimeline`, `prog`, `ease`, `lerp`, `noise`
+- **Springs:** `springAt(frame, start, fps, feel)`, `springTo(frame, fps, base, [[frame, to], …])`, `SPRING.snappy | bouncy | soft`
 - **Layout:** `useLayout()` → `W`, `H`, `portrait`, `p(vertical, horizontal)`
 - **Scene shell:** `SceneFrame` (depth entry, push/drop exit), `SceneTrack` (sequences + light `Sweep` at cuts)
 - **Surfaces:** `Backdrop`, `Finish` (grain + vignette)
-- **Text:** `Headline` (word-by-word, accent payoff line), `Kicker`, `Reveal`
+- **Text:** `MaskRise` (words rise from behind a mask on a spring), `Headline` (word-by-word, accent payoff line), `Kicker`, `Reveal`, `ExampleBadge`
 - **UI:** `Card`, `Phone` (screenshot in an iPhone shell), `Waveform`, `LiveDot`, `Icon` (lucide)
-- **Sound:** `SoundCues`, `AudioBed`, `shared("sfx/…")`
+- **Sound:** `SoundCues` (cues with `peak`), `AudioBed`, `shared("sfx/…")`, `SHARED_SFX`
 - **Formats:** `VERTICAL`, `HORIZONTAL`, `SQUARE`, `PORTRAIT`
 
 Engine components read colours from the `Theme` (via `useTheme()`), never from a brand. Anything brand-specific belongs in `src/brands/<brand>/`. Anything that only one video needs belongs in that video's folder.

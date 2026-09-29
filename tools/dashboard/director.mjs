@@ -8,6 +8,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { readSettings, SETTINGS_FILE } from "../settings.mjs";
 import { getStyle, listStyles } from "../styles.mjs";
+import { fixAudio } from "../audiofix.mjs";
 
 const MAX_MESSAGES = 400;
 
@@ -23,7 +24,7 @@ export const DEFAULT_VOICE_LANGUAGE = "English — American accent";
 // Tools Claude may use without asking. Everything else is denied in headless mode.
 const ALLOWED_TOOLS = [
   "Read", "Glob", "Grep", "Edit", "Write", "MultiEdit", "NotebookEdit", "TodoWrite", "WebFetch", "WebSearch", "Skill",
-  "Bash(npm run typecheck)", "Bash(npm run stills:*)", "Bash(npm run copy-asset:*)", "Bash(npm run voice:*)", "Bash(npm run sfx:*)", "Bash(npm run shot:*)", "Bash(npm install:*)", "Bash(npx tsc:*)",
+  "Bash(npm run typecheck)", "Bash(npm run stills:*)", "Bash(npm run copy-asset:*)", "Bash(npm run voice:*)", "Bash(npm run sfx:*)", "Bash(npm run shot:*)", "Bash(npm run review:*)", "Bash(npm install:*)", "Bash(npx tsc:*)",
   "Bash(curl:*)", "Bash(unzip:*)",
   "Bash(ls:*)", "Bash(mkdir:*)", "Bash(cp:*)", "Bash(file:*)", "Bash(sips:*)", "Bash(ffprobe:*)",
 ];
@@ -170,6 +171,18 @@ export const createDirector = ({ root, brandsDir }) => {
   Follow the "Voice-over" section of CLAUDE.md for the file format and Eleven v4 audio tags (emotion, pacing, non-verbal).`;
   };
 
+  /** The 4 storyboard frames the user approves between brief and build: out/<brand>/<video>/storyboard/. */
+  const storyboardDir = (brand, video) => path.join(root, "out", brand, video, "storyboard");
+  const storyboardOf = (brand, video) => {
+    const dir = storyboardDir(brand, video);
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir)
+      .filter((f) => /\.(jpe?g|png)$/i.test(f))
+      .map((f) => ({ name: f, frame: Number(f.match(/(\d+)\.\w+$/)?.[1] ?? 0), mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
+      .sort((a, b) => a.name.split("-")[0].localeCompare(b.name.split("-")[0]) || a.frame - b.frame)
+      .map((f) => ({ ...f, url: `/out/${brand}/${video}/storyboard/${encodeURIComponent(f.name)}?t=${Math.round(f.mtime)}` }));
+  };
+
   const tmpDir = (brand, video) => path.join(".director", "tmp", `${brand}-${video}`);
 
   const systemPrompt = (brand, video, s) => {
@@ -207,24 +220,46 @@ You are working on ONE video: brand "${brand}", video "${video}".
 - The user can also upload files through the page; if you can't find something (e.g. app screenshots), ask for it.
 ${voiceBlock(brand, video, s)}
 Reply style for the user: short. First line = what happened. Then a few bullets. No long prose.`;
+    const quality = `QUALITY BAR — follow "Design quality (no 'mid')" in CLAUDE.md: no centered-text-on-a-gradient-fading-in;
+  a new composition every scene; springs (springAt / springTo / SPRING) for anything with mass; MaskRise for headlines;
+  match cuts and camera moves between scenes; "Example data" (ExampleBadge) on anything illustrative; real integrations only.
+  If the user gives a reference, copy its grammar (pacing, type, transitions), never its content.`;
     if (s.phase === "brief")
       return `${common}
+${quality}
 
-PHASE: BRIEF (not approved yet).
+PHASE 1 of 3: BRIEF (not approved yet).
 - If the brand kit is still the starter default, fill in src/brands/${brand}/brand/BRAND.md and theme.ts (real colours, direction, fonts) from the product URL and files.
 - Write src/brands/${brand}/${video}/BRIEF.md: goal, platform, formats, length, and the story table by seconds. Draft copy.ts from the product's own words.
 - Do NOT build or change scenes yet.
-- End by showing the story as a short bullet list (one line per scene with seconds) and ask the user to approve it or change it. The page has an "Approve & build" button.`;
-    return `${common}
+- End by showing the story as a short bullet list (one line per scene with seconds) and ask the user to approve it or change it. The page has an "Approve brief" button.`;
+    if (s.phase === "storyboard")
+      return `${common}
+${quality}
 
-PHASE: BUILD (the user approved BRIEF.md).
-- Build or change the video to match the brief and the user's notes: copy.ts, timeline.ts, scenes/, Film.tsx, Soundtrack.tsx, index.ts formats.
-- If the user changes the story itself, update BRIEF.md too.
+PHASE 2 of 3: STORYBOARD (the user approved BRIEF.md; they'll approve the look next).
+- Capture the real product first (screenshots — see CLAUDE.md), then build the LOOK: theme, backdrop, and the scenes around
+  4 key moments — the hook (first 2 s), the key feature, the climax, the end card. Other scenes can stay rough for now.
+- Render exactly those 4 frames (all formats of this video) into the storyboard folder:
+  \`npm run stills -- ${brand} ${video} <hook> <feature> <climax> <end> --dir=out/${brand}/${video}/storyboard\`
+  (frame numbers). Read them and fix anything clipped, overlapping, hard to read or "mid" before you stop.
+- No voice-over, no sound design yet.
+- End with one line per frame (what it shows and why) and ask the user to approve the storyboard or say what to change.
+  The page shows the 4 frames with an "Approve storyboard & build" button.`;
+    return `${common}
+${quality}
+
+PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep that look).
+- Build the whole video to match the brief, the storyboard and the user's notes: copy.ts, timeline.ts, scenes/, Film.tsx,
+  sound design, voice-over, Soundtrack.tsx. If the user changes the story itself, update BRIEF.md too.
+- Sound: cues land on each sound's loudest moment — pass \`peak\` from sfx.gen.ts (SFX / SHARED_SFX) so \`at\` is the hit frame.
 - Verify: \`npm run typecheck\` must pass.
-- Self-check your visuals: render a few stills to the temp folder with
-  \`npm run stills -- ${brand} ${video} <frame> <frame> ... --dir=${tmpDir(brand, video)}\`
-  (a frame in the middle of each scene, all formats), Read the images, and fix clipped or overlapping text, bad contrast, empty frames or off-brand colours. At most 2 rounds. The folder is deleted automatically after this run.
-- End with what you built/changed in a few bullets and what the user should look at in Studio.`;
+- CRITIQUE LOOP — be a harsh motion director, not a proud author:
+  \`npm run review -- ${brand} ${video}\` makes contact sheets (every 0.5 s), phone-size sheets and, with --strip=<s>,
+  12-frame strips around fast moves, in ${tmpDir(brand, video)}/review/. Read every sheet and score 1–10: hook, readability
+  at phone size, motion quality, variety (something new every 2–4 s), composition, data accuracy, sound sync.
+  Fix the 3 biggest problems, re-run, and repeat until every score is 8+ (at most 4 rounds). Temp files are deleted after this run.
+- End with the final scores in one line, what you built/changed in a few bullets, and what to look at in Studio.`;
   };
 
   /** One short line for a tool call, shown as a live step in the chat. */
@@ -257,6 +292,8 @@ PHASE: BUILD (the user approved BRIEF.md).
     const key = `${brand}/${video}`;
     if (runs.has(key)) throw new Error("Claude is already working on this video.");
     const s = load(brand, video);
+    // each storyboard run starts from a clean folder, so the page only shows the new frames
+    if (s.phase === "storyboard") fs.rmSync(storyboardDir(brand, video), { recursive: true, force: true });
     const effort = EFFORTS[effortArg] ? effortArg : EFFORTS[s.effort] ? s.effort : DEFAULT_EFFORT;
     s.effort = effort;
     push(s, { role: "user", text });
@@ -335,6 +372,8 @@ PHASE: BUILD (the user approved BRIEF.md).
       runs.delete(key);
       fs.rmSync(path.join(root, tmpDir(brand, video)), { recursive: true, force: true });
       fs.rmSync(path.join(root, ".director", "tmp", `${brand}-brand`), { recursive: true, force: true }); // brand sfx spectrograms
+      // Sounds Claude downloaded or copied (e.g. Apple Lossless .m4a) must play in Studio and renders: convert them.
+      try { fixAudio(path.join(root, "public", brand)); } catch {}
       if (r.stopped) push(s, { role: "system", text: "Stopped." });
       else if (code !== 0 && !r.gotEvents) {
         if (s.sessionId) {
@@ -371,17 +410,26 @@ PHASE: BUILD (the user approved BRIEF.md).
         folderOk: !!projectFolder(brand),
         materials: materials(brand, video),
         briefExists: briefWritten(brand, video),
+        storyboard: storyboardOf(brand, video),
       };
     },
     send(brand, video, text, effort) {
       run(brand, video, text, effort);
     },
+    /** Brief → storyboard → build. */
     approve(brand, video, effort) {
       const s = load(brand, video);
-      s.phase = "build";
-      push(s, { role: "system", text: "Brief approved." });
-      save(brand, video, s);
-      run(brand, video, "The brief is approved. Build the video now, then self-check it.", effort);
+      if (s.phase === "brief") {
+        s.phase = "storyboard";
+        push(s, { role: "system", text: "Brief approved — next: the storyboard (4 key frames)." });
+        save(brand, video, s);
+        run(brand, video, "The brief is approved. Build the storyboard now: the 4 key frames.", effort);
+      } else {
+        s.phase = "build";
+        push(s, { role: "system", text: "Storyboard approved." });
+        save(brand, video, s);
+        run(brand, video, "The storyboard is approved. Build the whole video now, then run the critique loop.", effort);
+      }
     },
     reopenBrief(brand, video) {
       const s = load(brand, video);

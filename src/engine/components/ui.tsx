@@ -1,7 +1,7 @@
 import React from "react";
-import { Img, useCurrentFrame } from "remotion";
+import { Img, useCurrentFrame, useVideoConfig } from "remotion";
 import { rgba } from "../color";
-import { ease, lerp, noise, prog } from "../anim";
+import { ease, lerp, noise, prog, SPRING, springAt, type SpringFeel } from "../anim";
 import { useTheme } from "../theme";
 
 /** One whole word arriving: rise + unblur + fade. Never splits Arabic letters. */
@@ -284,5 +284,57 @@ export const Phone: React.FC<{
         {dim > 0 && <div style={{ position: "absolute", inset: 0, background: `rgba(8,7,6,${dim})` }} />}
       </div>
     </div>
+  );
+};
+
+/**
+ * Premium text entrance: each word rises from behind its own mask, one after another, on a spring.
+ * Words are never split into letters (safe for Arabic). Use instead of a plain fade-in.
+ */
+export const MaskRise: React.FC<{
+  text: string | string[];
+  at: number;
+  stagger?: number;
+  feel?: SpringFeel;
+  style?: React.CSSProperties;
+}> = ({ text, at, stagger = 3, feel = SPRING.snappy, style }) => {
+  const f = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const { direction } = useTheme();
+  const words = Array.isArray(text) ? text : text.split(/\s+/).filter(Boolean);
+  return (
+    <span style={{ display: "inline-flex", flexWrap: "wrap", columnGap: "0.28em", direction, ...style }}>
+      {words.map((w, i) => {
+        const t = springAt(f, at + i * stagger, fps, feel);
+        return (
+          <span key={i} style={{ display: "inline-block", overflow: "hidden", padding: "0.12em 0", margin: "-0.12em 0" }}>
+            <span style={{ display: "inline-block", transform: `translateY(${(1 - t) * 115}%)` }}>{w}</span>
+          </span>
+        );
+      })}
+    </span>
+  );
+};
+
+/** Small "Example data" label — required on anything illustrative (made-up numbers, sample accounts). */
+export const ExampleBadge: React.FC<{ label?: string; style?: React.CSSProperties }> = ({ label = "Example data", style }) => {
+  const { fonts, colors } = useTheme();
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        fontFamily: fonts.ui,
+        fontSize: 18,
+        fontWeight: 600,
+        padding: "4px 12px",
+        borderRadius: 999,
+        color: colors.text,
+        background: rgba(colors.surface, 0.72),
+        border: `1px solid ${rgba(colors.text, 0.25)}`,
+        ...style,
+      }}
+    >
+      {label}
+    </span>
   );
 };

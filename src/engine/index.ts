@@ -18,3 +18,4 @@ export * from "./components/Finish";
 export * from "./components/Backdrop";
 export * from "./components/SceneTrack";
 export * from "./components/SoundCues";
+export * from "./sfx.gen";

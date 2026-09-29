@@ -261,6 +261,12 @@
   .composer { display: flex; gap: 8px; align-items: flex-end; margin-top: 12px; border: 1px solid var(--line2); border-radius: 14px; padding: 8px 8px 8px 14px; background: var(--bg2); transition: border-color .15s, box-shadow .15s; }
   .composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .composer textarea { flex: 1; resize: none; border: 0; background: transparent; outline: none; font: inherit; color: inherit; min-height: 42px; max-height: 220px; padding: 9px 0; line-height: 1.45; }
+  .phase.storyboard { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent2); }
+  .approve.storyboard { flex-wrap: wrap; }
+  .sb-frames { flex-basis: 100%; display: flex; gap: 10px; overflow-x: auto; padding-top: 4px; }
+  .sb-frames a { flex: none; display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 11.5px; text-decoration: none; }
+  .sb-frames img { height: 190px; border-radius: 10px; border: 1px solid var(--line2); background: #000; display: block; }
+  .sb-frames a:hover img { border-color: var(--accent); }
   .composer-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
   .composer-bar .model { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 10px 3px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent2); }
   .composer-bar .model svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
@@ -359,6 +365,13 @@
   .side-note { color: var(--faint); font-size: 11.5px; margin-top: 8px; word-break: break-all; }
   .side-outputs { grid-template-columns: 1fr; gap: 10px; }
   .side-outputs video, .side-outputs img { height: auto; max-height: 360px; }
+  .out-actions { display: flex; gap: 6px; padding: 0 11px 11px; }
+  .out-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; padding: 6px 8px;
+    border: 1px solid var(--line2); border-radius: 9px; background: var(--panel2); color: var(--text); text-decoration: none; cursor: pointer; }
+  .out-btn:hover { border-color: var(--accent); }
+  .out-btn.danger { color: var(--bad); }
+  .out-btn.danger:hover { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+  .out-btn svg { width: 14px; height: 14px; }
   .side-hint { border: 1px dashed var(--line2); border-radius: 12px; padding: 18px; text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 18px; }
   .side-hint svg { width: 22px; height: 22px; color: var(--faint); margin-bottom: 4px; }
 
@@ -713,8 +726,9 @@ function chatHtml() {
 
 function renderDirector() {
   if (!dir || !$("#chat")) return;
-  $("#dirHead").innerHTML = `<span class="phase ${dir.phase}">${dir.phase === "brief" ? "Step 1 · Brief" : "Step 2 · Build"}</span>
-    ${dir.phase === "build" && !dir.running ? `<button class="ghost" data-dir="reopen" title="Claude goes back to editing the brief only">Back to brief</button>` : ""}
+  const PHASES = { brief: "Step 1 of 3 · Brief", storyboard: "Step 2 of 3 · Storyboard", build: "Step 3 of 3 · Build" };
+  $("#dirHead").innerHTML = `<span class="phase ${dir.phase}">${PHASES[dir.phase] || dir.phase}</span>
+    ${dir.phase !== "brief" && !dir.running ? `<button class="ghost" data-dir="reopen" title="Claude goes back to editing the brief only">Back to brief</button>` : ""}
     ${dir.messages.length && !dir.running ? `<button class="ghost" data-dir="reset" title="Clear this chat and start a fresh Claude session">New chat</button>` : ""}`;
   const key = `${dir.messages.length}:${dir.messages.at(-1)?.ts ?? 0}`;
   if (key !== chatKey) {
@@ -727,7 +741,13 @@ function renderDirector() {
   let st = "";
   if (dir.running) st = `<div class="working"><span class="spin"></span><span class="t">${esc(dir.step || "Working…")}</span><span class="el">${fmtDur(dir.elapsed)}</span><button class="ghost" data-dir="stop">Stop</button></div>`;
   else if (dir.phase === "brief" && dir.briefExists && dir.messages.some((m) => m.role === "claude"))
-    st = `<div class="approve"><div class="t"><b>Brief ready for review</b><span>Read it under Docs below, then approve — or reply with changes.</span></div><button class="primary" data-dir="approve">${icon("check")}Approve & build</button></div>`;
+    st = `<div class="approve"><div class="t"><b>Brief ready for review</b><span>Read it under Docs below, then approve — or reply with changes. Next, Claude shows you 4 key frames before building everything.</span></div><button class="primary" data-dir="approve">${icon("check")}Approve brief</button></div>`;
+  else if (dir.phase === "storyboard" && !dir.running && dir.storyboard?.length)
+    st = `<div class="approve storyboard">
+      <div class="t"><b>Storyboard ready: ${dir.storyboard.length} key frames</b><span>Is this the right look? Approve and Claude builds the whole video in this style, or reply with changes.</span></div>
+      <button class="primary" data-dir="approve">${icon("check")}Approve storyboard & build</button>
+      <div class="sb-frames">${dir.storyboard.map((f) => `<a href="${f.url}" target="_blank" title="${esc(f.name)}"><img src="${f.url}" alt="${esc(f.name)}" /><span>${(f.frame / 30).toFixed(1)} s · ${esc(f.name.split("-")[0])}</span></a>`).join("")}</div>
+    </div>`;
   // No Claude Code (missing, outdated or logged out)? Say so and how to fix it; the rest of the page still works.
   const cl = dir.claude;
   if (cl && !cl.ok) {
@@ -821,6 +841,12 @@ async function uploadFiles(files) {
   uploading = ""; matKey = ""; refresh();
 }
 
+/** Download + Delete under an output (render or still). */
+const outActions = (o) => `<div class="out-actions">
+  <a class="out-btn" href="${o.url}" download="${esc(o.name)}">${icon("render")}Download</a>
+  <button class="out-btn danger" data-delout="${esc(o.rel)}" data-name="${esc(o.name)}">${icon("trash")}Delete</button>
+</div>`;
+
 function renderRest() {
   const c = current();
   if (!c || !$("#rest")) return;
@@ -856,6 +882,7 @@ function renderRest() {
       <div class="card-head"><h3>${icon("render")}Render</h3></div>
       ${v.formats.length > 1 ? `<div class="seg side-seg">${["", ...v.formats].map((f) => `<button data-fmt="${esc(f)}" class="${fmt === f ? "on" : ""}">${f ? esc(f) : "All"}</button>`).join("")}</div>` : ""}
       <label class="switch" style="margin-top:10px"><input type="checkbox" id="quick" /><i></i><span>Quick check · first 3 s</span></label>
+      <label class="switch" style="margin-top:8px" title="Blends 8 sub-frames per frame so fast moves blur like a real camera. Rendering takes about 8× longer."><input type="checkbox" id="blurOn" /><i></i><span>Film look · motion blur <span style="color:var(--faint)">(~8× slower)</span></span></label>
       <button class="primary side-btn" id="renderBtn">${icon("render")}Render MP4</button>
       <div class="side-stills">
         <input id="stillFrames" placeholder="Stills: 0, 60, 120" />
@@ -867,8 +894,8 @@ function renderRest() {
   $("#sideOutputs").innerHTML = `
     <div class="section-label" style="margin-top:22px">Outputs <span style="text-transform:none;letter-spacing:0;font-weight:500">· ${outs.videos.length + outs.stills.length} files</span></div>
     ${outs.videos.length || outs.stills.length ? `<div class="outputs side-outputs">
-        ${outs.videos.map((o) => `<div class="out"><video src="${o.url}" controls preload="metadata"></video><div class="meta"><b>${esc(o.name)}</b><span>${fmtSize(o.size)} · ${fmtTime(o.mtime)}</span></div></div>`).join("")}
-        ${outs.stills.map((o) => `<div class="out"><a href="${o.url}" target="_blank"><img src="${o.url}?t=${o.mtime}" alt="${esc(o.name)}" loading="lazy" /></a><div class="meta"><b>${esc(o.name)}</b><span>${fmtTime(o.mtime)}</span></div></div>`).join("")}
+        ${outs.videos.map((o) => `<div class="out"><video src="${o.url}" controls preload="metadata"></video><div class="meta"><b>${esc(o.name)}</b><span>${fmtSize(o.size)} · ${fmtTime(o.mtime)}</span></div>${outActions(o)}</div>`).join("")}
+        ${outs.stills.map((o) => `<div class="out"><a href="${o.url}" target="_blank"><img src="${o.url}" alt="${esc(o.name)}" loading="lazy" /></a><div class="meta"><b>${esc(o.name)}</b><span>${fmtTime(o.mtime)}</span></div>${outActions(o)}</div>`).join("")}
       </div>` : `<div class="queue-empty">Nothing rendered yet — renders and stills show up here.</div>`}`;
 
   const docs = [v.doc && ["brief", "Brief", v.doc], b.brandDoc && ["brand", "Brand kit", b.brandDoc]].filter(Boolean);
@@ -916,9 +943,10 @@ async function refresh() {
   renderDirector(); renderStyle(); renderMaterials();
   const rk = JSON.stringify([fmt, docTab, c.video.outputs, c.video.doc, c.brand.brandDoc]);
   if (rk !== restKey) {
-    const quick = $("#quick")?.checked, frames = $("#stillFrames")?.value;
+    const quick = $("#quick")?.checked, blurOn = $("#blurOn")?.checked, frames = $("#stillFrames")?.value;
     restKey = rk; renderRest();
     if ($("#quick")) $("#quick").checked = !!quick;
+    if ($("#blurOn")) $("#blurOn").checked = !!blurOn;
     if ($("#stillFrames") && frames) $("#stillFrames").value = frames;
   }
 }
@@ -970,6 +998,11 @@ document.addEventListener("click", async (e) => {
   else if (t.id === "voPlay") playVoice($("#voVoice")?.value.trim() || dir?.voice?.defaultVoiceId, t);
   else if (d.openSettings) openSettings();
   else if (d.playfile) { testAudio?.pause(); testAudio = new Audio(fileUrl(d.playfile)); testAudio.play(); }
+  else if (d.delout) {
+    if (!confirm(`Delete ${d.name}?\n\nIt goes to the macOS Trash, so you can still get it back.`)) return;
+    try { await api("/api/outputs/delete", { ...sel, file: d.delout }); toast(`Deleted ${d.name}`); restKey = ""; refresh(); }
+    catch (err) { toast(err.message); }
+  }
   else if (d.delvideo && sel) askDelete({ brand: sel.brand, video: sel.video });
   else if (d.delbrand) askDelete({ brand: d.delbrand });
   else if (d.effort) { effort = d.effort; renderDirector(); }
@@ -985,7 +1018,7 @@ document.addEventListener("click", async (e) => {
     catch (err) { toast(err.message); }
   }
   else if (t.id === "renderBtn") {
-    try { await api("/api/render", { ...sel, format: fmt || undefined, frames: $("#quick").checked ? "0-89" : undefined }); toast("Render queued"); refresh(); }
+    try { await api("/api/render", { ...sel, format: fmt || undefined, frames: $("#quick").checked ? "0-89" : undefined, blur: $("#blurOn").checked || undefined }); toast("Render queued"); refresh(); }
     catch (err) { toast(err.message); }
   } else if (t.id === "stillsBtn") {
     try { await api("/api/stills", { ...sel, format: fmt || undefined, frames: $("#stillFrames").value }); toast("Stills queued"); refresh(); }
