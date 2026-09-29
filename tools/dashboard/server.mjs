@@ -29,7 +29,9 @@ const PUBLIC = path.join(ROOT, "public");
 const PORT = Number(process.env.PORT ?? 4000);
 const STUDIO_PORT = Number(process.env.STUDIO_PORT ?? 3000);
 const NAME = /^[a-z][a-z0-9-]*$/;
-const director = createDirector({ root: ROOT, brandsDir: BRANDS });
+const AGENT_API = 1; // bump when tools/video.mjs needs something new from this server
+// The autopilot queues a render when a build ends (renderJob is defined below; called later, at run time).
+const director = createDirector({ root: ROOT, brandsDir: BRANDS, onBuilt: (brand, video, opts) => renderJob({ brand, video, ...opts }).id });
 
 // Uploaded files are sorted into folders by type.
 const KIND = [
@@ -144,6 +146,12 @@ const pump = () => {
 };
 
 const publicJob = ({ proc, ...j }) => j;
+
+/** Queues `npm run render` for a video (all formats unless one is given). */
+const renderJob = ({ brand, video, format, frames, blur }) => {
+  const args = [path.join(ROOT, "tools", "render.mjs"), brand, video, ...(format ? [format] : []), ...(frames ? [`--frames=${frames}`] : []), ...(blur ? ["--blur"] : [])];
+  return addJob(`Render ${brand}/${video}${format ? " · " + format : " · all formats"}${frames ? ` · frames ${frames}` : ""}${blur ? " · film look" : ""}`, args, brand, video);
+};
 
 // ---------- deleting (to the Trash, so a mistake can be undone from Finder)
 
@@ -355,7 +363,7 @@ const server = http.createServer(async (req, res) => {
       const { brand, video } = q;
       const action = p.slice("/api/director".length);
       if (req.method === "GET" && action === "") return send(res, 200, { ...director.state(brand, video), claude: claudeReady() });
-      if ((action === "/send" || action === "/approve") && !claudeReady(true).ok)
+      if (["/send", "/approve", "/autopilot"].includes(action) && !claudeReady(true).ok)
         return send(res, 409, { error: `The Director needs Claude Code: ${claudeReady().fix}` });
       if (req.method !== "POST") return send(res, 404, { error: "not found" });
       try {
@@ -364,6 +372,8 @@ const server = http.createServer(async (req, res) => {
           if (!text) return send(res, 400, { error: "Write something first." });
           director.send(brand, video, text, q.effort);
         } else if (action === "/approve") director.approve(brand, video, q.effort);
+        else if (action === "/autopilot")
+          director.autopilot(brand, video, { prompt: q.prompt, stopAt: q.stopAt, render: q.render === "blur" ? "blur" : !!q.render, effort: q.effort });
         else if (action === "/formats") director.setFormats(brand, video, q.formats);
         else if (action === "/style") director.setStyle(brand, video, q.styleId);
         else if (action === "/style-save") director.setStyle(brand, video, saveStyle({ name: q.name, text: q.text }).id);
@@ -448,7 +458,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
     if (req.method === "GET" && p === "/api/state")
-      return send(res, 200, { brands: listVideos(), jobs: jobs.map(publicJob), studio: studioState(), directing: director.runningCount() });
+      return send(res, 200, { brands: listVideos(), jobs: jobs.map(publicJob), studio: studioState(), directing: director.runningCount(), agentApi: AGENT_API });
 
     if (req.method === "POST" && p === "/api/new") {
       const { brand, video } = await readBody(req);
@@ -465,9 +475,7 @@ const server = http.createServer(async (req, res) => {
       if (!validVideo(brand, video)) return send(res, 400, { error: "Unknown video." });
       if (format && !NAME.test(format)) return send(res, 400, { error: "Bad format." });
       if (frames && !/^\d+-\d+$/.test(frames)) return send(res, 400, { error: "Frames look like 0-89." });
-      const args = [path.join(ROOT, "tools", "render.mjs"), brand, video, ...(format ? [format] : []), ...(frames ? [`--frames=${frames}`] : []), ...(blur ? ["--blur"] : [])];
-      const job = addJob(`Render ${brand}/${video}${format ? " · " + format : " · all formats"}${frames ? ` · frames ${frames}` : ""}${blur ? " · film look" : ""}`, args, brand, video);
-      return send(res, 200, publicJob(job));
+      return send(res, 200, publicJob(renderJob({ brand, video, format, frames, blur: !!blur })));
     }
 
     if (req.method === "POST" && p === "/api/stills") {

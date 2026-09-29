@@ -82,6 +82,21 @@ npm start          # → http://localhost:4000
 | `npm run sfx -- <brand> [video] [--look]` | design sounds from `sfx.json` |
 | `npm run voice -- <brand> <video>` | ElevenLabs voice-over from `voiceover.json` |
 | `npm run doctor` | system check |
+| `npm run video -- <command>` | everything from a terminal, for AI agents and scripts (see below) |
+
+## For AI agents (OpenClaw, Hermes, Codex, …)
+
+An agent can make a whole video from a terminal. No browser, no clicks:
+
+```bash
+npm run agent-skill        # once: installs the skill for OpenClaw, Hermes and other agents on this machine
+npm run video -- make my-app next "App Store promo for the main features" --url=https://my-app.com --length=30 --render
+npm run video -- status my-app video01 --json
+```
+
+- **What `make` starts:** an **autopilot**. Claude writes the brief, builds a 4-frame storyboard, builds the video and renders it, approving each step itself.
+- **What the agent does:** polls `status`, and answers with `ask` if the Director has a question.
+- **Where to start reading:** agents start at [AGENTS.md](AGENTS.md). The skill is [.agents/skills/halal-motion-videos](.agents/skills/halal-motion-videos/SKILL.md).
 
 ## Where things live
 

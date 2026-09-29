@@ -65,7 +65,10 @@ out/<brand>/<video>/        renders + stills (git-ignored)
 
 styles/library.json         your saved video styles (git-ignored; built-in ones are in tools/styles.mjs)
 Start.command               double-click launcher: setup on first run, then the dashboard
-tools/                      CLIs: new, render, stills, shot, synth_sfx.py, voice, copy-asset, setup, doctor
+tools/                      CLIs: new, render, stills, shot, synth_sfx.py, voice, copy-asset, setup, doctor,
+                            video (the whole machine from a terminal, for AI agents), agent-skill
+AGENTS.md                   entry point for AI agents (Codex, OpenClaw, Hermes, …)
+.agents/skills/halal-motion-videos/   Agent Skill (agentskills.io): SKILL.md, scripts/video, references/
 tools/dashboard/            the local dashboard: server.mjs, director.mjs (Claude chat), index.html
 .director/                  git-ignored local state:
   settings.json               API keys (never read it)
@@ -81,7 +84,9 @@ tools/dashboard/            the local dashboard: server.mjs, director.mjs (Claud
 | Command | Does |
 | --- | --- |
 | `npm start` | local dashboard at http://localhost:4000 |
-| `npm run setup` / `npm run doctor` | install what's missing / system check |
+| `npm run setup` / `npm run doctor [-- --json]` | install what's missing / system check |
+| `npm run video -- <command>` | drive everything from a terminal (for AI agents): `make` (autopilot), `status`, `ask`, `approve`, `render`, … — see "Agents" below |
+| `npm run agent-skill [-- --remove]` | link the Agent Skill into `~/.agents/skills` (OpenClaw, Codex), `~/.hermes/skills/creative` (Hermes), `~/.openclaw/skills` |
 | `npm run new -- <brand> [video]` | new brand + its `video01`, or the next video in an existing brand |
 | `npm run studio` | Remotion Studio: brand folder → video folder → one composition per format |
 | `npm run render -- <brand> [video] [format] [--frames=a-b] [--blur]` | MP4s to `out/<brand>/<video>/`, audio mastered to -16 LUFS; `--blur` = film-look motion blur (~8× slower) |
@@ -133,6 +138,25 @@ Each video page has a **Director** chat. It runs Claude Code headless in this re
 - **Materials:** uploads land in `public/<brand>/brand/` or `public/<brand>/<video>/`, sorted into `img/`, `fonts/`, `sfx/`, `video/`.
 
 When you are the Director, keep replies short: first line says what happened, then a few bullets.
+
+## Agents (OpenClaw, Hermes, Codex, scripts)
+
+Another AI agent can run the whole machine from a terminal with `npm run video` (`tools/video.mjs`). No browser needed. It talks to the dashboard server and starts it in the background (log: `.director/dashboard.log`).
+
+- **Autopilot:** `npm run video -- make <brand> <video|next> "<about>" [--url= --folder= --length= --format= …] [--render[=blur]]`.
+  - The agent approves every step itself: brief, then storyboard, then build, then render.
+  - It returns at once. The agent polls `npm run video -- status <brand> <video> --json`.
+  - **`blocked`:** you asked a question; the agent answers with `ask` and the autopilot carries on.
+  - **`failed`:** it retries a crashed step once, then stops; `make` again resumes.
+  - `--stop-at=brief|storyboard` pauses there so the agent can review first.
+  - The autopilot lives in the server (`director.autopilot`), not the CLI, so agent shell timeouts don't matter.
+- **When the agent is driving:** the page shows an "Autopilot" line. When you are the Director, "the user" is then an agent: still stop at the end of each step as usual, because the autopilot approves.
+- **Agent files:**
+  - `AGENTS.md` is the entry point.
+  - `.agents/skills/halal-motion-videos/` holds the Agent Skill (SKILL.md frontmatter works for agentskills.io, OpenClaw and Hermes).
+  - Its `scripts/video` finds the repo even through a symlink.
+  - `npm run agent-skill` installs it for every agent.
+- **Keep in sync:** `AGENT_API` in `tools/video.mjs` and `tools/dashboard/server.mjs` must match. Bump both when the CLI needs something new from the server; an older running dashboard then gets a clear "restart it" message.
 
 ## Video settings the Director passes to you
 

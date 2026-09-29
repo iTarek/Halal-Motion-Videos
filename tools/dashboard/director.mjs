@@ -29,7 +29,8 @@ const ALLOWED_TOOLS = [
   "Bash(ls:*)", "Bash(mkdir:*)", "Bash(cp:*)", "Bash(file:*)", "Bash(sips:*)", "Bash(ffprobe:*)",
 ];
 
-export const createDirector = ({ root, brandsDir }) => {
+/** onBuilt(brand, video, { blur }) → render job id: used by the autopilot to queue a render when the build ends. */
+export const createDirector = ({ root, brandsDir, onBuilt }) => {
   const stateDir = path.join(root, ".director");
   const runs = new Map(); // "<brand>/<video>" → { proc, started, step }
 
@@ -382,8 +383,83 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
         } else push(s, { role: "system", text: `Claude exited (${code}). ${errText.trim().slice(0, 400)}` });
       }
       save(brand, video, s);
+      setImmediate(() => advance(brand, video));
     });
     return r;
+  };
+
+  /** Brief → storyboard → build. Refuses when there's nothing to approve yet. */
+  const approve = (brand, video, effort) => {
+    const s = load(brand, video);
+    if (s.phase === "build") throw new Error("Already past approval — the video is in the build step.");
+    if (s.phase === "brief") {
+      if (!briefWritten(brand, video)) throw new Error("No brief to approve yet — send the Director a message first.");
+      s.phase = "storyboard";
+      push(s, { role: "system", text: "Brief approved — next: the storyboard (4 key frames)." });
+      save(brand, video, s);
+      run(brand, video, "The brief is approved. Build the storyboard now: the 4 key frames.", effort);
+    } else {
+      if (!storyboardOf(brand, video).length) throw new Error("No storyboard frames to approve yet.");
+      s.phase = "build";
+      push(s, { role: "system", text: "Storyboard approved." });
+      save(brand, video, s);
+      run(brand, video, "The storyboard is approved. Build the whole video now, then run the critique loop.", effort);
+    }
+  };
+
+  // ---- autopilot: an agent (or script) drives the whole video with no one at the page.
+  // It approves the brief and the storyboard itself, then optionally queues a render.
+  // In memory only: after a dashboard restart, start it again (it picks up where the video is).
+  const autos = new Map(); // "<brand>/<video>" → { status, stopAt, render, effort, prompt, retries, note, renderJob }
+  const RETRY = {
+    brief: "Continue: finish BRIEF.md and show the story list.",
+    storyboard: "Continue: finish the storyboard — the 4 key frames.",
+    build: "Continue the build where you stopped, then finish the critique loop.",
+  };
+  /** Did the latest Claude run finish cleanly? (a result arrived, no error) */
+  const lastRunOk = (s) => {
+    const i = s.messages.map((m) => m.role).lastIndexOf("user");
+    if (i < 0) return false;
+    const after = s.messages.slice(i + 1);
+    return after.some((m) => m.role === "meta") && !after.some((m) => m.role === "system" && /^(Claude stopped with an error|Claude exited|Couldn't)/.test(m.text));
+  };
+  const setAuto = (a, status, note) => Object.assign(a, { status, note, updated: Date.now() });
+
+  const advance = (brand, video) => {
+    const key = `${brand}/${video}`;
+    const a = autos.get(key);
+    if (!a || a.status !== "running" || runs.has(key)) return;
+    try {
+      const s = load(brand, video);
+      if (a.prompt) {
+        const text = a.prompt;
+        a.prompt = null;
+        return run(brand, video, text, a.effort);
+      }
+      if (!s.messages.some((m) => m.role === "user"))
+        return run(brand, video, "Make this video. Plan the brief from the product's website, folder and files.", a.effort);
+      if (!lastRunOk(s)) {
+        if (a.retries >= 1) return setAuto(a, "failed", "Claude stopped twice in a row — read lastReply / the chat, then `make` again to retry.");
+        a.retries++;
+        return run(brand, video, RETRY[s.phase] ?? RETRY.build, a.effort);
+      }
+      a.retries = 0;
+      if (s.phase === "brief") {
+        if (!briefWritten(brand, video)) return setAuto(a, "blocked", "Claude asked something before writing the brief — answer with `ask`; autopilot continues after.");
+        if (a.stopAt === "brief") return setAuto(a, "paused", "Brief ready (BRIEF.md). Review it, then `make` again to continue, or `ask` for changes.");
+        return approve(brand, video, a.effort);
+      }
+      if (s.phase === "storyboard") {
+        if (!storyboardOf(brand, video).length) return setAuto(a, "blocked", "No storyboard frames yet — Claude needs an answer: reply with `ask`; autopilot continues after.");
+        if (a.stopAt === "storyboard") return setAuto(a, "paused", "Storyboard ready (4 key frames). Review them, then `make` again to build, or `ask` for changes.");
+        return approve(brand, video, a.effort);
+      }
+      // build finished cleanly
+      if (a.render && onBuilt) a.renderJob = onBuilt(brand, video, { blur: a.render === "blur" });
+      setAuto(a, "done", a.renderJob ? `Built. Render queued (job ${a.renderJob}).` : "Built. Review it in Studio or render it.");
+    } catch (e) {
+      setAuto(a, "failed", e.message);
+    }
   };
 
   return {
@@ -411,25 +487,25 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
         materials: materials(brand, video),
         briefExists: briefWritten(brand, video),
         storyboard: storyboardOf(brand, video),
+        autopilot: autos.has(`${brand}/${video}`)
+          ? (({ status, stopAt, render, note, renderJob, started, updated }) => ({ status, stopAt, render, note, renderJob, started, updated }))(autos.get(`${brand}/${video}`))
+          : null,
       };
     },
     send(brand, video, text, effort) {
       run(brand, video, text, effort);
+      // answering a question un-blocks the autopilot: it carries on when this run ends
+      const a = autos.get(`${brand}/${video}`);
+      if (a?.status === "blocked") setAuto(a, "running", "");
     },
-    /** Brief → storyboard → build. */
-    approve(brand, video, effort) {
-      const s = load(brand, video);
-      if (s.phase === "brief") {
-        s.phase = "storyboard";
-        push(s, { role: "system", text: "Brief approved — next: the storyboard (4 key frames)." });
-        save(brand, video, s);
-        run(brand, video, "The brief is approved. Build the storyboard now: the 4 key frames.", effort);
-      } else {
-        s.phase = "build";
-        push(s, { role: "system", text: "Storyboard approved." });
-        save(brand, video, s);
-        run(brand, video, "The storyboard is approved. Build the whole video now, then run the critique loop.", effort);
-      }
+    approve,
+    /** Starts (or resumes) the autopilot. prompt: optional first/extra message; stopAt: "brief" | "storyboard"; render: false | true | "blur". */
+    autopilot(brand, video, { prompt, stopAt, render, effort } = {}) {
+      if (stopAt && !["brief", "storyboard"].includes(stopAt)) throw new Error('stopAt is "brief" or "storyboard".');
+      const a = { status: "running", stopAt: stopAt || null, render: render || false, effort, prompt: String(prompt ?? "").trim() || null, retries: 0, note: "", renderJob: null, started: Date.now(), updated: Date.now() };
+      autos.set(`${brand}/${video}`, a);
+      advance(brand, video); // if Claude is mid-run, it continues when that run ends
+      return a;
     },
     reopenBrief(brand, video) {
       const s = load(brand, video);
@@ -443,6 +519,8 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       save(brand, video, { sessionId: null, phase: old.phase, effort: old.effort, messages: [] });
     },
     stop(brand, video) {
+      const a = autos.get(`${brand}/${video}`);
+      if (a) setAuto(a, "stopped", "Stopped.");
       const r = runs.get(`${brand}/${video}`);
       if (r) {
         r.stopped = true;

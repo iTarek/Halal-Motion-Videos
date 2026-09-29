@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Runs the Halal Motion Videos command-line tool (tools/video.mjs) from anywhere.
+# Finds the repo by following this folder back (it lives in <repo>/.agents/skills/halal-motion-videos/scripts;
+# `pwd -P` follows a symlinked skill folder). If the skill was copied somewhere else, set HALAL_MOTION_VIDEOS=<repo>.
+set -e
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+ROOT="$(cd "$HERE/../../../.." && pwd -P)"
+[ -f "$ROOT/tools/video.mjs" ] || ROOT="${HALAL_MOTION_VIDEOS:-}"
+if [ -z "$ROOT" ] || [ ! -f "$ROOT/tools/video.mjs" ]; then
+  echo "Can't find the Halal Motion Videos repo. Set HALAL_MOTION_VIDEOS to its folder, or run \`npm run agent-skill\` in the repo." >&2
+  exit 1
+fi
+cd "$ROOT"
+exec node tools/video.mjs "$@"

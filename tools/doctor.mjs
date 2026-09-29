@@ -1,4 +1,4 @@
-// Health check: is everything this project needs installed? Used by `npm run doctor`,
+// Health check: is everything this project needs installed? Used by `npm run doctor` (--json for agents),
 // `npm run setup` and the dashboard's Settings → System check. Node built-ins only.
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -114,6 +114,11 @@ export const checks = () => {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const list = checks();
+  if (process.argv.includes("--json")) {
+    // for agents and scripts: { ok, checks: [{ id, label, required, ok, detail, needs, fix }] }
+    console.log(JSON.stringify({ ok: list.every((c) => c.ok || !c.required), checks: list }, null, 2));
+    process.exit(list.some((c) => c.required && !c.ok) ? 1 : 0);
+  }
   const width = Math.max(...list.map((c) => c.label.length));
   console.log("\nHalal Motion Videos — system check\n");
   for (const c of list) {

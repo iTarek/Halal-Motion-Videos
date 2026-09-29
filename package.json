@@ -20,6 +20,8 @@
     "sfx": "node tools/run-python.mjs tools/synth_sfx.py",
     "voice": "node tools/voice.mjs",
     "copy-asset": "node tools/copy-asset.mjs",
+    "video": "node tools/video.mjs",
+    "agent-skill": "node tools/agent-skill.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

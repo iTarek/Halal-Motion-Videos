@@ -242,6 +242,8 @@
   .working { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line); font-size: 13px; }
   .working .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .working .el { color: var(--faint); font-variant-numeric: tabular-nums; font-size: 12px; }
+  .autopilot { margin: 10px 0 0; padding: 8px 12px; border-radius: 12px; border: 1px dashed var(--line); font-size: 12px; color: var(--muted); }
+  .autopilot b { color: var(--text); }
   .spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line2); border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .approve { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
@@ -748,6 +750,12 @@ function renderDirector() {
       <button class="primary" data-dir="approve">${icon("check")}Approve storyboard & build</button>
       <div class="sb-frames">${dir.storyboard.map((f) => `<a href="${f.url}" target="_blank" title="${esc(f.name)}"><img src="${f.url}" alt="${esc(f.name)}" /><span>${(f.frame / 30).toFixed(1)} s · ${esc(f.name.split("-")[0])}</span></a>`).join("")}</div>
     </div>`;
+  // An agent is driving this video from the command line (npm run video -- make …): it approves the steps itself.
+  const ap = dir.autopilot;
+  if (ap) {
+    const label = { running: "running", paused: "paused", blocked: "waiting for an answer", failed: "stopped with a problem", done: "done", stopped: "stopped" }[ap.status] ?? ap.status;
+    st += `<div class="autopilot"><b>Autopilot ${esc(label)}</b> · an agent is driving this video from the command line and approves each step itself${ap.note ? ` · ${esc(ap.note)}` : ""}</div>`;
+  }
   // No Claude Code (missing, outdated or logged out)? Say so and how to fix it; the rest of the page still works.
   const cl = dir.claude;
   if (cl && !cl.ok) {
