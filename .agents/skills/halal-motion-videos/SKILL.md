@@ -51,6 +51,9 @@ scripts/video make <brand> next "<what the video is about>" \
 - **`next`:** makes the brand's next video (`video01`, `video02`, …). Or name one, e.g. `video01`.
 - **What it's about:** one or two sentences, e.g. "App Store promo showing prayer times and the Qibla finder".
 - **`--url` / `--folder`:** where the Director finds the real product: its website, and its source code (read-only).
+- **`--app-id`:** for an iOS app, pass its App Store id or link (e.g. `--app-id=6474693547`).
+  - Fetches the 1024 icon, the full-size store screenshots and the app's own description into the brand kit first.
+  - Use it when the app has no website, or for its official store art.
 - **Returns at once.** The autopilot approves the brief, then the storyboard, builds everything, then renders (`--render`).
 - **Timing:** about 15–30 minutes, plus the render.
 
@@ -71,9 +74,15 @@ scripts/video status <brand> <video> --json
 
 Hand the human the MP4 paths from `outputs` (`out/<brand>/<video>/<brand>-<video>-vertical.mp4`, `…-horizontal.mp4`).
 
-**Blocking instead of polling:** add `--wait` to `make`, `ask`, `approve` or `render` if your shell allows long commands.
+**One command instead of polling (scripts, cron jobs):** add `--wait` to `make`, `ask`, `approve` or `render`.
 
-- It blocks until idle; the default limit is 90 minutes (`--timeout=<s>`).
+```bash
+scripts/video make <brand> next "<about>" --format=vertical --render --wait --json > result.json
+```
+
+- **Stays open:** until everything is finished, including rendering and audio mastering. The default limit is 90 minutes (`--timeout=<s>`).
+- **Milestones:** stream to **stderr** as they happen, e.g. "brief ready", "storyboard ready", "render · 40%", "saved …mp4", with a heartbeat every minute. Stdout stays one clean JSON object.
+- **The result:** ends with the MP4 path(s): `mp4` in JSON, or `MP4: <path>` lines last in text.
 - **Exit codes:** `0` ok · `1` failed · `2` blocked (answer with `ask`, then `make` again).
 
 ## Review before approving (optional)
@@ -99,8 +108,9 @@ Pass these to `make`, or change them with `scripts/video set <brand> [video] …
 | Flag | Values | Default |
 | --- | --- | --- |
 | `--url`, `--folder` | the product's website and source folder (brand-wide) | none |
+| `--app-id` | App Store id or link: fetch icon, screenshots and listing first (`make` only) | none |
 | `--length` | seconds (3–600) | 30 |
-| `--format` | `vertical` (9:16), `horizontal` (16:9), `both` | `both` |
+| `--format` | `vertical` (or `9:16`), `horizontal` (or `16:9`), `both` | `both` |
 | `--language` | on-screen language, e.g. `Arabic` | English |
 | `--voiceover` | `on` / `off` (needs an ElevenLabs key) | on when a key is saved |
 | `--voice-language` | e.g. `"Arabic — Egyptian accent"` | English — American accent |

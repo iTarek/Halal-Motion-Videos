@@ -9,7 +9,8 @@
 
 | Command | Does |
 | --- | --- |
-| `make <brand> <video\|next> ["<about>"] [settings] [--stop-at=brief\|storyboard] [--render[=blur]] [--effort=…]` | Starts the autopilot: brief, then storyboard, then build, then render. It approves each step itself and returns at once. Creates the brand/video if missing. Run it again to resume after `failed`, `paused` or `stopped`, or to render a built video (`make b v --render`). |
+| `make <brand> <video\|next> ["<about>"] [settings] [--stop-at=brief\|storyboard] [--render[=blur]] [--app-id=…] [--effort=…]` | Starts the autopilot: brief, then storyboard, then build, then render. It approves each step itself and returns at once. Creates the brand/video if missing. Run it again to resume after `failed`, `paused` or `stopped`, or to render a built video (`make b v --render`). `--app-id` runs `fetch-assets` first. |
+| `fetch-assets <brand> <App Store id or URL> [--country=sa] [--no-ipad]` | For iOS apps (no website needed). Asks Apple's public lookup API, then downloads the 1024×1024 icon and the full-size iPhone/iPad store screenshots to `public/<brand>/brand/img/store/`. Writes the listing into the brand's BRAND.md: name, seller, link, and the app's own description and release notes. Sets the brand's website to the App Store page if none is set. Creates the brand if missing. Re-run to refresh. If the app isn't in the US store, it tries other stores, or pass `--country`. |
 | `status <brand> <video>` | Where the video is and what to do next (fields below). |
 | `ask <brand> <video> "<message>"` | Sends a message to the Director: answer its question, or ask for changes. Un-blocks a `blocked` autopilot. |
 | `approve <brand> <video>` | Approves by hand: the brief (then Claude builds the storyboard) or the storyboard (then Claude builds the video). Refused when there's nothing to approve. |
@@ -24,10 +25,13 @@
 | `doctor` | System check (`ok: false` means something required is missing: run `npm run setup`). |
 | `where` | Prints the repo root. |
 
-`--wait` on `make`, `ask`, `approve` and `render`:
+`--wait` on `make`, `ask`, `approve` and `render`, for scripts, cron jobs and agents that prefer one long command:
 
-- **What it does:** blocks until Claude, the autopilot and any render for that video are idle, then prints the status.
+- **Stays open:** until Claude, the autopilot and any render for that video are idle, including rendering and audio mastering.
+- **Streams milestones to stderr:** a timestamped line each, also with `--json`, e.g. `[14:02:10] brief ready: …/BRIEF.md`, `storyboard ready: 4 frames in …`, `storyboard approved → building the whole video`, `render · my-app-video01-vertical: 40%`, `render · saved out/…/my-app-video01-vertical.mp4`, `autopilot blocked`, `the Director asks: …`. A heartbeat line appears every minute.
+- **Prints the final status on stdout:** with `--json` that's one JSON object whose `mp4` holds the finished MP4 paths. In text mode, `MP4: <path>` lines come last (`tail -1`).
 - **Limit:** `--timeout=<s>`, default 5400.
+- **In scripts:** call `node tools/video.mjs …` or `npm run --silent video -- …`, so npm's banner doesn't mix into stdout. `scripts/video` already does this.
 
 **Exit codes:** `0` ok · `1` error, failed step or failed render · `2` blocked (the Director asked a question).
 
@@ -48,6 +52,7 @@
   "storyboard": ["/…/out/my-app/video01/storyboard/hook-vertical-0.jpg", "…"],
   "render": { "job": 3, "status": "running", "progress": 42, "label": "Render my-app/video01 · all formats" },
   "outputs": ["/…/out/my-app/video01/my-app-video01-vertical.mp4"],
+  "mp4": [],
   "settings": { "format": "both", "length": 30, "language": "English", "voiceLanguage": "English — American accent", "voiceover": true, "voiceId": "…", "style": null, "website": "https://…", "folder": "/…" },
   "next": "Claude is working (Checking frames (stills)). Check again in a minute or two."
 }
@@ -61,7 +66,8 @@
 | `claude` | `"ok"`, or how to fix Claude Code (missing, too old, logged out) |
 | `lastReply` | The Director's latest message (its question when `blocked`, its error when `failed`) |
 | `render` | The latest render job for this video: `queued`, `running`, `done`, `failed`, `cancelled`, with `progress` 0–100. `log` holds the last lines when it failed. |
-| `outputs` | Finished MP4s, newest first |
+| `outputs` | All finished MP4s for this video, newest first |
+| `mp4` | The MP4s the latest render made, once it's `done` (after audio mastering). Otherwise empty. |
 | `next` | One line: what to do now |
 
 ## The autopilot

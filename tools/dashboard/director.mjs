@@ -24,7 +24,7 @@ export const DEFAULT_VOICE_LANGUAGE = "English — American accent";
 // Tools Claude may use without asking. Everything else is denied in headless mode.
 const ALLOWED_TOOLS = [
   "Read", "Glob", "Grep", "Edit", "Write", "MultiEdit", "NotebookEdit", "TodoWrite", "WebFetch", "WebSearch", "Skill",
-  "Bash(npm run typecheck)", "Bash(npm run stills:*)", "Bash(npm run copy-asset:*)", "Bash(npm run voice:*)", "Bash(npm run sfx:*)", "Bash(npm run shot:*)", "Bash(npm run review:*)", "Bash(npm install:*)", "Bash(npx tsc:*)",
+  "Bash(npm run typecheck)", "Bash(npm run stills:*)", "Bash(npm run copy-asset:*)", "Bash(npm run voice:*)", "Bash(npm run sfx:*)", "Bash(npm run shot:*)", "Bash(npm run appstore:*)", "Bash(npm run review:*)", "Bash(npm install:*)", "Bash(npx tsc:*)",
   "Bash(curl:*)", "Bash(unzip:*)",
   "Bash(ls:*)", "Bash(mkdir:*)", "Bash(cp:*)", "Bash(file:*)", "Bash(sips:*)", "Bash(ffprobe:*)",
 ];
@@ -215,6 +215,9 @@ You are working on ONE video: brand "${brand}", video "${video}".
   and "waitGone" to wait out loading screens. Read every PNG to check it before using it (show it in Phone for mobile).
   Rebuild UI in React only for moments a screenshot can't show (e.g. live recitation needing a microphone, or animating UI
   elements) — and then match the real screenshots exactly. See "Screenshots" in CLAUDE.md.
+- iOS APP WITH NO WEBSITE (or to add its official store art): \`npm run appstore -- ${brand} <App Store id or apps.apple.com URL>\`
+  downloads the 1024 icon and the full-size store screenshots into public/${brand}/brand/img/store/ and writes the listing
+  (the app's own description — quote copy from it) into BRAND.md. Don't scrape App Store pages or CDN links by hand.
 - You can download the product's real assets yourself: find image/font URLs on the product site (WebFetch), then
   \`curl -L -o public/${brand}/brand/img/<name> <url>\` (brand-wide) or public/${brand}/${video}/img/ (this video only).
   Check each download with \`file\` and \`ffprobe\` (image size: \`ffprobe -v error -show_entries stream=width,height -of csv=p=0 <img>\`), and list every file with its source URL in BRAND.md.

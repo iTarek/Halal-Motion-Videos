@@ -17,6 +17,7 @@
     "stills": "node tools/stills.mjs",
     "review": "node tools/review.mjs",
     "shot": "node tools/shot.mjs",
+    "appstore": "node tools/appstore.mjs",
     "sfx": "node tools/run-python.mjs tools/synth_sfx.py",
     "voice": "node tools/voice.mjs",
     "copy-asset": "node tools/copy-asset.mjs",

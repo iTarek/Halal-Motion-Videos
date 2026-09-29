@@ -40,7 +40,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { ROOT } from "./settings.mjs";
-import { findChrome } from "./chrome.mjs";
+import { CHROME_LINUX_ARGS, findChrome } from "./chrome.mjs";
 
 const NAME = /^[a-z][a-z0-9-]*$/;
 const SHOT_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
@@ -111,6 +111,7 @@ fs.mkdirSync(profile, { recursive: true });
 const chrome = spawn(findChromeOrFail(), [
   "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check",
   "--hide-scrollbars", "--mute-audio", "--disable-extensions", "--disable-background-networking", "--force-color-profile=srgb",
+  ...CHROME_LINUX_ARGS,
 ], { stdio: ["ignore", "ignore", "pipe"] });
 const removeProfile = () => {
   if (!flags.fresh) return; // the per-brand profile is kept on purpose

@@ -3,22 +3,29 @@
 // Every command takes --json for machine-readable output. Nothing here blocks for long unless you add --wait.
 //
 //   make <brand> <video|next> ["<what the video is about>"] [settings] [--stop-at=brief|storyboard] [--render[=blur]]
+//        [--app-id=<App Store id or URL>]
 //        The autopilot: brief → storyboard → build (→ render), approving each step itself. Returns at once;
-//        poll `status` (or add --wait). Creates the brand/video if needed. Run it again to resume or continue.
+//        poll `status`, or add --wait. Creates the brand/video if needed. Run it again to resume or continue.
+//        --app-id first fetches the app's icon, store screenshots and listing (see fetch-assets).
+//   fetch-assets <brand> <App Store id or URL> [--country=sa] [--no-ipad]
+//                                           iOS apps with no website: icon, screenshots, listing → the brand kit
 //   status <brand> <video>                  step, autopilot, Claude's latest reply, storyboard frames, render, what to do next
 //   ask <brand> <video> "<message>"         talk to the Director (answers a question; revisions)
 //   approve <brand> <video>                 approve the brief (→ storyboard) or the storyboard (→ build) by hand
 //   stop <brand> <video>                    stop Claude and the autopilot
 //   list · new <brand> [video] · styles · outputs <brand> <video> · doctor · where
 //   set <brand> [video] [settings]          brand: --url= --folder=
-//                                           video: --length=<s> --format=vertical|horizontal|both --language="…"
+//                                           video: --length=<s> --format=vertical|horizontal|both (or 9:16, 16:9) --language="…"
 //                                                  --voice-language="…" --voiceover=on|off --voice-id=<id> --style=<name|id|none>
 //   render <brand> <video> [--format=vertical] [--blur] [--frames=0-89]
 //   voice-settings [--voice-id=<id>] [--model=eleven_v4|eleven_v4_turbo] [--key-stdin]   (ElevenLabs; key read from stdin)
 //
-// --wait makes make/ask/approve/render block until done (--timeout=<s>, default 5400). --effort=medium|high|xhigh.
-// Exit codes: 0 ok · 1 error or failed · 2 blocked (the Director asked something: answer with `ask`).
-import { spawn } from "node:child_process";
+// --wait makes make/ask/approve/render stay open until everything is finished — rendering and audio mastering
+//   included (--timeout=<s>, default 5400). Milestones stream to stderr as they happen (also with --json, so stdout
+//   stays one clean JSON object); the result ends with the MP4 path(s) (`mp4` in JSON). Good for cron jobs and scripts.
+// --effort=medium|high|xhigh. Exit codes: 0 ok · 1 error or failed · 2 blocked (the Director asked: answer with `ask`).
+// In scripts, call `node tools/video.mjs …` (or `npm run --silent video -- …`) so npm's banner doesn't mix into stdout.
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -116,7 +123,14 @@ const statusOf = async (brand, video) => {
   const [d, s] = await Promise.all([director(brand, video), api("/api/state")]);
   const v = s.brands.find((b) => b.brand === brand)?.videos.find((x) => x.video === video);
   const job = s.jobs.find((j) => j.brand === brand && j.video === video && j.label.startsWith("Render"));
-  const render = job ? { job: job.id, status: job.status, progress: job.progress, label: job.label, ...(job.status === "failed" ? { log: job.log.slice(-12) } : {}) } : null;
+  const render = job
+    ? {
+        job: job.id, status: job.status, progress: job.progress, label: job.label,
+        files: job.log.map((l) => l.match(/^saved (.+\.mp4)$/)?.[1]).filter(Boolean).map((f) => path.join(ROOT, f)), // written after mastering
+        lastLine: job.log.at(-1) ?? "",
+        ...(job.status === "failed" ? { log: job.log.slice(-12) } : {}),
+      }
+    : null;
   return {
     ok: true, brand, video,
     step: d.phase, // brief → storyboard → build
@@ -128,6 +142,7 @@ const statusOf = async (brand, video) => {
     storyboard: d.storyboard.map((f) => path.join(ROOT, "out", brand, video, "storyboard", f.name)),
     render,
     outputs: (v?.outputs.videos ?? []).map((o) => path.join(ROOT, "out", brand, video, o.rel)),
+    mp4: render?.status === "done" ? render.files : [], // what the latest render made
     settings: {
       format: d.formats, length: d.voice.length, language: d.voice.videoLanguage, voiceLanguage: d.voice.voiceLanguage,
       voiceover: d.voice.enabled, voiceId: d.voice.effectiveVoiceId, style: d.styles.find((x) => x.id === d.styleId)?.name ?? null,
@@ -147,22 +162,53 @@ const printStatus = (st, code = 0) =>
       st.render ? `Render: job ${st.render.job} · ${st.render.status} · ${st.render.progress}%` : "",
       st.outputs.length ? `Outputs:\n${st.outputs.map((f) => `  ${f}`).join("\n")}` : "",
       `\nNext: ${st.next}`,
+      st.mp4.length ? `\n${st.mp4.map((f) => `MP4: ${f}`).join("\n")}` : "", // last, so `tail -1` finds it
     ].filter(Boolean).join("\n"),
     st,
     code,
   );
 
-/** Blocks until Claude, the autopilot and any render for this video are idle. */
+/** What changed between two status snapshots, as milestone lines. */
+const milestones = (a, b) => {
+  if (!a) return [`${b.brand}/${b.video} · step: ${b.step}${b.running ? ` · ${b.activity}` : ""}`];
+  const m = [];
+  const [from, to] = [a.step, b.step].map((x) => ["brief", "storyboard", "build"].indexOf(x));
+  // in story order, even when several steps passed between two checks
+  if (!a.brief && b.brief) m.push(`brief ready: ${b.brief}`);
+  if (from < 1 && to >= 1) m.push("brief approved → building the storyboard");
+  if (b.storyboard.length && b.storyboard.join() !== a.storyboard.join()) m.push(`storyboard ready: ${b.storyboard.length} frames in ${path.dirname(b.storyboard[0])}`);
+  if (from < 2 && to >= 2) m.push("storyboard approved → building the whole video");
+  if (to < from) m.push(`back to step: ${b.step}`);
+  if (b.autopilot && b.autopilot.status !== a.autopilot?.status) m.push(`autopilot ${b.autopilot.status}${b.autopilot.note ? ` — ${b.autopilot.note}` : ""}`);
+  if (b.autopilot?.status === "blocked" && a.autopilot?.status !== "blocked" && b.lastReply) m.push(`the Director asks: ${b.lastReply}`);
+  if (b.render && (b.render.job !== a.render?.job || b.render.status !== a.render?.status)) m.push(`render ${b.render.status}: ${b.render.label}`);
+  if (b.render?.lastLine && b.render.lastLine !== a.render?.lastLine && /\d+%$|^saved /.test(b.render.lastLine)) m.push(`render · ${b.render.lastLine}`);
+  return m;
+};
+
+/**
+ * Blocks until Claude, the autopilot and any render for this video are idle (rendering and mastering included).
+ * Streams milestones to stderr as they happen, plus a heartbeat every minute so logs show it's alive.
+ */
 const waitIdle = async (brand, video) => {
-  const limit = Date.now() + 1000 * Number(flags.timeout ?? 5400);
-  let said = "";
+  const started = Date.now();
+  const limit = started + 1000 * Number(flags.timeout ?? 5400);
+  const say = (msg) => process.stderr.write(`[${new Date().toTimeString().slice(0, 8)}] ${msg}\n`);
+  let prev = null;
+  let lastSaid = Date.now();
   while (Date.now() < limit) {
     const st = await statusOf(brand, video);
+    for (const line of milestones(prev, st)) {
+      say(line);
+      lastSaid = Date.now();
+    }
     const busy = st.running || st.autopilot?.status === "running" || ["queued", "running"].includes(st.render?.status);
     if (!busy) return st;
-    const now = `${st.step} · ${st.running ? st.activity : st.render ? `render ${st.render.progress}%` : "next step"}`;
-    if (now !== said) progress(`  … ${now}`);
-    said = now;
+    if (Date.now() - lastSaid > 60000) {
+      say(`… ${st.running ? st.activity : st.render ? `rendering ${st.render.progress}%` : "next step"} (${Math.round((Date.now() - started) / 60000)} min)`);
+      lastSaid = Date.now();
+    }
+    prev = st;
     await sleep(4000);
   }
   fail("Timed out (use --timeout=<seconds>). It may still be working: check `status`.");
@@ -193,7 +239,9 @@ const applySettings = async (brand, video) => {
     saved.push(...Object.keys(vo));
   }
   if (flags.format !== undefined) {
-    await api("/api/director/formats", { brand, video, formats: String(flags.format) });
+    const f = String(flags.format).toLowerCase();
+    const formats = { "9:16": "vertical", "16:9": "horizontal", "vertical,horizontal": "both", "horizontal,vertical": "both" }[f] ?? f;
+    await api("/api/director/formats", { brand, video, formats });
     saved.push("format");
   }
   if (flags.style !== undefined) {
@@ -217,6 +265,24 @@ const ensureVideo = async (brand, video) => {
   return made;
 };
 
+/** Runs tools/appstore.mjs: the app's icon, store screenshots and listing → the brand kit. Returns its JSON result. */
+const fetchStoreAssets = (brand, app) => {
+  const r = spawnSync(process.execPath, [
+    path.join(ROOT, "tools", "appstore.mjs"), brand, String(app), "--json",
+    ...(flags.country ? [`--country=${flags.country}`] : []), ...(flags["no-ipad"] ? ["--no-ipad"] : []),
+  ], { cwd: ROOT, encoding: "utf8" });
+  let res;
+  try {
+    res = JSON.parse(r.stdout);
+  } catch {
+    res = { ok: false, error: (r.stderr || r.stdout || "The App Store fetch failed.").trim() };
+  }
+  if (!res.ok) fail(res.error);
+  return res;
+};
+const storeSummary = (res) =>
+  `App Store: ${res.name} (${res.seller}) → ${res.files.length} files in ${path.relative(ROOT, path.dirname(res.files[0]?.file ?? ""))}/, listing in ${path.relative(ROOT, res.brandMd)}`;
+
 // ---------- commands
 
 if (cmd === "where") {
@@ -230,6 +296,7 @@ switch (cmd) {
     const [brand, videoArg, ...words] = pos;
     if (!brand || !videoArg) fail('Usage: npm run video -- make <brand> <video|next> ["<what the video is about>"] [--length=15 --format=both --url=… …]');
     const video = await ensureVideo(brand, videoArg);
+    if (flags["app-id"]) progress(storeSummary(fetchStoreAssets(brand, flags["app-id"])));
     await applySettings(brand, video);
     const st0 = await statusOf(brand, video);
     if (st0.claude !== "ok") fail(`The Director needs Claude Code: ${st0.claude}`);
@@ -255,6 +322,15 @@ switch (cmd) {
   case "status": {
     const { brand, video } = needVideo();
     printStatus(await statusOf(brand, video));
+    break;
+  }
+  case "fetch-assets": {
+    const [brand, appArg] = pos;
+    const app = appArg ?? flags["app-id"];
+    if (!brand || !app || app === true) fail("Usage: npm run video -- fetch-assets <brand> <App Store id or URL> [--country=sa] [--no-ipad]");
+    if (!(await api("/api/state")).brands.some((b) => b.brand === brand)) await ensureVideo(brand, "next"); // new brand (+ video01)
+    const res = fetchStoreAssets(brand, app);
+    out(`${storeSummary(res)}\n${res.files.map((f) => `  ${f.name}${f.width ? `  ${f.width}×${f.height}` : ""}`).join("\n")}`, res);
     break;
   }
   case "ask": {
@@ -366,5 +442,5 @@ switch (cmd) {
     break;
   }
   default:
-    fail("Commands: make · status · ask · approve · stop · list · new · set · styles · render · outputs · voice-settings · doctor · where\n(see the top of tools/video.mjs)");
+    fail("Commands: make · status · ask · approve · stop · fetch-assets · list · new · set · styles · render · outputs · voice-settings · doctor · where\n(see the top of tools/video.mjs)");
 }

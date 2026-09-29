@@ -21,6 +21,12 @@ const bundled = () => {
   return null;
 };
 
+/**
+ * Extra flags for the Chrome we start ourselves (review sheets, screenshots) on Linux: servers and containers often run
+ * as root (Chrome's sandbox refuses) and have a tiny /dev/shm (Chrome crashes). Remotion already adds both for renders.
+ */
+export const CHROME_LINUX_ARGS = process.platform === "linux" ? ["--no-sandbox", "--disable-dev-shm-usage"] : [];
+
 const onPath = (name) => {
   try {
     return execFileSync("which", [name], { encoding: "utf8" }).trim() || null;

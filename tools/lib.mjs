@@ -1,7 +1,14 @@
 // Shared helpers for the render/stills tools.
 import { bundle } from "@remotion/bundler";
 import { getCompositions } from "@remotion/renderer";
+import os from "node:os";
 import path from "node:path";
+
+/**
+ * Frames rendered in parallel: up to 8, never more than this machine's cores (Remotion refuses more — e.g. a 4-core
+ * Linux server). availableParallelism() also respects CPU limits set for containers.
+ */
+export const CONCURRENCY = Math.max(1, Math.min(8, os.availableParallelism()));
 
 export const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 

@@ -8,7 +8,7 @@ import { renderMedia } from "@remotion/renderer";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { findCompositions, outDir, parseArgs, ROOT } from "./lib.mjs";
+import { CONCURRENCY, findCompositions, outDir, parseArgs, ROOT } from "./lib.mjs";
 import { describe, fixAudio } from "./audiofix.mjs";
 
 const { pos, flags } = parseArgs(process.argv.slice(2));
@@ -44,7 +44,7 @@ for (const { composition, brand: b, video: v, format: f } of compositions) {
   };
   const common = {
     serveUrl, composition, crf: 16, pixelFormat: "yuv420p", colorSpace: "bt709", imageFormat: "jpeg", jpegQuality: 95,
-    concurrency: 8, overwrite: true,
+    concurrency: CONCURRENCY, overwrite: true,
     frameRange: frameRange && frameRange.length === 2 ? [frameRange[0], frameRange[1]] : frameRange?.[0],
   };
   if (blur) {
@@ -62,7 +62,7 @@ for (const { composition, brand: b, video: v, format: f } of compositions) {
     }
     const audio = path.join(tmp, "audio.wav");
     await renderMedia({ serveUrl, composition, codec: "wav", outputLocation: audio, inputProps: composition.props,
-      overwrite: true, concurrency: 8, frameRange: common.frameRange });
+      overwrite: true, concurrency: CONCURRENCY, frameRange: common.frameRange });
     console.log(`${composition.id}: blending ${blur} passes…`);
     execFileSync("ffmpeg", [
       "-hide_banner", "-loglevel", "error", "-y",
@@ -90,7 +90,7 @@ for (const { composition, brand: b, video: v, format: f } of compositions) {
     audioBitrate: "320k",
     imageFormat: "jpeg",
     jpegQuality: 95,
-    concurrency: 8,
+    concurrency: CONCURRENCY,
     overwrite: true,
     onProgress: ({ progress }) => {
       const pct = Math.floor(progress * 10) * 10;

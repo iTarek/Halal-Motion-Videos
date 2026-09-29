@@ -11,8 +11,8 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { findCompositions, parseArgs, ROOT } from "./lib.mjs";
-import { findChrome } from "./chrome.mjs";
+import { CONCURRENCY, findCompositions, parseArgs, ROOT } from "./lib.mjs";
+import { CHROME_LINUX_ARGS, findChrome } from "./chrome.mjs";
 
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [brand, video] = pos;
@@ -52,7 +52,7 @@ const sheet = (items, { cols, cellW, cellH, title }, out) => {
   const htmlFile = out.replace(/\.png$/, ".html");
   fs.writeFileSync(htmlFile, html);
   execFileSync(chrome, [
-    "--headless", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1", "--allow-file-access-from-files",
+    "--headless", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1", "--allow-file-access-from-files", ...CHROME_LINUX_ARGS,
     `--window-size=${W},${H}`, `--screenshot=${out}`, pathToFileURL(htmlFile).href,
   ], { stdio: "ignore" });
   fs.rmSync(htmlFile);
@@ -81,7 +81,7 @@ for (const { composition: comp, format: f } of compositions) {
   process.stdout.write(`${comp.id}: rendering ${frames.length} frames at phone size… `);
   await renderFrames({
     serveUrl, composition: comp, inputProps: comp.props, frames, outputDir: frameDir,
-    imageFormat: "jpeg", jpegQuality: 85, scale, concurrency: 4,
+    imageFormat: "jpeg", jpegQuality: 85, scale, concurrency: Math.min(4, CONCURRENCY),
     imageSequencePattern: "f-[frame].[ext]", onStart: () => {}, onFrameUpdate: () => {},
   });
   console.log("done");

@@ -79,6 +79,7 @@ npm start          # → http://localhost:4000
 | `npm run render -- <brand> [video] [format] [--frames=a-b] [--blur]` | render MP4s (audio mastered to -16 LUFS; `--blur` adds motion blur) |
 | `npm run review -- <brand> <video>` | review sheets for checking a video |
 | `npm run shot -- <brand> [video]` | real screenshots from `shots.json` |
+| `npm run appstore -- <brand> <app id>` | an iOS app's icon, store screenshots and listing from the App Store |
 | `npm run sfx -- <brand> [video] [--look]` | design sounds from `sfx.json` |
 | `npm run voice -- <brand> <video>` | ElevenLabs voice-over from `voiceover.json` |
 | `npm run doctor` | system check |

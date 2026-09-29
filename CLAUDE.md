@@ -93,6 +93,7 @@ tools/dashboard/            the local dashboard: server.mjs, director.mjs (Claud
 | `npm run stills -- <brand> <video> <frame…> [--format=…] [--dir=…]` | JPGs to `out/<brand>/<video>/stills/` (or `--dir`) |
 | `npm run review -- <brand> <video> [--strip=12.5,31]` | review sheets for the critique loop → `.director/tmp/<brand>-<video>/review/` |
 | `npm run shot -- <brand> [video]` | real screenshots of the live site/app from `shots.json` → `public/<brand>/…/img/shots/` |
+| `npm run appstore -- <brand> <app id or App Store URL>` | iOS apps: 1024 icon + full-size store screenshots → `public/<brand>/brand/img/store/`, the listing → `BRAND.md` |
 | `npm run sfx -- <brand> [video] [--look]` | design sounds by code: the brand's kit (no video) or one video's → `public/<brand>/…/sfx/` |
 | `npm run voice -- <brand> <video> [--only=id] [--force]` | ElevenLabs v4 voice-over from `voiceover.json` → `public/<brand>/<video>/vo/` + `voiceover.gen.ts` |
 | `npm run copy-asset -- <src> <public/…>` | copy files from anywhere (e.g. the product's project folder) into `public/` only |
@@ -143,7 +144,9 @@ When you are the Director, keep replies short: first line says what happened, th
 
 Another AI agent can run the whole machine from a terminal with `npm run video` (`tools/video.mjs`). No browser needed. It talks to the dashboard server and starts it in the background (log: `.director/dashboard.log`).
 
-- **Autopilot:** `npm run video -- make <brand> <video|next> "<about>" [--url= --folder= --length= --format= …] [--render[=blur]]`.
+- **Autopilot:** `npm run video -- make <brand> <video|next> "<about>" [--url= --folder= --app-id= --length= --format= …] [--render[=blur]]`.
+  - `--wait` keeps the command open until the MP4 is mastered. It streams milestones to stderr and ends with the MP4 path (`mp4` in `--json`), for cron jobs and scripts.
+  - `--app-id` fetches App Store assets first (`npm run appstore`).
   - The agent approves every step itself: brief, then storyboard, then build, then render.
   - It returns at once. The agent polls `npm run video -- status <brand> <video> --json`.
   - **`blocked`:** you asked a question; the agent answers with `ask` and the autopilot carries on.
@@ -250,6 +253,14 @@ Fix the 3 biggest problems, re-run, and repeat until every score is 8+ (at most 
 **Browser memory:** the browser profile is kept per brand in `.director/browser/<brand>/`, so language choices, logins and big first-load downloads survive between runs. `--fresh` starts clean. Useful when an app downloads a large model or data on first load.
 
 **What screenshots can't do:** screens that need a microphone, camera or a real device (live recitation, for example). Rebuild those in React, matching the captured screens exactly.
+
+**iOS apps without a website:** `npm run appstore -- <brand> <App Store id or apps.apple.com URL>` asks Apple's public lookup API.
+
+- **Icon:** the 1024×1024 icon goes to `public/<brand>/brand/img/store/icon.png`.
+- **Screenshots:** the full-size store screenshots go to `iphone-01.png …` and `ipad-01.png …`.
+- **Listing:** name, seller, link, and the app's own description and release notes go into an "App Store listing" section of `BRAND.md` (quote copy from it).
+- **Website:** the brand's website becomes the App Store page if none is set.
+- **Re-running:** refreshes the files and that section. `--country=sa` picks the store; `--no-ipad` skips iPad shots.
 
 ## Sound design (sounds made by code)
 
