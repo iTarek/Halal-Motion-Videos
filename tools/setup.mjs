@@ -33,7 +33,12 @@ if (spawnSync(py, ["--version"], { stdio: "ignore" }).error) {
   console.log("  creating .venv with numpy + scipy…");
   if (sh("python3", ["-m", "venv", ".venv"]) && sh(pythonBin(), ["-m", "pip", "install", "--quiet", "--upgrade", "pip"]) && sh(pythonBin(), ["-m", "pip", "install", "--quiet", "-r", "requirements.txt"])) {
     console.log("  done");
-  } else console.log("  couldn't create the .venv — install numpy + scipy yourself: `python3 -m pip install -r requirements.txt`.");
+  } else
+    console.log(
+      "  couldn't create the .venv." +
+        (process.platform === "linux" ? " On Debian/Ubuntu: `sudo apt install python3-venv`, then run setup again." : "") +
+        " Or install numpy + scipy yourself: `python3 -m pip install -r requirements.txt`.",
+    );
 }
 
 step("System check");

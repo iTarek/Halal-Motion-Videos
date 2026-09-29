@@ -10,7 +10,9 @@ import { renderFrames } from "@remotion/renderer";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { findCompositions, parseArgs, ROOT } from "./lib.mjs";
+import { findChrome } from "./chrome.mjs";
 
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [brand, video] = pos;
@@ -24,13 +26,7 @@ const outDir = path.resolve(ROOT, typeof flags.out === "string" ? flags.out : pa
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 
-const chrome = [
-  process.env.CHROME_PATH,
-  path.join(ROOT, "node_modules/.remotion/chrome-headless-shell/mac-arm64/chrome-headless-shell-mac-arm64/chrome-headless-shell"),
-  path.join(ROOT, "node_modules/.remotion/chrome-headless-shell/mac-x64/chrome-headless-shell-mac-x64/chrome-headless-shell"),
-  path.join(ROOT, "node_modules/.remotion/chrome-headless-shell/linux64/chrome-headless-shell-linux64/chrome-headless-shell"),
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-].find((p) => p && fs.existsSync(p));
+const chrome = findChrome();
 if (!chrome) {
   console.error("No headless Chrome found — run `npm run setup`.");
   process.exit(1);
@@ -51,13 +47,13 @@ const sheet = (items, { cols, cellW, cellH, title }, out) => {
     .c img{display:block;width:${cellW}px;height:${cellH}px;object-fit:contain;background:#000}
     .c div{height:${labelH}px;line-height:${labelH}px;color:#e0a860;font-weight:bold}
   </style></head><body><div class="t">${esc(title)}</div><div class="g">${items
-    .map((it) => `<div class="c"><img src="file://${esc(it.file)}"><div>${esc(it.label)}</div></div>`)
+    .map((it) => `<div class="c"><img src="${esc(pathToFileURL(it.file).href)}"><div>${esc(it.label)}</div></div>`)
     .join("")}</div></body></html>`;
   const htmlFile = out.replace(/\.png$/, ".html");
   fs.writeFileSync(htmlFile, html);
   execFileSync(chrome, [
     "--headless", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1", "--allow-file-access-from-files",
-    `--window-size=${W},${H}`, `--screenshot=${out}`, `file://${htmlFile}`,
+    `--window-size=${W},${H}`, `--screenshot=${out}`, pathToFileURL(htmlFile).href,
   ], { stdio: "ignore" });
   fs.rmSync(htmlFile);
   return out;

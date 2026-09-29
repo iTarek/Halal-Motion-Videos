@@ -216,7 +216,7 @@ You are working on ONE video: brand "${brand}", video "${video}".
   elements) — and then match the real screenshots exactly. See "Screenshots" in CLAUDE.md.
 - You can download the product's real assets yourself: find image/font URLs on the product site (WebFetch), then
   \`curl -L -o public/${brand}/brand/img/<name> <url>\` (brand-wide) or public/${brand}/${video}/img/ (this video only).
-  Check each download with \`file\` / \`sips -g pixelWidth -g pixelHeight\`, and list every file with its source URL in BRAND.md.
+  Check each download with \`file\` and \`ffprobe\` (image size: \`ffprobe -v error -show_entries stream=width,height -of csv=p=0 <img>\`), and list every file with its source URL in BRAND.md.
 - The user can also upload files through the page; if you can't find something (e.g. app screenshots), ask for it.
 ${voiceBlock(brand, video, s)}
 Reply style for the user: short. First line = what happened. Then a few bullets. No long prose.`;

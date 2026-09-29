@@ -1,6 +1,6 @@
 # Halal Motion Videos — a machine for motion-graphics videos
 
-This repo makes short motion-graphics videos (product promos, App Store previews, social clips) with **Remotion** (React → MP4). You run it from a local dashboard, where a Claude-powered **Director** writes the brief, captures real screenshots, designs sound by code, generates voice-over and builds the scenes.
+Runs on **macOS and Linux** (not Windows). This repo makes short motion-graphics videos (product promos, App Store previews, social clips) with **Remotion** (React → MP4). You run it from a local dashboard, where a Claude-powered **Director** writes the brief, captures real screenshots, designs sound by code, generates voice-over and builds the scenes.
 
 - Every video lives inside a **brand** (an app or product).
 - A brand can have many videos: `my-app/video01`, `my-app/video02`, …
@@ -10,7 +10,7 @@ The usual request is **"make a new video for X"**. Follow the workflow near the 
 
 ## Setup
 
-Double-click `Start.command` (macOS): the first time it runs setup, then it starts the dashboard and opens it. Closing its window stops it. Or, from a terminal:
+Double-click `Start.command` on macOS, or run `./Start.command` in a terminal on Linux: the first time it runs setup, then it starts the dashboard and opens it. Closing its window (or Ctrl+C) stops it. Or, step by step:
 
 ```bash
 npm run setup     # installs npm packages, Remotion's headless Chrome, a Python .venv (numpy + scipy); checks the rest
@@ -20,11 +20,11 @@ npm start         # dashboard → http://localhost:4000
 
 | Needs | For | Installed by `setup`? |
 | --- | --- | --- |
-| Node.js 22+ | everything | no: nodejs.org or `brew install node` |
+| Node.js 22+ | everything | no: nodejs.org, `brew install node` (macOS), or your package manager / nvm (Linux) |
 | npm packages (Remotion 4) | everything | yes |
 | Remotion's headless Chrome | rendering, stills, screenshots | yes (`npx remotion browser ensure`) |
 | ffmpeg + ffprobe | audio mastering, voice-over timing | no: `brew install ffmpeg` / `apt install ffmpeg` |
-| Python 3 + numpy + scipy | sound design | yes, into `.venv` (unless system Python already has them) |
+| Python 3 + numpy + scipy | sound design | yes, into `.venv` (unless system Python already has them); Debian/Ubuntu need `sudo apt install python3-venv` first |
 | Claude Code CLI 2.1.280+, logged in | the Director chat only; everything else works without it | no: claude.com/claude-code; `claude update` if older |
 | ElevenLabs API key | voice-over (optional) | no: dashboard → Settings |
 
@@ -111,7 +111,7 @@ Composition ids are `<brand>-<video>-<format>`, e.g. `my-app-video01-vertical`.
 | **Outputs** | renders and stills, each with **Download** and **Delete** (to the Trash). A render only appears once it's finished. |
 | **Docs** | the brief and the brand kit |
 
-- **Deleting:** Delete (top right) removes a video. Deletes go to the macOS Trash (`~/.Trash/MotionVideos …`).
+- **Deleting:** Delete (top right) removes a video. Deletes go to the system Trash as `MotionVideos …`: `~/.Trash` on macOS, the file manager's Trash on Linux (Restore puts items in `restored-from-trash/`).
 
 ## Director (the dashboard's Claude chat)
 
@@ -127,7 +127,7 @@ Each video page has a **Director** chat. It runs Claude Code headless in this re
   - Read, edit and search files in the repo; web fetch and search.
   - Download assets with `curl`.
   - `npm run copy-asset`, `shot`, `sfx`, `voice`, `stills`, `typecheck`; `npm install`.
-  - Basic file commands: `ls`, `mkdir`, `cp`, `file`, `sips`, `ffprobe`, `unzip`.
+  - Basic file commands: `ls`, `mkdir`, `cp`, `file`, `sips` (macOS), `ffprobe`, `unzip`.
   - Everything else is denied: no git, no MP4 renders, never `.director/settings.json` or the browser profiles.
 - **Project folder:** the page can save the product's own source folder per brand. Claude gets read access (`--add-dir`); Edit/Write there are hard-denied. It copies assets out with `npm run copy-asset`.
 - **Materials:** uploads land in `public/<brand>/brand/` or `public/<brand>/<video>/`, sorted into `img/`, `fonts/`, `sfx/`, `video/`.

@@ -156,12 +156,25 @@ const unregister = (file, name) => {
   fs.writeFileSync(file, src.replace(m[0], "").replace(new RegExp(`^\\s*(\\.\\.\\.)?${id},\\n`, "m"), ""));
 };
 
-/** Moves existing paths into ~/.Trash/<label> <time>/ (recoverable in Finder). */
+/**
+ * Moves existing paths into one folder "MotionVideos <label> <time>" in the system Trash, recoverable from the file
+ * manager: ~/.Trash on macOS, the freedesktop Trash on Linux (with a .trashinfo so "Restore" works).
+ */
 const trash = (paths, label) => {
   const existing = paths.filter((p) => fs.existsSync(p));
   if (!existing.length) return;
   const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
-  const bin = path.join(os.homedir(), ".Trash", `MotionVideos ${label} ${stamp}`);
+  const name = `MotionVideos ${label} ${stamp}`;
+  let bin;
+  if (process.platform === "darwin") bin = path.join(os.homedir(), ".Trash", name);
+  else {
+    const home = process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share");
+    bin = path.join(home, "Trash", "files", name);
+    const info = path.join(home, "Trash", "info");
+    fs.mkdirSync(info, { recursive: true });
+    fs.writeFileSync(path.join(info, `${name}.trashinfo`),
+      `[Trash Info]\nPath=${encodeURI(path.join(ROOT, "restored-from-trash", name))}\nDeletionDate=${new Date().toISOString().slice(0, 19)}\n`);
+  }
   fs.mkdirSync(bin, { recursive: true });
   for (const p of existing) {
     const rel = path.relative(ROOT, p).replaceAll(path.sep, "__");
@@ -483,7 +496,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, studioState());
     }
 
-    // ---- delete a video or a whole brand: unregister first, then move every folder to the macOS Trash
+    // ---- delete a video or a whole brand: unregister first, then move every folder to the system Trash
     if (req.method === "POST" && (p === "/api/delete-video" || p === "/api/delete-brand")) {
       const { brand, video } = await readBody(req);
       const whole = p === "/api/delete-brand";
@@ -508,7 +521,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
 
-    // ---- delete one output (render or still) → macOS Trash
+    // ---- delete one output (render or still) → system Trash
     if (req.method === "POST" && p === "/api/outputs/delete") {
       const { brand, video, file } = await readBody(req);
       if (!validVideo(brand, video)) return send(res, 400, { error: "Unknown video." });
@@ -531,7 +544,7 @@ const server = http.createServer(async (req, res) => {
       }[where];
       if (!target) return send(res, 400, { error: "Bad target." });
       fs.mkdirSync(target, { recursive: true });
-      execFile("open", [target]);
+      execFile(process.platform === "darwin" ? "open" : "xdg-open", [target], () => {}); // Finder / Linux file manager
       return send(res, 200, { ok: true });
     }
 

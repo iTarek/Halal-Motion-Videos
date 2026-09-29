@@ -16,3 +16,6 @@ public/*
 
 # Styles you save in the dashboard stay local; the built-in styles ship in tools/styles.mjs.
 styles/library.json
+
+# Items restored from the Linux Trash come back here
+restored-from-trash/

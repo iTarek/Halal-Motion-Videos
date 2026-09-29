@@ -30,13 +30,17 @@ Every video belongs to a **brand** (an app or product), and one source renders e
 
 ## Quick start
 
+**Runs on macOS and Linux** (Windows isn't supported).
+
 **On a Mac:** double-click **`Start.command`**.
 
 - **First time:** it installs what it needs.
 - **Then:** it starts the dashboard and opens it in your browser.
 - **To stop:** close the Terminal window.
 
-**From a terminal:**
+**On Linux:** run `./Start.command` in a terminal. It does the same, and Ctrl+C stops it.
+
+**Step by step:**
 
 ```bash
 git clone <this repo> && cd <this repo>
@@ -48,9 +52,10 @@ npm start          # → http://localhost:4000
 
 | Needs | For |
 | --- | --- |
+| **macOS or Linux** | Windows isn't supported |
 | **Node.js 22+** | everything |
 | **ffmpeg** (with ffprobe) | audio mastering, voice-over timing |
-| **Python 3** | sound design (`setup` adds numpy + scipy in a `.venv`) |
+| **Python 3** | sound design (`setup` adds numpy + scipy in a `.venv`; on Debian/Ubuntu install `python3-venv` first) |
 | **[Claude Code](https://claude.com/claude-code) 2.1.280+**, set up and logged in | the Director chat (Opus 5.5) — everything else works without it |
 | **ElevenLabs API key** | voice-over (optional; add it in the dashboard → Settings) |
 

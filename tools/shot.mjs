@@ -1,5 +1,5 @@
 // Real screenshots of a live site or web app, in a headless Chrome driven over the DevTools protocol.
-// No extra installs: uses Remotion's bundled chrome-headless-shell, else Google Chrome / Edge (CHROME_PATH overrides).
+// No extra installs: uses Remotion's bundled chrome-headless-shell, else a system Chrome/Chromium (macOS or Linux; CHROME_PATH overrides).
 //
 // Usage:
 //   npm run shot -- <brand> [<video>]                         every shot in shots.json (brand: src/brands/<brand>/brand/shots.json)
@@ -40,6 +40,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { ROOT } from "./settings.mjs";
+import { findChrome } from "./chrome.mjs";
 
 const NAME = /^[a-z][a-z0-9-]*$/;
 const SHOT_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
@@ -102,23 +103,12 @@ const UA = {
 };
 
 // ---- browser
-const findChrome = () => {
-  const candidates = [
-    process.env.CHROME_PATH,
-    path.join(ROOT, "node_modules/.remotion/chrome-headless-shell/mac-arm64/chrome-headless-shell-mac-arm64/chrome-headless-shell"),
-    path.join(ROOT, "node_modules/.remotion/chrome-headless-shell/mac-x64/chrome-headless-shell-mac-x64/chrome-headless-shell"),
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-  ].filter(Boolean);
-  const found = candidates.find((p) => fs.existsSync(p));
-  if (!found) fail("No Chrome found — set CHROME_PATH to a Chrome/Chromium binary.");
-  return found;
-};
+const findChromeOrFail = () => findChrome() ?? fail("No Chrome found — run `npm run setup`, or set CHROME_PATH to a Chrome/Chromium binary.");
 
 // Per-brand profile (kept) — or a throwaway one with --fresh.
 const profile = flags.fresh ? fs.mkdtempSync(path.join(os.tmpdir(), "shot-")) : path.join(ROOT, ".director", "browser", brand);
 fs.mkdirSync(profile, { recursive: true });
-const chrome = spawn(findChrome(), [
+const chrome = spawn(findChromeOrFail(), [
   "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check",
   "--hide-scrollbars", "--mute-audio", "--disable-extensions", "--disable-background-networking", "--force-color-profile=srgb",
 ], { stdio: ["ignore", "ignore", "pipe"] });

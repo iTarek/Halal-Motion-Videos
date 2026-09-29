@@ -67,7 +67,7 @@ export const checks = () => {
   add({
     id: "node", label: "Node.js", required: true, ok: nodeMajor >= MIN_NODE,
     detail: `v${process.versions.node}`, needs: "everything",
-    fix: `Install Node.js ${MIN_NODE} or newer (nodejs.org, or \`brew install node\`).`,
+    fix: `Install Node.js ${MIN_NODE} or newer (nodejs.org, \`brew install node\` on macOS, or your Linux package manager / nvm).`,
   });
 
   const deps = fs.existsSync(path.join(ROOT, "node_modules", "remotion")) && fs.existsSync(path.join(ROOT, "node_modules", "@remotion", "renderer"));
@@ -94,7 +94,7 @@ export const checks = () => {
     id: "python", label: "Python 3 + numpy + scipy", required: true, ok: !!(pyDeps && pyDeps.code === 0),
     detail: pyv ? `${pyv.out}${pyDeps?.code === 0 ? ` · numpy ${pyDeps.out.split(" ")[0]} · scipy ${pyDeps.out.split(" ")[1]}` : " · numpy/scipy missing"}${py.includes(".venv") ? " (.venv)" : ""}` : "python3 not found",
     needs: "sound design (npm run sfx)",
-    fix: pyv ? "Run `npm run setup` (creates .venv with numpy + scipy)." : "Install Python 3 (python.org, or `brew install python`), then `npm run setup`.",
+    fix: pyv ? "Run `npm run setup` (creates .venv with numpy + scipy; on Debian/Ubuntu first `sudo apt install python3-venv`)." : "Install Python 3 (`brew install python` on macOS, `sudo apt install python3 python3-venv` on Debian/Ubuntu), then `npm run setup`.",
   });
 
   const cl = claudeStatus();
