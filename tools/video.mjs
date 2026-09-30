@@ -135,6 +135,7 @@ const statusOf = async (brand, video) => {
     ok: true, brand, video,
     step: d.phase, // brief → storyboard → build
     running: d.running, activity: d.step,
+    waiting: !!d.waiting, // queued behind another video of the same brand (they take turns, one step each)
     autopilot: d.autopilot,
     claude: d.claude?.ok ? "ok" : d.claude?.fix ?? "unknown",
     lastReply: lastReply(d),
@@ -179,6 +180,7 @@ const milestones = (a, b) => {
   if (b.storyboard.length && b.storyboard.join() !== a.storyboard.join()) m.push(`storyboard ready: ${b.storyboard.length} frames in ${path.dirname(b.storyboard[0])}`);
   if (from < 2 && to >= 2) m.push("storyboard approved → building the whole video");
   if (to < from) m.push(`back to step: ${b.step}`);
+  if (b.waiting && !a.waiting) m.push(b.activity);
   if (b.autopilot && b.autopilot.status !== a.autopilot?.status) m.push(`autopilot ${b.autopilot.status}${b.autopilot.note ? ` — ${b.autopilot.note}` : ""}`);
   if (b.autopilot?.status === "blocked" && a.autopilot?.status !== "blocked" && b.lastReply) m.push(`the Director asks: ${b.lastReply}`);
   if (b.render && (b.render.job !== a.render?.job || b.render.status !== a.render?.status)) m.push(`render ${b.render.status}: ${b.render.label}`);

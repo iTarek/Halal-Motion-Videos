@@ -75,7 +75,9 @@
 - **Crashes:** if Claude stops with an error, the autopilot retries that step once. If it fails again, it becomes `failed`.
 - **Memory:** it lives in the dashboard server. If the server restarts, it stops; run `make` again and it picks up where the video is.
 - **Timing:** brief about 3 min, storyboard about 10 min, build 10–20 min (with the critique loop). A 30-second render takes a few minutes; the film look takes about 8× longer.
-- **Parallel work:** one autopilot per video. Different videos can run in parallel.
+- **Parallel work:** one autopilot per video.
+  - Videos of **different brands** run in parallel.
+  - Videos of the **same brand** take turns, one step each, because they share the brand kit. While one waits, `status` shows `running: true`, `waiting: true` and "Waiting for …" in `activity`. That's normal; keep polling.
 
 ## Files
 

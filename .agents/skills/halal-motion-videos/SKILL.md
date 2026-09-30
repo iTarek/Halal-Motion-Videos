@@ -130,7 +130,7 @@ More commands and every JSON field: [references/commands.md](references/commands
 - **Real claims only:** don't ask the Director to invent features, numbers or reviews. Illustrative data gets an "Example data" label automatically.
 - **Renders are slow and large:** render once the video is done, not after every change.
 - **Deleting:** never delete brands, videos or outputs unless the human asks.
-- **One autopilot per video:** different videos can run at the same time.
+- **Parallel videos:** different brands run at the same time. Two videos of the same brand take turns, one step each (`status` shows `waiting: true`); that's normal.
 
 ## Without Claude Code
 

@@ -29,6 +29,7 @@ const PUBLIC = path.join(ROOT, "public");
 const PORT = Number(process.env.PORT ?? 4000);
 const STUDIO_PORT = Number(process.env.STUDIO_PORT ?? 3000);
 const NAME = /^[a-z][a-z0-9-]*$/;
+let creating = Promise.resolve(); // POST /api/new runs one at a time
 const AGENT_API = 1; // bump when tools/video.mjs needs something new from this server
 // The autopilot queues a render when a build ends (renderJob is defined below; called later, at run time).
 const director = createDirector({ root: ROOT, brandsDir: BRANDS, onBuilt: (brand, video, opts) => renderJob({ brand, video, ...opts }).id });
@@ -465,9 +466,12 @@ const server = http.createServer(async (req, res) => {
       if (!NAME.test(brand ?? "") || (video && !NAME.test(video)))
         return send(res, 400, { error: "Names are lowercase letters, numbers and dashes, starting with a letter." });
       const args = [path.join(ROOT, "tools", "new.mjs"), brand, ...(video ? [video] : [])];
-      return execFile(process.execPath, args, { cwd: ROOT }, (err, stdout, stderr) =>
-        err ? send(res, 400, { error: (stderr || err.message).trim() }) : send(res, 200, { output: stdout.trim() }),
-      );
+      // one at a time: two agents asking for a brand's "next" video at once get different numbers
+      creating = creating.then(() => new Promise((done) => execFile(process.execPath, args, { cwd: ROOT }, (err, stdout, stderr) => {
+        err ? send(res, 400, { error: (stderr || err.message).trim() }) : send(res, 200, { output: stdout.trim() });
+        done();
+      })));
+      return;
     }
 
     if (req.method === "POST" && p === "/api/render") {

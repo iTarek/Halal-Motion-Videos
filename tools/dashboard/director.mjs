@@ -95,7 +95,7 @@ export const createDirector = ({ root, brandsDir, onBuilt }) => {
   };
   const setFormats = (brand, video, which) => {
     if (!FORMAT_SETS[which]) throw new Error("Pick 9:16, 16:9 or both.");
-    if (runs.has(`${brand}/${video}`)) throw new Error("Claude is working on this video — wait or stop it first.");
+    if (busy(brand, video)) throw new Error("Claude is working on this video — wait or stop it first.");
     const file = indexOf(brand, video);
     let src = fs.readFileSync(file, "utf8");
     if (!/formats:\s*\[[^\]]*\]/.test(src)) throw new Error("Couldn't find the formats line in index.ts.");
@@ -292,16 +292,43 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
 
   const push = (s, msg) => s.messages.push({ ts: Date.now(), ...msg });
 
+  // ---- one Director per brand at a time. Videos of a brand share its kit (BRAND.md, theme, brand sounds) and its
+  // screenshot browser profile, so two at once would overwrite each other. A second video waits here instead, and
+  // they take turns one step at a time (brief, storyboard, build). Different brands run in parallel.
+  const waiting = []; // [{ brand, video, text, effort, since }], oldest first
+  const waitingFor = (brand, video) => waiting.find((w) => w.brand === brand && w.video === video);
+  const brandBusy = (brand) => [...runs.keys()].some((k) => k.startsWith(`${brand}/`));
+  const busy = (brand, video) => runs.has(`${brand}/${video}`) || !!waitingFor(brand, video);
+  const startNext = (brand) => {
+    const i = waiting.findIndex((w) => w.brand === brand);
+    if (i < 0 || brandBusy(brand)) return;
+    const [w] = waiting.splice(i, 1);
+    try {
+      start(w.brand, w.video, w.text, w.effort);
+    } catch (e) {
+      const s = load(w.brand, w.video);
+      push(s, { role: "system", text: `Couldn't start Claude Code (${e.message}).` });
+      save(w.brand, w.video, s);
+    }
+  };
+
+  /** Sends a message to Claude for this video: now, or after the brand's current video finishes its step. */
   const run = (brand, video, text, effortArg) => {
-    const key = `${brand}/${video}`;
-    if (runs.has(key)) throw new Error("Claude is already working on this video.");
+    if (busy(brand, video)) throw new Error("Claude is already working on this video.");
     const s = load(brand, video);
-    // each storyboard run starts from a clean folder, so the page only shows the new frames
-    if (s.phase === "storyboard") fs.rmSync(storyboardDir(brand, video), { recursive: true, force: true });
     const effort = EFFORTS[effortArg] ? effortArg : EFFORTS[s.effort] ? s.effort : DEFAULT_EFFORT;
     s.effort = effort;
     push(s, { role: "user", text });
     save(brand, video, s);
+    if (brandBusy(brand)) return void waiting.push({ brand, video, text, effort, since: Date.now() });
+    start(brand, video, text, effort);
+  };
+
+  const start = (brand, video, text, effort) => {
+    const key = `${brand}/${video}`;
+    const s = load(brand, video);
+    // each storyboard run starts from a clean folder, so the page only shows the new frames
+    if (s.phase === "storyboard") fs.rmSync(storyboardDir(brand, video), { recursive: true, force: true });
 
     const args = [
       "-p", text,
@@ -386,9 +413,11 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
         } else push(s, { role: "system", text: `Claude exited (${code}). ${errText.trim().slice(0, 400)}` });
       }
       save(brand, video, s);
-      setImmediate(() => advance(brand, video));
+      setImmediate(() => {
+        startNext(brand); // a video of this brand that was waiting goes first…
+        advance(brand, video); // …so this one's next step (autopilot) waits its turn
+      });
     });
-    return r;
   };
 
   /** Brief → storyboard → build. Refuses when there's nothing to approve yet. */
@@ -431,7 +460,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
   const advance = (brand, video) => {
     const key = `${brand}/${video}`;
     const a = autos.get(key);
-    if (!a || a.status !== "running" || runs.has(key)) return;
+    if (!a || a.status !== "running" || busy(brand, video)) return;
     try {
       const s = load(brand, video);
       if (a.prompt) {
@@ -470,6 +499,8 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
     state(brand, video) {
       const s = load(brand, video);
       const r = runs.get(`${brand}/${video}`);
+      const w = waitingFor(brand, video);
+      const other = w && [...runs.keys()].find((k) => k.startsWith(`${brand}/`));
       return {
         phase: s.phase,
         voice: voiceOf(s),
@@ -481,9 +512,10 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
         efforts: EFFORTS,
         hasSession: !!s.sessionId,
         messages: s.messages,
-        running: !!r,
-        step: r?.step ?? null,
-        elapsed: r ? Date.now() - r.started : 0,
+        running: !!r || !!w,
+        waiting: !!w, // queued behind another video of this brand
+        step: r?.step ?? (w ? `Waiting for ${other ?? "another video of this brand"} to finish its step (one video per brand at a time)` : null),
+        elapsed: r ? Date.now() - r.started : w ? Date.now() - w.since : 0,
         url: brandSettings(brand).url,
         folder: brandSettings(brand).folder,
         folderOk: !!projectFolder(brand),
@@ -517,13 +549,20 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       save(brand, video, s);
     },
     reset(brand, video) {
-      if (runs.has(`${brand}/${video}`)) throw new Error("Stop Claude first.");
+      if (busy(brand, video)) throw new Error("Stop Claude first.");
       const old = load(brand, video);
       save(brand, video, { sessionId: null, phase: old.phase, effort: old.effort, messages: [] });
     },
     stop(brand, video) {
       const a = autos.get(`${brand}/${video}`);
       if (a) setAuto(a, "stopped", "Stopped.");
+      const i = waiting.findIndex((w) => w.brand === brand && w.video === video);
+      if (i >= 0) {
+        waiting.splice(i, 1);
+        const s = load(brand, video);
+        push(s, { role: "system", text: "Stopped." });
+        save(brand, video, s);
+      }
       const r = runs.get(`${brand}/${video}`);
       if (r) {
         r.stopped = true;
@@ -555,8 +594,9 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
     },
     runningCount: () => runs.size,
     /** Is Claude working on this video (or, without a video, on any video of the brand)? */
-    isBusy: (brand, video) => [...runs.keys()].some((k) => (video ? k === `${brand}/${video}` : k.startsWith(`${brand}/`))),
+    isBusy: (brand, video) => (video ? busy(brand, video) : brandBusy(brand) || waiting.some((w) => w.brand === brand)),
     stopAll() {
+      waiting.length = 0;
       for (const r of runs.values()) r.proc.kill("SIGTERM");
     },
   };

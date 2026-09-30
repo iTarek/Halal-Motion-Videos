@@ -135,6 +135,9 @@ Each video page has a **Director** chat. It runs Claude Code headless in this re
   - `npm run copy-asset`, `shot`, `sfx`, `voice`, `stills`, `typecheck`; `npm install`.
   - Basic file commands: `ls`, `mkdir`, `cp`, `file`, `sips` (macOS), `ffprobe`, `unzip`.
   - Everything else is denied: no git, no MP4 renders, never `.director/settings.json` or the browser profiles.
+- **One video per brand at a time:** videos of one brand share its kit (BRAND.md, theme, brand sounds) and its screenshot browser profile.
+  - A second video of the same brand waits ("Waiting for …"), and the two take turns, one step each.
+  - Different brands run in parallel.
 - **Project folder:** the page can save the product's own source folder per brand. Claude gets read access (`--add-dir`); Edit/Write there are hard-denied. It copies assets out with `npm run copy-asset`.
 - **Materials:** uploads land in `public/<brand>/brand/` or `public/<brand>/<video>/`, sorted into `img/`, `fonts/`, `sfx/`, `video/`.
 
