@@ -43,7 +43,7 @@ Every video belongs to a **brand** (an app or product), and one source renders e
 **Step by step:**
 
 ```bash
-git clone <this repo> && cd <this repo>
+git clone https://github.com/iTarek/Halal-Motion-Videos.git && cd Halal-Motion-Videos
 npm run setup      # installs what it can, tells you exactly what's missing
 npm start          # → http://localhost:4000
 ```
@@ -124,7 +124,7 @@ Source-available under the **[Halal Motion Videos License](LICENSE)**:
 | Companies with **up to 3 employees** | Free |
 | Non-profits | Free |
 | Evaluating (not yet commercial) | Free |
-| Companies with **4+ employees** | Need a **Company License** — contact [CONTACT EMAIL OR URL] |
+| Companies with **4+ employees** | Need a **Company License** — contact [info@mimv.co](mailto:info@mimv.co) |
 
 - **Your output is yours:** the videos you make belong to you.
 - **Not allowed:** selling or reselling the software itself, or offering it as a hosted service.
