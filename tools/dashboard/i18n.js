@@ -84,13 +84,8 @@
     'Read it under Docs below, then approve — or reply with changes. Next, the Director shows you 4 key frames before building everything.':'اقرأ الموجز في المستندات أدناه، ثم وافق عليه أو اطلب تعديلات. يعرض المخرج بعدها أربع لقطات أساسية قبل بناء الفيديو.',
     'Approve brief':'الموافقة على الموجز','Approve storyboard & build':'الموافقة على لوحة المشاهد والبناء',
     'Is this the right look? Approve and the Director builds the whole video in this style, or reply with changes.':'هل هذا هو المظهر المطلوب؟ وافق لبناء الفيديو بهذا الأسلوب أو اكتب التعديلات.',
-    'No AI Director engine ready on this machine':'لا يوجد محرك ذكاء اصطناعي جاهز على هذا الجهاز',
-    'Codex CLI (ChatGPT) or Claude Code CLI is required to power the AI Director.':'يتطلب المخرج Codex CLI أو Claude Code CLI.',
-    'Install and log in to Codex CLI or Claude Code. Everything else here works without it: Preview, Render, screenshots, sound design and voice-over (from the command line).':'ثبّت Codex CLI أو Claude Code وسجّل الدخول. يمكن تشغيل أدوات المعاينة والتصدير والتقاط الصور وتصميم الصوت والتعليق الصوتي دون المخرج.',
-    'Set up Codex CLI or Claude Code to chat with the Director':'جهّز Codex CLI أو Claude Code للتحدث مع المخرج',
     'Materials':'المواد','The Director builds from these':'يعتمد المخرج على هذه المواد','Website':'الموقع الإلكتروني','Project folder':'مجلد المشروع','Open':'فتح',
     'Open in file manager':'فتح في مدير الملفات',"That folder isn't there anymore.":'هذا المجلد لم يعد موجودًا.',
-    'The Director can read it and copy assets out — never changes it. Copy the folder path from your file manager.':'يقرأ المخرج المجلد وينسخ مواده دون تعديله. انسخ مساره من مدير الملفات.',
     'Upload to':'رفع إلى','This video only':'هذا الفيديو فقط','Drop files here':'أفلت الملفات هنا','or click to choose':'أو اضغط لاختيارها',
     'Logo, screenshots, fonts, sounds — sorted into img/, fonts/, sfx/ automatically':'شعار وصور وخطوط وأصوات — تُرتّب تلقائيًا في img/ وfonts/ وsfx/',
     'Upload failed':'فشل رفع الملفات','Download':'تنزيل','Preview':'المعاينة','opens in Studio':'تفتح في الاستوديو','Render':'التصدير','All':'الكل',
@@ -124,6 +119,12 @@
     'Everything moves to the':'تُنقل جميع الملفات إلى','Trash':'سلة المحذوفات',', so you can still get it back.':'، ويمكنك استعادتها لاحقًا.',
     'Created':'تم الإنشاء','AI engine':'محرك الذكاء الاصطناعي','Change engine':'تغيير المحرك','Engine changed':'تم تغيير المحرك',
     'Settings — ElevenLabs voice-over':'الإعدادات — التعليق الصوتي عبر ElevenLabs',
+    'No guardrails':'بلا حواجز أمان',
+    'The Director can read it and copy assets out — never changes it.':'يقرأ المخرج المجلد وينسخ مواده دون تعديله.',
+    'Tip: in Finder, select the folder and press ⌥⌘C to copy its path.':'تلميح: في Finder، حدّد المجلد واضغط ⁦⌥⌘C⁩ لنسخ مساره.', // ⁦…⁩ keeps the shortcut left-to-right
+    'Tip: in File Explorer, Shift+right-click the folder and choose Copy as path.':'تلميح: في مستكشف الملفات، اضغط Shift مع زر الفأرة الأيمن على المجلد واختر Copy as path.',
+    'Copy the folder path from your file manager.':'انسخ مسار المجلد من مدير الملفات.',
+    "· this engine runs without Claude's limits: it can read your API keys, run git and change files outside this repo. Pick Claude Code for the safe default.":'· يعمل هذا المحرك دون قيود Claude: يمكنه قراءة مفاتيح API وتشغيل git وتعديل ملفات خارج هذا المشروع. اختر Claude Code للإعداد الآمن الافتراضي.',
   };
   const patterns = [
     [/^Codex cannot write to its local data folder\. Close the dashboard server and launch Start\.bat from Windows under your normal user account, then retry\. Diagnostic details:\n([\s\S]*)$/,(_,details)=>`لا يستطيع Codex الكتابة في مجلد بياناته المحلي. أغلق خادم الأداة وشغّل Start.bat من ويندوز بحسابك المعتاد، ثم أعد المحاولة. تفاصيل التشخيص:\n${details}`],

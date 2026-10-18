@@ -1,29 +1,33 @@
-// The Director: a chat per video that runs Claude Code headless in this repo.
-// Claude follows CLAUDE.md, writes the brief first and waits for approval,
+// The Director: a chat per video that runs an AI CLI headless in this repo (Claude Code by default; Codex or
+// Antigravity when picked). It follows CLAUDE.md, writes the brief first and waits for approval,
 // then builds the scenes, typechecks, and checks its own work with temporary
 // stills (.director/tmp/, deleted after every run).
 // State lives in .director/<brand>/<video>.json (git-ignored).
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { canSandbox, SANDBOX_EXEC, sandboxEnv, sandboxProfile } from "./sandbox.mjs";
 import { readSettings, SETTINGS_FILE } from "../settings.mjs";
 import { getStyle, listStyles } from "../styles.mjs";
 import { fixAudio } from "../audiofix.mjs";
-import { cliEnvironment, antigravityBin, antigravityStatus, codexBin, codexStatus, claudeStatus } from "../doctor.mjs";
+import { cliEnvironment, antigravityBin, codexBin } from "../doctor.mjs";
 
 const MAX_MESSAGES = 400;
 
 // Always Opus 5.5 (runs on the user's Claude subscription via the logged-in CLI).
 // Needs Claude Code CLI 2.1.280+ (`claude update`).
 export const MODEL = { id: "claude-opus-5-5", label: "Opus 5.5" };
-export const CODEX_MODEL = { id: "chatgpt", label: "ChatGPT (Codex)" };
+const CODEX_LABEL = "ChatGPT (Codex)";
 export const EFFORTS = { medium: "Medium", high: "High", xhigh: "Extra high" };
 const DEFAULT_EFFORT = "high";
-let engineCheck = { at: 0, engine: "claude" };
-const defaultEngine = () => {
-  if (Date.now() - engineCheck.at > 30000) engineCheck = { at: Date.now(), engine: claudeStatus().ok ? "claude" : codexStatus().ok ? "codex" : antigravityStatus().ok ? "antigravity" : "claude" };
-  return engineCheck.engine;
-};
+// Claude unless the user picks another engine. Codex and Antigravity bring no guardrails of their own: on macOS Codex
+// runs in the sandbox from sandbox.mjs; Antigravity runs unrestricted everywhere, because it keeps its sign-in in the
+// Keychain and opening that to the sandbox would expose other tools' saved tokens (e.g. GitHub CLI's). The page warns
+// about every unsandboxed pick, and the Director never switches to one on its own.
+const DEFAULT_ENGINE = "claude";
+/** Does this engine run in the dashboard's own sandbox rather than unrestricted? Claude has its permission rules. */
+export const sandboxed = (engine) => engine === "codex" && canSandbox();
 export const DEFAULT_VIDEO_LANGUAGE = "English";
 export const DEFAULT_LENGTH = 30; // seconds
 export const DEFAULT_VOICE_LANGUAGE = "English — American accent";
@@ -36,10 +40,11 @@ const ALLOWED_TOOLS = [
   "Bash(ls:*)", "Bash(mkdir:*)", "Bash(cp:*)", "Bash(file:*)", "Bash(sips:*)", "Bash(ffprobe:*)",
 ];
 
-/** onBuilt(brand, video, { blur }) → render job id: used by the autopilot to queue a render when the build ends. */
-export const createDirector = ({ root, brandsDir, onBuilt, spawnProcess = spawn }) => {
+/** onBuilt(brand, video, { blur }) → render job id: used by the autopilot to queue a render when the build ends.
+ *  dashboardUrl: where a sandboxed engine's voice and shot ask to be run (tools/broker.mjs). */
+export const createDirector = ({ root, brandsDir, onBuilt, spawnProcess = spawn, dashboardUrl = `http://127.0.0.1:${process.env.PORT ?? 4000}` }) => {
   const stateDir = path.join(root, ".director");
-  const runs = new Map(); // "<brand>/<video>" → { proc, started, step }
+  const runs = new Map(); // "<brand>/<video>" → { proc, started, step, gotEvents, stopped, ticket (sandboxed runs) }
 
   const fileOf = (brand, video) => path.join(stateDir, brand, `${video}.json`);
   const brandFileOf = (brand) => path.join(stateDir, brand, "_brand.json");
@@ -205,7 +210,8 @@ You are working on ONE video: brand "${brand}", video "${video}".
 - Follow CLAUDE.md in the repo root (layout, engine parts, rules). Read it first if you haven't this session.
 - For Remotion questions use the remotion-best-practices skill.
 - Only touch this video's folders, its brand kit, and (rarely, if truly shared) src/engine. Never touch other brands or videos.
-- Never run git commands. Never render MP4s.
+- Never run git commands. Never render MP4s.${sandboxed(s.engine || DEFAULT_ENGINE) ? `
+- You run in a sandbox: .director/settings.json, the browser profiles and the home folder are off limits, and nothing outside this repo is writable. npm run voice and npm run shot work as usual (the dashboard runs them for you).` : ""}
 - You may npm install a package if a video genuinely needs it; say so in your reply.
 - Product URL: ${url || "(none given — ask for it if you need the product's real copy or visuals)"}
 - Product source folder on this device (READ-ONLY): ${folder || "(none given)"}${folder ? `
@@ -314,12 +320,35 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       start(w.brand, w.video, w.text, w.effort);
     } catch (e) {
       const s = load(w.brand, w.video);
-      push(s, { role: "system", text: `Couldn't start Claude Code (${e.message}).` });
+      push(s, { role: "system", text: `Couldn't start the Director (${e.message}).` });
       save(w.brand, w.video, s);
     }
   };
 
-  /** Sends a message to Claude for this video: now, or after the brand's current video finishes its step. */
+  /** After every run, whatever the engine: clear the self-check stills and spectrograms, and convert sounds it
+   *  downloaded or copied (e.g. Apple Lossless .m4a) so they play in Studio and renders. */
+  const afterRun = (brand, video) => {
+    fs.rmSync(path.join(root, tmpDir(brand, video)), { recursive: true, force: true });
+    fs.rmSync(path.join(root, ".director", "tmp", `${brand}-brand`), { recursive: true, force: true }); // brand sfx spectrograms
+    try { fixAudio(path.join(root, "public", brand)); } catch {}
+  };
+
+  /** Starts Codex or Antigravity. Codex on macOS goes inside the sandbox (sandbox.mjs), with a ticket that lets its voice
+   *  and shot run through the dashboard and no secrets in its environment but its own login; the rest as they are. */
+  const launch = (engine, bin, args, brand, r) => {
+    if (!sandboxed(engine)) return spawnProcess(bin, args, { cwd: root, env: cliEnvironment(), windowsHide: true });
+    const env = cliEnvironment();
+    r.ticket = crypto.randomBytes(16).toString("hex");
+    const profile = sandboxProfile({
+      root, engineHome: env.CODEX_HOME, projectFolder: projectFolder(brand), settingsFile: SETTINGS_FILE,
+      browserDir: path.join(root, ".director", "browser"),
+    });
+    return spawnProcess(SANDBOX_EXEC, ["-p", profile, bin, ...args], {
+      cwd: root, env: { ...sandboxEnv(env, ["OPENAI_API_KEY", "CODEX_API_KEY"]), HMV_TICKET: r.ticket, HMV_DASHBOARD: dashboardUrl }, windowsHide: true,
+    });
+  };
+
+  /** Sends a message to the Director for this video: now, or after the brand's current video finishes its step. */
   const run = (brand, video, text, effortArg) => {
     if (busy(brand, video)) throw new Error("The Director is already working on this video.");
     const s = load(brand, video);
@@ -337,7 +366,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
     // each storyboard run starts from a clean folder, so the page only shows the new frames
     if (s.phase === "storyboard") fs.rmSync(storyboardDir(brand, video), { recursive: true, force: true });
 
-    const activeEngine = s.engine || defaultEngine();
+    const activeEngine = s.engine || DEFAULT_ENGINE;
     if (s.sessionEngine && s.sessionEngine !== activeEngine) s.sessionId = null;
     s.sessionEngine = activeEngine;
     s.engine = activeEngine;
@@ -345,12 +374,14 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
     const r = { proc: null, started: Date.now(), step: `Starting ${activeEngine === "antigravity" ? "Antigravity" : activeEngine === "codex" ? "Codex CLI (ChatGPT)" : "Claude"}…`, gotEvents: false, stopped: false };
     runs.set(key, r);
 
-    if (activeEngine === "codex") {
-      startCodex(brand, video, text, s, r, key);
-    } else if (activeEngine === "antigravity") {
-      startAntigravity(brand, video, text, s, r, key);
-    } else {
-      startClaude(brand, video, text, effort, s, r, key);
+    try {
+      if (activeEngine === "codex") startCodex(brand, video, text, s, r, key);
+      else if (activeEngine === "antigravity") startAntigravity(brand, video, text, s, r, key);
+      else startClaude(brand, video, text, effort, s, r, key);
+    } catch (e) {
+      // spawn can throw before any process exists (e.g. a .cmd file on Windows): don't leave the video "working" forever
+      runs.delete(key);
+      throw e;
     }
   };
 
@@ -359,7 +390,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
     const args = ["--input-format", "stream-json", "--output-format", "stream-json", "--dangerously-skip-permissions", "--print-timeout", "30m", "--effort", s.effort,
       ...(folder ? ["--add-dir", folder] : []),
       ...(s.sessionId ? ["--conversation", s.sessionId] : [])];
-    const proc = spawnProcess(antigravityBin(), args, { cwd: root, env: cliEnvironment(), windowsHide: true });
+    const proc = launch("antigravity", antigravityBin(), args, brand, r);
     r.proc = proc;
     proc.stdout.setEncoding("utf8");
     proc.stderr.setEncoding("utf8");
@@ -417,6 +448,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
     proc.on("close", code => {
       if (buf.trim()) consume(buf.trim());
       runs.delete(key);
+      afterRun(brand, video);
       if (r.stopped) push(s, { role: "system", text: "Stopped." });
       else if (code !== 0 || !resultSeen) push(s, { role: "system", text: `Antigravity exited (${code}). ${errText.trim().slice(-600)}` });
       save(brand, video, s);
@@ -432,7 +464,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       ? ["exec", "resume", "--dangerously-bypass-approvals-and-sandbox", "--json", "-c", `model_reasoning_effort="${s.effort}"`, s.sessionId, "-"]
       : ["exec", "-C", root, "--dangerously-bypass-approvals-and-sandbox", "--json", "-c", `model_reasoning_effort="${s.effort}"`, "-"];
 
-    const proc = spawnProcess(bin, args, { cwd: root, env: cliEnvironment(), windowsHide: true });
+    const proc = launch("codex", bin, args, brand, r);
     r.proc = proc;
     proc.stdout.setEncoding("utf8");
     proc.stderr.setEncoding("utf8");
@@ -467,11 +499,16 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
         } else if (e.type === "turn.failed" || e.type === "error") {
           push(s, { role: "system", text: `Codex stopped with an error: ${e.error?.message || e.message || "Unknown error"}` });
         } else if (e.item) {
+          // a command arrives as item.started and again as item.completed: show it once, when it starts
           if (e.item.type === "command_execution") {
-            r.step = describeTool("Bash", { command: e.item.command || "" });
-            push(s, { role: "step", text: r.step });
-          } else if (e.item.type === "file_change" || e.item.type === "file_edit") {
-            r.step = describeTool("Write", { file_path: e.item.file_path || e.item.path });
+            if (e.type === "item.started") {
+              r.step = describeTool("Bash", { command: e.item.command || "" });
+              push(s, { role: "step", text: r.step });
+            }
+          } else if (e.item.type === "file_change") {
+            // { changes: [{ path, kind }] }: one patch can touch several files
+            const files = (e.item.changes ?? []).map((c) => c.path).filter(Boolean);
+            r.step = `${describeTool("Edit", { file_path: files[0] })}${files.length > 1 ? ` (+${files.length - 1} more)` : ""}`;
             push(s, { role: "step", text: r.step });
           } else if (e.item.type === "agent_message") {
             if (e.type === "item.completed" && e.item.text?.trim()) {
@@ -481,7 +518,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
         } else if (e.type === "turn.completed") {
           push(s, {
             role: "meta",
-            text: `${Math.round((Date.now() - r.started) / 1000)}s · ChatGPT (Codex)`,
+            text: `${Math.round((Date.now() - r.started) / 1000)}s · ${CODEX_LABEL}`,
           });
         }
         save(brand, video, s);
@@ -498,9 +535,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       if (done) return;
       done = true;
       runs.delete(key);
-      fs.rmSync(path.join(root, tmpDir(brand, video)), { recursive: true, force: true });
-      fs.rmSync(path.join(root, ".director", "tmp", `${brand}-brand`), { recursive: true, force: true });
-      try { fixAudio(path.join(root, "public", brand)); } catch {}
+      afterRun(brand, video);
       if (r.stopped) push(s, { role: "system", text: "Stopped." });
       else if (code !== 0) {
         const homeDenied = /Access is denied|os error 5|permission denied/i.test(errText) && /arg0|memories.*sqlite|memories DB/i.test(errText);
@@ -593,10 +628,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
     });
     proc.on("close", (code) => {
       runs.delete(key);
-      fs.rmSync(path.join(root, tmpDir(brand, video)), { recursive: true, force: true });
-      fs.rmSync(path.join(root, ".director", "tmp", `${brand}-brand`), { recursive: true, force: true }); // brand sfx spectrograms
-      // Sounds Claude downloaded or copied (e.g. Apple Lossless .m4a) must play in Studio and renders: convert them.
-      try { fixAudio(path.join(root, "public", brand)); } catch {}
+      afterRun(brand, video);
       if (r.stopped) push(s, { role: "system", text: "Stopped." });
       else if (code !== 0 && !r.gotEvents) {
         if (s.sessionId) {
@@ -693,7 +725,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       const r = runs.get(`${brand}/${video}`);
       const w = waitingFor(brand, video);
       const other = w && [...runs.keys()].find((k) => k.startsWith(`${brand}/`));
-      const activeEngine = s.engine || defaultEngine();
+      const activeEngine = s.engine || DEFAULT_ENGINE;
       return {
         phase: s.phase,
         voice: voiceOf(s),
@@ -701,10 +733,11 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
         styleId: getStyle(s.styleId) ? s.styleId : null,
         styles: listStyles(),
         engine: activeEngine,
-        model: activeEngine === "antigravity" ? "Antigravity" : activeEngine === "codex" ? CODEX_MODEL.label : MODEL.label,
+        model: activeEngine === "antigravity" ? "Antigravity" : activeEngine === "codex" ? CODEX_LABEL : MODEL.label,
         effort: EFFORTS[s.effort] ? s.effort : DEFAULT_EFFORT,
         efforts: EFFORTS,
         hasSession: !!s.sessionId,
+        sandboxed: sandboxed(activeEngine),
         messages: s.messages,
         running: !!r || !!w,
         waiting: !!w, // queued behind another video of this brand
@@ -733,17 +766,17 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       if (stopAt && !["brief", "storyboard"].includes(stopAt)) throw new Error('stopAt is "brief" or "storyboard".');
       const a = { status: "running", stopAt: stopAt || null, render: render || false, effort, prompt: String(prompt ?? "").trim() || null, retries: 0, note: "", renderJob: null, started: Date.now(), updated: Date.now() };
       autos.set(`${brand}/${video}`, a);
-      advance(brand, video); // if Claude is mid-run, it continues when that run ends
+      advance(brand, video); // if the Director is mid-run, it continues when that run ends
       return a;
     },
     reopenBrief(brand, video) {
       const s = load(brand, video);
       s.phase = "brief";
-      push(s, { role: "system", text: "Back to the brief — Claude won't build scenes until you approve again." });
+      push(s, { role: "system", text: "Back to the brief — the Director won't build scenes until you approve again." });
       save(brand, video, s);
     },
     reset(brand, video) {
-      if (busy(brand, video)) throw new Error("Stop Claude first.");
+      if (busy(brand, video)) throw new Error("Stop the Director first.");
       const old = load(brand, video);
       save(brand, video, { ...old, sessionId: null, messages: [] });
     },
@@ -796,7 +829,15 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       writeJson(brandFileOf(brand), { ...brandSettings(brand), ...patch });
     },
     runningCount: () => runs.size,
-    /** Is Claude working on this video (or, without a video, on any video of the brand)? */
+    /** The running video a sandbox ticket belongs to ({ brand, video }), or null. */
+    ticketRun(ticket) {
+      for (const [key, r] of runs) if (ticket && r.ticket === ticket) {
+        const [brand, video] = key.split("/");
+        return { brand, video };
+      }
+      return null;
+    },
+    /** Is the Director working on this video (or, without a video, on any video of the brand)? */
     isBusy: (brand, video) => (video ? busy(brand, video) : brandBusy(brand) || waiting.some((w) => w.brand === brand)),
     stopAll() {
       waiting.length = 0;

@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { findChrome } from "./chrome.mjs";
+import { remotionChrome } from "./chrome.mjs";
 
 /**
  * Frames rendered in parallel: up to 8, never more than this machine's cores (Remotion refuses more — e.g. a 4-core
@@ -15,7 +15,8 @@ export const CONCURRENCY = Math.max(1, Math.min(8, os.availableParallelism()));
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-export const browserExecutable = () => findChrome() || undefined;
+/** Remotion's browser override, if any (see remotionChrome); undefined lets Remotion use or download its own. */
+export const browserExecutable = () => remotionChrome() || undefined;
 
 /** Splits argv into positional args and --key=value flags. */
 export const parseArgs = (argv) => {

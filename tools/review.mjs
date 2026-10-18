@@ -6,13 +6,13 @@
 //
 // Usage: npm run review -- <brand> <video> [--format=vertical] [--strip=12.5,31] [--out=<dir>]
 //   Default output: .director/tmp/<brand>-<video>/review/ (the Director clears it after each run).
-import { renderStill } from "@remotion/renderer";
+import { renderFrames } from "@remotion/renderer";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { browserExecutable, CONCURRENCY, findCompositions, parseArgs, ROOT } from "./lib.mjs";
-import { CHROME_LINUX_ARGS, findChrome } from "./chrome.mjs";
+import { CHROME_ARGS, findChrome } from "./chrome.mjs";
 
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [brand, video] = pos;
@@ -26,11 +26,12 @@ const outDir = path.resolve(ROOT, typeof flags.out === "string" ? flags.out : pa
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 
-const chrome = findChrome();
+const chrome = findChrome(); // lays out the sheets
 if (!chrome) {
   console.error("No headless Chrome found — run `npm run setup`.");
   process.exit(1);
 }
+const browser = browserExecutable(); // Remotion's, for the frames
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
@@ -52,9 +53,9 @@ const sheet = (items, { cols, cellW, cellH, title }, out) => {
   const htmlFile = out.replace(/\.png$/, ".html");
   fs.writeFileSync(htmlFile, html);
   execFileSync(chrome, [
-    "--headless", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1", "--allow-file-access-from-files", ...CHROME_LINUX_ARGS,
+    "--headless", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1", "--allow-file-access-from-files", ...CHROME_ARGS,
     `--window-size=${W},${H}`, `--screenshot=${out}`, pathToFileURL(htmlFile).href,
-  ], { stdio: "ignore" });
+  ], { stdio: "ignore", timeout: 120000 }); // a hung Chrome must not freeze the critique loop
   fs.rmSync(htmlFile);
   return out;
 };
@@ -79,20 +80,13 @@ for (const { composition: comp, format: f } of compositions) {
   const frameDir = path.join(outDir, `frames-${f}`);
   fs.mkdirSync(frameDir, { recursive: true });
   process.stdout.write(`${comp.id}: rendering ${frames.length} frames at phone size… `);
-  const browser = browserExecutable();
-  const queue = [...frames];
-  const workers = Array.from({ length: Math.min(4, CONCURRENCY) }, async () => {
-    while (queue.length) {
-      const fr = queue.shift();
-      const output = path.join(frameDir, `f-${fr}.jpg`);
-      await renderStill({
-        serveUrl, composition: comp, frame: fr, output,
-        imageFormat: "jpeg", jpegQuality: 85, scale,
-        ...(browser ? { browserExecutable: browser } : {}),
-      });
-    }
+  // One browser for all frames (a renderStill per frame would launch Chrome every time).
+  await renderFrames({
+    serveUrl, composition: comp, inputProps: comp.props, frames, outputDir: frameDir,
+    imageFormat: "jpeg", jpegQuality: 85, scale, concurrency: Math.min(4, CONCURRENCY),
+    imageSequencePattern: "f-[frame].[ext]", onStart: () => {}, onFrameUpdate: () => {},
+    ...(browser ? { browserExecutable: browser } : {}),
   });
-  await Promise.all(workers);
   console.log("done");
   const fileOf = (fr) => {
     const hit = fs.readdirSync(frameDir).find((n) => Number(n.match(/(\d+)/)?.[1]) === fr);

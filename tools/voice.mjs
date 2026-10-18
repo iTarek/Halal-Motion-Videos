@@ -27,6 +27,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { readSettings, ROOT } from "./settings.mjs";
+import { viaDashboard } from "./broker.mjs";
+
+await viaDashboard("voice"); // inside the Director's sandbox the key is hidden: the dashboard runs it
 
 const API = "https://api.elevenlabs.io/v1";
 const NAME = /^[a-z][a-z0-9-]*$/;

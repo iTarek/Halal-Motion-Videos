@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
-import { findChrome } from "./chrome.mjs";
+import { remotionChrome } from "./chrome.mjs";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const MIN_NODE = 22;
@@ -27,8 +27,6 @@ export const pythonBin = () => {
   const venv = path.join(ROOT, ".venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
   return fs.existsSync(venv) ? venv : (process.platform === "win32" ? "python" : "python3");
 };
-
-const remotionBrowser = () => !!findChrome();
 
 const settingsHaveKey = () => {
   if (process.env.ELEVENLABS_API_KEY) return true;
@@ -108,7 +106,7 @@ export const checks = () => {
   const deps = fs.existsSync(path.join(ROOT, "node_modules", "remotion")) && fs.existsSync(path.join(ROOT, "node_modules", "@remotion", "renderer"));
   add({ id: "deps", label: "npm packages", required: true, ok: deps, detail: deps ? "installed" : "missing", needs: "everything", fix: "Run `npm install`." });
 
-  const browser = remotionBrowser();
+  const browser = !!remotionChrome(); // Remotion's own, or $REMOTION_CHROME_BIN
   add({
     id: "browser", label: "Remotion's headless Chrome", required: true, ok: browser, detail: browser ? "installed" : "missing",
     needs: "rendering, stills, screenshots", fix: "Run `npx remotion browser ensure`.",

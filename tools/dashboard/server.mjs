@@ -12,19 +12,21 @@ import { createDirector } from "./director.mjs";
 import { deleteStyle, saveStyle } from "../styles.mjs";
 import { checks as systemChecks, antigravityStatus, claudeStatus, codexStatus } from "../doctor.mjs";
 import { fixAudio } from "../audiofix.mjs";
+import { checkToolRequest } from "../broker.mjs";
 
-// Is an AI engine usable for Director (Claude Code or Codex CLI)?
+// Is each Director engine installed and logged in? Cached for the page's polling: every check spawns the CLI.
+const ENGINE_STATUS = { claude: claudeStatus, codex: codexStatus, antigravity: antigravityStatus };
 let engineCache = { at: 0, value: null };
-const aiEngineReady = (fresh = false) => {
-  if (fresh || !engineCache.value || Date.now() - engineCache.at > 30000) {
-    const claude = claudeStatus();
-    const codex = codexStatus();
-    const antigravity = antigravityStatus();
-    const ok = claude.ok || codex.ok || antigravity.ok;
-    const active = claude.ok ? "claude" : codex.ok ? "codex" : antigravity.ok ? "antigravity" : null;
-    engineCache = { at: Date.now(), value: { ok, claude, codex, antigravity, active } };
-  }
+const enginesReady = () => {
+  if (!engineCache.value || Date.now() - engineCache.at > 30000)
+    engineCache = { at: Date.now(), value: Object.fromEntries(Object.entries(ENGINE_STATUS).map(([id, check]) => [id, check()])) };
   return engineCache.value;
+};
+/** Checks one engine now (before a run starts) and keeps the cache in step. */
+const engineReadyNow = (id) => {
+  const status = ENGINE_STATUS[id]?.() ?? { ok: false };
+  if (engineCache.value) engineCache.value[id] = status;
+  return status;
 };
 import { checkVoice, DEFAULT_VOICE_ID, readSettings, VOICE_MODELS, writeSettings } from "../settings.mjs";
 
@@ -38,9 +40,9 @@ const PORT = Number(process.env.PORT ?? 4000);
 const STUDIO_PORT = Number(process.env.STUDIO_PORT ?? 3000);
 const NAME = /^[a-z][a-z0-9-]*$/;
 let creating = Promise.resolve(); // POST /api/new runs one at a time
-const AGENT_API = 1; // bump when tools/video.mjs needs something new from this server
+const AGENT_API = 2; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine)
 // The autopilot queues a render when a build ends (renderJob is defined below; called later, at run time).
-const director = createDirector({ root: ROOT, brandsDir: BRANDS, onBuilt: (brand, video, opts) => renderJob({ brand, video, ...opts }).id });
+const director = createDirector({ root: ROOT, brandsDir: BRANDS, dashboardUrl: `http://127.0.0.1:${PORT}`, onBuilt: (brand, video, opts) => renderJob({ brand, video, ...opts }).id });
 
 // Uploaded files are sorted into folders by type.
 const KIND = [
@@ -373,20 +375,41 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // ---- voice and shot for a sandboxed Director (Codex on macOS): its sandbox hides the ElevenLabs key and the browser
+    // profiles, so the tools ask here (tools/broker.mjs). The ticket ties a request to its running video.
+    if (req.method === "POST" && p === "/api/director/tool") {
+      const q = await readBody(req);
+      const run = director.ticketRun(String(q.ticket ?? ""));
+      if (!run) return send(res, 403, { error: "No Director run has that ticket." });
+      let args;
+      try {
+        args = checkToolRequest(q.tool, q.args, run);
+      } catch (e) {
+        return send(res, 400, { error: e.message });
+      }
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", Trailer: "X-Exit-Code" });
+      const child = spawn(process.execPath, [path.join(ROOT, "tools", `${q.tool}.mjs`), ...args], { cwd: ROOT, env: process.env });
+      child.stdout.pipe(res, { end: false });
+      child.stderr.pipe(res, { end: false });
+      res.on("close", () => child.exitCode === null && child.kill("SIGTERM")); // the Director was stopped
+      child.on("error", (e) => res.write(`${e.message}\n`));
+      child.on("close", (code) => {
+        res.addTrailers({ "X-Exit-Code": String(code ?? 1) });
+        res.end();
+      });
+      return;
+    }
+
     // ---- Director (Claude chat per video)
     if (p.startsWith("/api/director")) {
       const q = req.method === "GET" ? Object.fromEntries(url.searchParams) : await readBody(req);
       if (!validVideo(q.brand, q.video)) return send(res, 400, { error: "Unknown video." });
       const { brand, video } = q;
       const action = p.slice("/api/director".length);
-      if (req.method === "GET" && action === "") {
-        const eng = aiEngineReady();
-        const state = director.state(brand, video);
-        return send(res, 200, { ...state, claude: eng.claude, codex: eng.codex, antigravity: eng.antigravity, activeEngine: state.engine });
-      }
+      if (req.method === "GET" && action === "") return send(res, 200, { ...director.state(brand, video), ...enginesReady() });
       if (["/send", "/approve", "/autopilot"].includes(action)) {
         const engine = director.state(brand, video).engine;
-        if (!aiEngineReady(true)[engine]?.ok)
+        if (!engineReadyNow(engine).ok)
           return send(res, 409, { error: `The selected Director engine (${engine}) is not ready. Install it and log in, or choose another engine.` });
       }
       if (req.method !== "POST") return send(res, 404, { error: "not found" });

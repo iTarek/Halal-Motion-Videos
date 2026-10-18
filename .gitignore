@@ -19,9 +19,3 @@ styles/library.json
 
 # Items restored from the Linux Trash come back here
 restored-from-trash/
-
-# Release archives and binary documentation
-releases/
-*.docx
-pr-description.md
-

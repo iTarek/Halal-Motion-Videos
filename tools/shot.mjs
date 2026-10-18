@@ -1,5 +1,5 @@
 // Real screenshots of a live site or web app, in a headless Chrome driven over the DevTools protocol.
-// No extra installs: uses Remotion's bundled chrome-headless-shell, else a system Chrome/Chromium (macOS or Linux; CHROME_PATH overrides).
+// No extra installs: uses Remotion's bundled chrome-headless-shell, else a system Chrome/Chromium (Windows, macOS or Linux; CHROME_PATH overrides).
 //
 // Usage:
 //   npm run shot -- <brand> [<video>]                         every shot in shots.json (brand: src/brands/<brand>/brand/shots.json)
@@ -40,7 +40,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { ROOT } from "./settings.mjs";
-import { CHROME_LINUX_ARGS, findChrome } from "./chrome.mjs";
+import { CHROME_ARGS, findChrome } from "./chrome.mjs";
+import { viaDashboard } from "./broker.mjs";
+
+await viaDashboard("shot"); // inside the Director's sandbox the browser profiles are hidden: the dashboard runs it
 
 const NAME = /^[a-z][a-z0-9-]*$/;
 const SHOT_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
@@ -102,6 +105,23 @@ const UA = {
   mobile: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
 };
 
+// Every shot's page and device, checked before Chrome starts: a failure later would leave it running.
+const urlOf = (shot) => {
+  let url = shot.url ?? recipe.url;
+  if (!url) fail(`Shot "${shot.id}" has no url (set "url" at the top of shots.json).`);
+  if (shot.path) {
+    try {
+      url = new URL(shot.path, url).href;
+    } catch {
+      fail(`Shot "${shot.id}": "${url}" isn't a full address (https://…).`);
+    }
+  }
+  // websites only: a file:// page would screenshot local files (e.g. the API keys in .director/settings.json)
+  if (!/^https?:\/\//i.test(url)) fail(`Shot "${shot.id}": ${url} isn't a web address (http or https).`);
+  return url;
+};
+const plan = shots.map((shot) => ({ shot, url: urlOf(shot), dev: deviceOf(shot.device ?? recipe.device) }));
+
 // ---- browser
 const findChromeOrFail = () => findChrome() ?? fail("No Chrome found — run `npm run setup`, or set CHROME_PATH to a Chrome/Chromium binary.");
 
@@ -111,7 +131,7 @@ fs.mkdirSync(profile, { recursive: true });
 const chrome = spawn(findChromeOrFail(), [
   "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check",
   "--hide-scrollbars", "--mute-audio", "--disable-extensions", "--disable-background-networking", "--force-color-profile=srgb",
-  ...CHROME_LINUX_ARGS,
+  ...CHROME_ARGS,
 ], { stdio: ["ignore", "ignore", "pipe"] });
 const removeProfile = () => {
   if (!flags.fresh) return; // the per-brand profile is kept on purpose
@@ -246,11 +266,7 @@ const runStep = async (s, step) => {
 // ---- take the shots
 fs.mkdirSync(outDir, { recursive: true });
 let failed = 0;
-for (const shot of shots) {
-  const dev = deviceOf(shot.device ?? recipe.device);
-  let url = shot.url ?? recipe.url;
-  if (!url) fail(`Shot "${shot.id}" has no url (set "url" at the top of shots.json).`);
-  if (shot.path) url = new URL(shot.path, url).href;
+for (const { shot, url, dev } of plan) {
   const { targetId } = await send("Target.createTarget", { url: "about:blank" });
   const { sessionId: s } = await send("Target.attachToTarget", { targetId, flatten: true });
   try {

@@ -18,7 +18,7 @@ const remove = process.argv.includes("--remove");
 
 const hermes = path.join(home, ".hermes", "skills");
 const targets = [
-  { agent: "Antigravity", dir: path.join(home, ".gemini", "config", "skills"), always: true },
+  { agent: "Antigravity", dir: path.join(home, ".gemini", "config", "skills"), when: path.join(home, ".gemini") },
   { agent: "Antigravity CLI", dir: path.join(home, ".gemini", "antigravity-cli", "skills"), when: path.join(home, ".gemini", "antigravity-cli") },
   { agent: "Codex", dir: path.join(home, ".codex", "skills"), when: path.join(home, ".codex") },
   { agent: "OpenClaw, other agents", dir: path.join(home, ".agents", "skills"), always: true },

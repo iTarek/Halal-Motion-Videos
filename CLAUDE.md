@@ -20,7 +20,7 @@ npm run doctor    # system check (also in the dashboard → Settings)
 npm start         # dashboard → http://localhost:4000
 ```
 
-The Antigravity Director launches with `--dangerously-skip-permissions`: tool permission requests are automatically approved for that process, including shell commands and file writes. This does not change global CLI settings or override operating-system access restrictions. The Director must still follow the project rules below. For standalone CLI runs with scoped permissions instead, `npm run antigravity-permissions` adds the project's video command rules to global settings, preserving existing deny/ask rules and a backup. A denied tool or an empty result appears as an error in the Director, even if the CLI reports `SUCCESS`.
+The Codex and Antigravity Directors launch with their own permission checks off (`--dangerously-bypass-approvals-and-sandbox`, `--dangerously-skip-permissions`). On macOS the dashboard's sandbox takes Codex's place (see Director below); Antigravity, and Codex on Linux and Windows, run unrestricted. For standalone CLI runs with scoped permissions instead, `npm run antigravity-permissions` adds the project's video command rules to global settings, preserving existing deny/ask rules and a backup. A denied tool or an empty result appears as an error in the Director, even if the CLI reports `SUCCESS`.
 
 | Needs | For | Installed by `setup`? |
 | --- | --- | --- |
@@ -133,12 +133,20 @@ Each video page has a **Director** chat. It runs Claude Code headless in this re
 - **Step 1 of 3 · Brief:** Claude fills the brand kit (if it's still the starter) and `BRIEF.md`, then stops. The page shows **Approve brief**.
 - **Step 2 of 3 · Storyboard:** Claude captures the real product and builds the look, then renders **4 key frames** (hook, key feature, climax, end card) into `out/<brand>/<video>/storyboard/` and stops. The page shows them with **Approve storyboard & build**; a wrong look costs minutes here, not a whole build.
 - **Step 3 of 3 · Build:** Claude builds the whole video in that look: sound, voice-over, every scene. It runs `npm run typecheck`, then the **critique loop** (below) until every score is 8+.
-- **Allowed without asking:**
+- **Engine:** Claude Code by default. Codex or Antigravity runs only when picked (video page or `--engine=`), never as a silent fallback.
+- **Allowed without asking** (Claude's permission rules; Codex gets the sandbox below instead):
   - Read, edit and search files in the repo; web fetch and search.
   - Download assets with `curl`.
   - `npm run copy-asset`, `shot`, `sfx`, `voice`, `stills`, `typecheck`; `npm install`.
   - Basic file commands: `ls`, `mkdir`, `cp`, `file`, `sips` (macOS), `ffprobe`, `unzip`.
   - Everything else is denied: no git, no MP4 renders, never `.director/settings.json` or the browser profiles.
+- **Sandbox for Codex (macOS):** it brings no permission rules, so `tools/dashboard/sandbox.mjs` runs it under `sandbox-exec`.
+  - **Writes:** only inside the repo, never `.git`, `.director/settings.json`, the browser profiles or MP4s in `out/`. The product folder stays read-only.
+  - **Reads:** never `.director/settings.json` or `.director/browser/`; nothing in the home folder beyond the repo, the product folder and the tools it runs.
+  - **`voice` and `shot`:** they need the key or a browser profile, so the dashboard runs them for the run (`tools/broker.mjs`, with a per-run ticket): this video and its brand kit only, web addresses only.
+  - **Login:** Codex keeps it in `~/.codex/auth.json`; the sandbox opens that folder, so Codex can read its own login (it needs it), but no other app's: the Keychain stays closed.
+  - **Linux and Windows:** no such sandbox. There Codex runs unrestricted and the page shows a "No guardrails" note.
+- **Antigravity runs unsandboxed everywhere** (with the "No guardrails" note): it reads its sign-in from the macOS Keychain through the `security` tool, and opening that to a sandbox would also open every password saved through the tool, e.g. GitHub CLI's token.
 - **One video per brand at a time:** videos of one brand share its kit (BRAND.md, theme, brand sounds) and its screenshot browser profile.
   - A second video of the same brand waits ("Waiting for …"), and the two take turns, one step each.
   - Different brands run in parallel.

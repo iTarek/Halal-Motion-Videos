@@ -593,7 +593,13 @@ const api = async (path, body) => {
 };
 const hue = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 17);
 const fmtSize = (b) => b > 1e6 ? (b / 1e6).toFixed(1) + " MB" : Math.round(b / 1e3) + " KB";
-const fmtTime = (ms) => new Date(ms).toLocaleString(window.dashboardI18n.language, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const fmtTime = (ms) => new Date(ms).toLocaleString(window.dashboardI18n.language === "ar" ? "ar" : [], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+// The dashboard runs on this machine, so the browser's OS is the server's: the project-folder example and tip match it.
+const FOLDER_HINT = {
+  mac: { example: "/Users/you/Projects/MyApp", tip: "Tip: in Finder, select the folder and press ⌥⌘C to copy its path." },
+  win: { example: "C:\\Projects\\MyApp", tip: "Tip: in File Explorer, Shift+right-click the folder and choose Copy as path." },
+  linux: { example: "/home/you/Projects/MyApp", tip: "Copy the folder path from your file manager." },
+}[((p) => /mac/i.test(p) ? "mac" : /win/i.test(p) ? "win" : "linux")(navigator.userAgentData?.platform || navigator.platform)];
 const fmtDur = (ms) => { const s = Math.round(ms / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`; };
 
 // ---- tiny markdown for BRIEF / README / BRAND
@@ -782,7 +788,7 @@ function renderDirector() {
     st = `<div class="approve"><div class="t"><b>Brief ready for review</b><span>Read it under Docs below, then approve — or reply with changes. Next, the Director shows you 4 key frames before building everything.</span></div><button class="primary" data-dir="approve">${icon("check")}Approve brief</button></div>`;
   else if (dir.phase === "storyboard" && !dir.running && dir.storyboard?.length)
     st = `<div class="approve storyboard">
-      <div class="t"><b>Storyboard ready: ${dir.storyboard.length} key frames</b><span>Is this the right look? Approve and The Director builds the whole video in this style, or reply with changes.</span></div>
+      <div class="t"><b>Storyboard ready: ${dir.storyboard.length} key frames</b><span>Is this the right look? Approve and the Director builds the whole video in this style, or reply with changes.</span></div>
       <button class="primary" data-dir="approve">${icon("check")}Approve storyboard & build</button>
       <div class="sb-frames">${dir.storyboard.map((f) => `<a href="${f.url}" target="_blank" title="${esc(f.name)}"><img src="${f.url}" alt="${esc(f.name)}" /><span>${(f.frame / 30).toFixed(1)} s · ${esc(f.name.split("-")[0])}</span></a>`).join("")}</div>
     </div>`;
@@ -799,9 +805,13 @@ function renderDirector() {
     st = `<div class="no-claude">
       <b>The selected Director engine is not ready</b>
       <span>Codex CLI, Claude Code CLI or Antigravity CLI is required to power the AI Director.</span>
+      ${dir[dir.engine]?.fix ? `<span>→ ${code(dir[dir.engine].fix)}</span>` : ""}
       <span class="muted-note">Install and log in to Codex CLI, Claude Code or Antigravity CLI. Everything else here works without it: Preview, Render, screenshots, sound design and voice-over (from the command line).</span>
     </div>` + st;
   }
+  // An engine with no permission rules that the dashboard doesn't sandbox (Antigravity; Codex on Linux and Windows): say so.
+  if (dir.engine !== "claude" && !dir.sandboxed)
+    st += `<div class="autopilot"><b>No guardrails</b><span> · this engine runs without Claude's limits: it can read your API keys, run git and change files outside this repo. Pick Claude Code for the safe default.</span></div>`;
   $("#dirStatus").innerHTML = st;
   $("#sendBtn").disabled = dir.running || !engineOk;
   $("#prompt").disabled = !engineOk;
@@ -812,7 +822,7 @@ function renderDirector() {
   $("#effortSeg").innerHTML = Object.entries(dir.efforts)
     .map(([k, label]) => `<button type="button" data-effort="${k}" class="${k === effort ? "on" : ""}">${esc(label)}</button>`).join("");
   const engineSelect = $("#engineSelect");
-  engineSelect.innerHTML = ["codex", "claude", "antigravity"].map(engine => `<option value="${engine}" ${dir.engine === engine ? "selected" : ""}>${{codex:"Codex (ChatGPT)",claude:"Claude Code",antigravity:"Antigravity"}[engine]}</option>`).join("");
+  engineSelect.innerHTML = ["claude", "codex", "antigravity"].map(engine => `<option value="${engine}" ${dir.engine === engine ? "selected" : ""}>${{codex:"Codex (ChatGPT)",claude:"Claude Code",antigravity:"Antigravity"}[engine]}</option>`).join("");
   engineSelect.disabled = dir.running || dir.waiting || dir.autopilot?.status === "running";
   engineSelect.onchange = async e => {
     try { dir = await api("/api/director/engine", { ...sel, engine: e.target.value }); renderDirector(); toast("Engine changed"); }
@@ -847,11 +857,11 @@ function renderMaterials() {
     </div>
     <div class="field" style="margin-top:8px">
       <span class="flabel">${icon("folder")}Project folder</span>
-      <input id="folderInput" placeholder="C:\\Projects\\MyApp" value="${esc(dir.folder || "")}" spellcheck="false" />
+      <input id="folderInput" placeholder="${esc(FOLDER_HINT.example)}" value="${esc(dir.folder || "")}" spellcheck="false" />
       <button id="folderSave">Save</button>
       ${dir.folderOk ? `<button class="ghost" data-reveal="project" title="Open in file manager">Open</button>` : ""}
     </div>
-    <div class="muted-note" style="margin:6px 0 0 118px;font-size:11.5px">${dir.folder && !dir.folderOk ? `<span style="color:var(--bad)">That folder isn't there anymore.</span> ` : ""}The Director can read it and copy assets out — never changes it. Copy the folder path from your file manager.</div>
+    <div class="muted-note" style="margin:6px 0 0 118px;font-size:11.5px">${dir.folder && !dir.folderOk ? `<span style="color:var(--bad)">That folder isn't there anymore.</span> ` : ""}<span>The Director can read it and copy assets out — never changes it.</span> <span>${FOLDER_HINT.tip}</span></div>
     <div class="drop-bar">
       <span class="muted-note">Upload to</span>
       <div class="seg">

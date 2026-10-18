@@ -11,10 +11,10 @@ for (const engine of ['codex','antigravity','claude']) test(`make selects ${engi
     const body=raw?JSON.parse(raw):{};
     const url=new URL(req.url,'http://localhost');
     let data;
-    if(url.pathname==='/api/state') data={agentApi:1,brands:[{brand:'demo',videos:[{video:'video01',outputs:{videos:[]}}]}],jobs:[]};
+    if(url.pathname==='/api/state') data={agentApi:2,brands:[{brand:'demo',videos:[{video:'video01',outputs:{videos:[]}}]}],jobs:[]};
     else if(url.pathname==='/api/director/engine'){selected=body.engine;data={ok:true};}
     else if(url.pathname==='/api/director/autopilot'){started=true;data={ok:true};}
-    else if(url.pathname==='/api/director') data={engine:selected,activeEngine:'claude',claude:{ok:engine==='claude',fix:'not installed'},codex:{ok:engine==='codex'},antigravity:{ok:engine==='antigravity'},phase:'brief',messages:[],storyboard:[],styles:[],voice:{length:10},autopilot:started?{status:'running'}:null};
+    else if(url.pathname==='/api/director') data={engine:selected,claude:{ok:engine==='claude',fix:'not installed'},codex:{ok:engine==='codex'},antigravity:{ok:engine==='antigravity'},phase:'brief',messages:[],storyboard:[],styles:[],voice:{length:10},autopilot:started?{status:'running'}:null};
     else {res.statusCode=404;data={error:url.pathname};}
     res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));
   });

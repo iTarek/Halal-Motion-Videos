@@ -63,7 +63,7 @@ const up = async () => {
     return false;
   }
 };
-const AGENT_API = 1; // must match the server's (tools/dashboard/server.mjs)
+const AGENT_API = 2; // must match the server's (tools/dashboard/server.mjs). 2: --engine (/api/director/engine)
 const ensureServer = async () => {
   if (await up()) {
     const { agentApi } = await (await fetch(`${BASE}/api/state`)).json();
@@ -137,7 +137,7 @@ const statusOf = async (brand, video) => {
     running: d.running, activity: d.step,
     waiting: !!d.waiting, // queued behind another video of the same brand (they take turns, one step each)
     autopilot: d.autopilot,
-    engine: d.engine || d.activeEngine || (d.codex?.ok ? "codex" : "claude"),
+    engine: d.engine || "claude",
     claude: d.claude?.ok ? "ok" : d.claude?.fix ?? "unknown",
     codex: d.codex?.ok ? "ok" : d.codex?.fix ?? "unknown",
     antigravity: d.antigravity?.ok ? "ok" : d.antigravity?.fix ?? "unknown",

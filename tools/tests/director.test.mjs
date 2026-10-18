@@ -6,8 +6,9 @@ import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { createDirector } from '../dashboard/director.mjs';
+import { canSandbox, SANDBOX_EXEC } from '../dashboard/sandbox.mjs';
 
-function fixture(t, engine) {
+function fixture(t, engine, failSpawn) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hmv-director-'));
   t.after(() => {
     assert.ok(path.resolve(root).startsWith(path.resolve(os.tmpdir()) + path.sep));
@@ -17,14 +18,68 @@ function fixture(t, engine) {
   fs.writeFileSync(path.join(root,'src/brands/demo/video01/index.ts'), 'export const formats = ["vertical", "horizontal"];');
   const calls=[];
   const spawnProcess=(bin,args,options)=>{
+    if (failSpawn) throw new Error('spawn EINVAL');
     const p=new EventEmitter(); p.stdin=new PassThrough();p.stdout=new PassThrough();p.stderr=new PassThrough();p.kill=()=>{};
     calls.push({bin,args,options,p});return p;
   };
   const director=createDirector({root,brandsDir:path.join(root,'src/brands'),onBuilt:()=>{},spawnProcess});
-  director.setEngine('demo','video01',engine);
+  if (engine) director.setEngine('demo','video01',engine);
   return {director,calls,root};
 }
 const event=(p,e)=>p.stdout.write(JSON.stringify(e)+'\n');
+
+test('Without a picked engine the Director runs Claude with its guardrails, never another CLI',t=>{
+  const {director,calls}=fixture(t);
+  assert.equal(director.state('demo','video01').engine,'claude');
+  director.send('demo','video01','Hello');
+  assert.equal(calls[0].bin,process.env.CLAUDE_BIN||'claude');
+  assert.ok(calls[0].args.includes('--allowedTools') && calls[0].args.includes('--disallowedTools'));
+  calls[0].p.emit('close',0);
+});
+
+test('On macOS Codex runs in the sandbox, with a ticket that works only while it runs',{skip:!canSandbox()&&'macOS only'},t=>{
+  const saved=process.env.ELEVENLABS_API_KEY; process.env.ELEVENLABS_API_KEY='secret';
+  t.after(()=>{ if (saved===undefined) delete process.env.ELEVENLABS_API_KEY; else process.env.ELEVENLABS_API_KEY=saved; });
+  const {director,calls}=fixture(t,'codex');
+  director.send('demo','video01','Hello');
+  const {bin,args,options}=calls[0];
+  assert.equal(bin,SANDBOX_EXEC);assert.equal(args[0],'-p');
+  assert.equal(options.env.ELEVENLABS_API_KEY,undefined);
+  const ticket=options.env.HMV_TICKET;
+  assert.match(ticket,/^[0-9a-f]{32}$/);
+  assert.deepEqual(director.ticketRun(ticket),{brand:'demo',video:'video01'});
+  assert.equal(director.ticketRun('nope'),null);
+  assert.equal(director.state('demo','video01').sandboxed,true);
+  calls[0].p.emit('close',0);
+  assert.equal(director.ticketRun(ticket),null);
+});
+
+test('Antigravity runs as it is, outside the sandbox, so the page warns about it',t=>{
+  const {director,calls}=fixture(t,'antigravity');
+  director.send('demo','video01','Hello');
+  assert.notEqual(calls[0].bin,SANDBOX_EXEC);
+  assert.equal(calls[0].options.env.HMV_TICKET,undefined);
+  assert.equal(director.state('demo','video01').sandboxed,false);
+  calls[0].p.emit('close',0);
+});
+
+test('A Director that fails to launch is not left working',t=>{
+  const {director}=fixture(t,'codex',true);
+  assert.throws(()=>director.send('demo','video01','Hello'),/EINVAL/);
+  assert.equal(director.state('demo','video01').running,false);
+});
+
+test('Codex steps show each command once and the files a patch changed',t=>{
+  const {director,calls}=fixture(t,'codex');
+  director.send('demo','video01','Build');
+  const p=calls[0].p;
+  event(p,{type:'item.started',item:{type:'command_execution',command:'npm run typecheck'}});
+  event(p,{type:'item.completed',item:{type:'command_execution',command:'npm run typecheck',exit_code:0}});
+  event(p,{type:'item.completed',item:{type:'file_change',changes:[{path:'src/brands/demo/video01/copy.ts',kind:'update'},{path:'src/brands/demo/video01/timeline.ts',kind:'update'}]}});
+  p.emit('close',0);
+  const steps=director.state('demo','video01').messages.filter(m=>m.role==='step').map(m=>m.text);
+  assert.deepEqual(steps,['Typechecking',`Editing ${path.join('src','brands','demo','video01','copy.ts')} (+1 more)`]);
+});
 
 test('Codex startup permissions show actionable guidance and keep an existing session',t=>{
   const {director,calls}=fixture(t,'codex');
