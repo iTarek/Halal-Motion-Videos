@@ -63,7 +63,7 @@ const up = async () => {
     return false;
   }
 };
-const AGENT_API = 2; // must match the server's (tools/dashboard/server.mjs). 2: --engine (/api/director/engine)
+const AGENT_API = 3; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters, new Director prompt
 const ensureServer = async () => {
   if (await up()) {
     const { agentApi } = await (await fetch(`${BASE}/api/state`)).json();
@@ -143,9 +143,12 @@ const statusOf = async (brand, video) => {
     antigravity: d.antigravity?.ok ? "ok" : d.antigravity?.fix ?? "unknown",
     lastReply: lastReply(d),
     brief: d.briefExists ? path.join(ROOT, "src", "brands", brand, video, "BRIEF.md") : null,
+    share: v?.share ? path.join(ROOT, "src", "brands", brand, video, "SHARE.md") : null, // the post caption
     storyboard: d.storyboard.map((f) => path.join(ROOT, "out", brand, video, "storyboard", f.name)),
     render,
     outputs: (v?.outputs.videos ?? []).map((o) => path.join(ROOT, "out", brand, video, o.rel)),
+    // the cover images: a render with a poster frame saves one per format (the same picture is the MP4's frame 0)
+    posters: (v?.outputs.stills ?? []).filter((o) => o.name.endsWith("-poster.jpg")).map((o) => path.join(ROOT, "out", brand, video, o.rel)),
     mp4: render?.status === "done" ? render.files : [], // what the latest render made
     settings: {
       format: d.formats, length: d.voice.length, language: d.voice.videoLanguage, voiceLanguage: d.voice.voiceLanguage,
@@ -160,11 +163,13 @@ const printStatus = (st, code = 0) =>
     [
       `${st.brand}/${st.video} · step: ${st.step}${st.running ? ` · working: ${st.activity}` : ""}${st.autopilot ? ` · autopilot: ${st.autopilot.status}` : ""}`,
       st.autopilot?.note ? `  ${st.autopilot.note}` : "",
-      st.lastReply ? `\nClaude:\n${st.lastReply}\n` : "",
+      st.lastReply ? `\nDirector:\n${st.lastReply}\n` : "",
       st.brief ? `Brief: ${st.brief}` : "",
       st.storyboard.length ? `Storyboard frames:\n${st.storyboard.map((f) => `  ${f}`).join("\n")}` : "",
       st.render ? `Render: job ${st.render.job} · ${st.render.status} · ${st.render.progress}%` : "",
       st.outputs.length ? `Outputs:\n${st.outputs.map((f) => `  ${f}`).join("\n")}` : "",
+      st.share ? `Caption: ${st.share}` : "",
+      st.posters.length ? `Posters:\n${st.posters.map((f) => `  ${f}`).join("\n")}` : "",
       `\nNext: ${st.next}`,
       st.mp4.length ? `\n${st.mp4.map((f) => `MP4: ${f}`).join("\n")}` : "", // last, so `tail -1` finds it
     ].filter(Boolean).join("\n"),

@@ -120,6 +120,8 @@
     'Created':'تم الإنشاء','AI engine':'محرك الذكاء الاصطناعي','Change engine':'تغيير المحرك','Engine changed':'تم تغيير المحرك',
     'Settings — ElevenLabs voice-over':'الإعدادات — التعليق الصوتي عبر ElevenLabs',
     'No guardrails':'بلا حواجز أمان',
+    'Share':'نص المشاركة',
+    'Remotion skill (remotion-best-practices)':'مهارة Remotion ‏(remotion-best-practices)',"the Director's Remotion know-how":'خبرة المخرج في Remotion',
     'The Director can read it and copy assets out — never changes it.':'يقرأ المخرج المجلد وينسخ مواده دون تعديله.',
     'Tip: in Finder, select the folder and press ⌥⌘C to copy its path.':'تلميح: في Finder، حدّد المجلد واضغط ⁦⌥⌘C⁩ لنسخ مساره.', // ⁦…⁩ keeps the shortcut left-to-right
     'Tip: in File Explorer, Shift+right-click the folder and choose Copy as path.':'تلميح: في مستكشف الملفات، اضغط Shift مع زر الفأرة الأيمن على المجلد واختر Copy as path.',

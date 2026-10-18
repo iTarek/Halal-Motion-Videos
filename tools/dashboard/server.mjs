@@ -40,7 +40,7 @@ const PORT = Number(process.env.PORT ?? 4000);
 const STUDIO_PORT = Number(process.env.STUDIO_PORT ?? 3000);
 const NAME = /^[a-z][a-z0-9-]*$/;
 let creating = Promise.resolve(); // POST /api/new runs one at a time
-const AGENT_API = 2; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine)
+const AGENT_API = 3; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters)
 // The autopilot queues a render when a build ends (renderJob is defined below; called later, at run time).
 const director = createDirector({ root: ROOT, brandsDir: BRANDS, dashboardUrl: `http://127.0.0.1:${PORT}`, onBuilt: (brand, video, opts) => renderJob({ brand, video, ...opts }).id });
 
@@ -109,6 +109,7 @@ const listVideos = () =>
               video,
               formats: formatsOf(vd),
               doc: readIf(path.join(vd, "README.md")) ?? readIf(path.join(vd, "BRIEF.md")),
+              share: readIf(path.join(vd, "SHARE.md")), // the ready-to-post caption, written in the build step
               outputs: outputsOf(brand, video),
             };
           }),

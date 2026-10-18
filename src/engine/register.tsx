@@ -59,7 +59,7 @@ export const VideoCompositions: React.FC<{ videos: Video[] }> = ({ videos }) => 
                     key={format.name}
                     id={`${brand}-${video.id}-${format.name}`}
                     component={filmOf(video)}
-                    defaultProps={{ brand, video: video.id, format: format.name, subframe: 0 }}
+                    defaultProps={{ brand, video: video.id, format: format.name, cuts: video.cuts, poster: video.poster, subframe: 0 }}
                     durationInFrames={video.durationInFrames}
                     fps={video.fps}
                     width={format.width}

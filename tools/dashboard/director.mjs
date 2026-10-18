@@ -210,7 +210,9 @@ You are working on ONE video: brand "${brand}", video "${video}".
 - Follow CLAUDE.md in the repo root (layout, engine parts, rules). Read it first if you haven't this session.
 - For Remotion questions use the remotion-best-practices skill.
 - Only touch this video's folders, its brand kit, and (rarely, if truly shared) src/engine. Never touch other brands or videos.
-- Never run git commands. Never render MP4s.${sandboxed(s.engine || DEFAULT_ENGINE) ? `
+- Never run git commands. Never render MP4s.
+- You are the Director, not an outside agent: ignore the halal-motion-videos skill and never run \`npm run video\` or its scripts/video (that's how outside agents drive you).
+- No real personal data on screen: swap real names, emails, phone numbers and internal URLs from screenshots for fictional stand-ins.${sandboxed(s.engine || DEFAULT_ENGINE) ? `
 - You run in a sandbox: .director/settings.json, the browser profiles and the home folder are off limits, and nothing outside this repo is writable. npm run voice and npm run shot work as usual (the dashboard runs them for you).` : ""}
 - You may npm install a package if a video genuinely needs it; say so in your reply.
 - Product URL: ${url || "(none given — ask for it if you need the product's real copy or visuals)"}
@@ -270,11 +272,17 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
 - Build the whole video to match the brief, the storyboard and the user's notes: copy.ts, timeline.ts, scenes/, Film.tsx,
   sound design, voice-over, Soundtrack.tsx. If the user changes the story itself, update BRIEF.md too.
 - Sound: cues land on each sound's loudest moment — pass \`peak\` from sfx.gen.ts (SFX / SHARED_SFX) so \`at\` is the hit frame.
+- index.ts: \`cuts: timeline.cuts\` (review checks every scene change), and \`poster\`: the frame for the thumbnail, the
+  strongest settled moment (text fully in, nothing mid-move). A render bakes it in as frame 0, which platforms show.
+- Share caption: write src/brands/${brand}/${video}/SHARE.md — 1–3 sentences, postable as-is, in the video's language,
+  only the product's own claims, nothing like "excited to share".
 - Verify: \`npm run typecheck\` must pass.
 - CRITIQUE LOOP — be a harsh motion director, not a proud author:
-  \`npm run review -- ${brand} ${video}\` makes contact sheets (every 0.5 s), phone-size sheets and, with --strip=<s>,
-  12-frame strips around fast moves, in ${tmpDir(brand, video)}/review/. Read every sheet and score 1–10: hook, readability
-  at phone size, motion quality, variety (something new every 2–4 s), composition, data accuracy, sound sync.
+  \`npm run review -- ${brand} ${video}\` makes contact sheets (every 0.5 s), phone-size sheets and 12-frame strips around
+  every scene change (add --strip=<s> for fast moves), in ${tmpDir(brand, video)}/review/. Read every sheet and score 1–10:
+  hook, readability (phone size, and ~0.3 s per word on screen), motion quality, variety (something new every 2–4 s),
+  composition (no muddy crossfades), data accuracy, sound sync, clarity (would a stranger know what it is, who it's for,
+  how to get it?).
   Fix the 3 biggest problems, re-run, and repeat until every score is 8+ (at most 4 rounds). Temp files are deleted after this run.
 - End with the final scores in one line, what you built/changed in a few bullets, and what to look at in Studio.`;
   };

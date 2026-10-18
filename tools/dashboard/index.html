@@ -959,7 +959,7 @@ function renderRest() {
         ${outs.stills.map((o) => `<div class="out"><a href="${o.url}" target="_blank"><img src="${o.url}" alt="${esc(o.name)}" loading="lazy" /></a><div class="meta"><b>${esc(o.name)}</b><span>${fmtTime(o.mtime)}</span></div>${outActions(o)}</div>`).join("")}
       </div>` : `<div class="queue-empty">Nothing rendered yet — renders and stills show up here.</div>`}`;
 
-  const docs = [v.doc && ["brief", "Brief", v.doc], b.brandDoc && ["brand", "Brand kit", b.brandDoc]].filter(Boolean);
+  const docs = [v.doc && ["brief", "Brief", v.doc], v.share && ["share", "Share", v.share], b.brandDoc && ["brand", "Brand kit", b.brandDoc]].filter(Boolean);
   if (!docs.find((d) => d[0] === docTab) && docs.length) docTab = docs[0][0];
   const doc = docs.find((d) => d[0] === docTab);
   $("#rest").innerHTML = doc ? `<div class="card">
@@ -1002,7 +1002,7 @@ async function refresh() {
   if (!c) return;
   try { dir = await api(`/api/director?${q()}`); } catch { dir = null; }
   renderDirector(); renderStyle(); renderMaterials();
-  const rk = JSON.stringify([window.dashboardI18n.language, fmt, docTab, c.video.outputs, c.video.doc, c.brand.brandDoc]);
+  const rk = JSON.stringify([window.dashboardI18n.language, fmt, docTab, c.video.outputs, c.video.doc, c.video.share, c.brand.brandDoc]);
   if (rk !== restKey) {
     const quick = $("#quick")?.checked, blurOn = $("#blurOn")?.checked, frames = $("#stillFrames")?.value;
     restKey = rk; renderRest();

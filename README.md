@@ -8,7 +8,8 @@ Open the dashboard, describe the video, and a Claude-powered **Director** does t
 - captures **real screenshots** of your site or web app in a headless browser
 - designs **sound effects by code** (no samples, no stock library), landing each one on its peak
 - generates **voice-over** with ElevenLabs Eleven v4 (optional)
-- builds the scenes in React with springs and masked type, then **grades its own video** (hook, readability at phone size, motion, variety, composition, accuracy, sound sync) and fixes it until every score is 8/10+
+- builds the scenes in React with springs and masked type, then **grades its own video** (hook, readability at phone size, motion, variety, composition, accuracy, sound sync, clarity to a stranger) and fixes it until every score is 8/10+, checking every scene change frame by frame
+- delivers it **ready to post**: the best frame as the thumbnail (baked into frame 0, which X, Slack, Discord and WhatsApp show) and a caption to paste
 - optional **film look**: real motion blur on fast moves
 
 Every video belongs to a **brand** (an app or product), and one source renders every format: 9:16, 16:9, 1:1 and 4:5.

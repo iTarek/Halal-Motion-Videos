@@ -1,4 +1,5 @@
-// Renders a brand's videos to out/<brand>/<video>/<brand>-<video>-<format>.mp4 and masters the audio.
+// Renders a brand's videos to out/<brand>/<video>/<brand>-<video>-<format>.mp4 and masters the audio. A video with a
+// `poster` frame (its index.ts) also gets it as frame 0 — the thumbnail platforms show — and as stills/<name>-poster.jpg.
 // Usage: npm run render -- <brand> [video] [format] [--frames=0-89] [--blur[=8]]
 //   npm run render -- my-app                    every my-app video, every format
 //   npm run render -- my-app video01 vertical   one file
@@ -11,6 +12,7 @@ import path from "node:path";
 import { browserExecutable, CONCURRENCY, findCompositions, outDir, parseArgs, ROOT } from "./lib.mjs";
 import { describe, fixAudio } from "./audiofix.mjs";
 import { masterAudio } from "./master.mjs";
+import { bakePoster } from "./poster.mjs";
 
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [brand, video, format] = pos;
@@ -34,7 +36,16 @@ for (const { composition, brand: b, video: v, format: f } of compositions) {
   const final = path.join(dir, name);
   // Work on a hidden file and only reveal it when it's finished, so nobody opens a half-written video.
   const output = path.join(dir, `.${name}.rendering.mp4`);
+  // The thumbnail (tools/poster.mjs), checked before any rendering. A quick check (--frames) gets none.
+  const poster = frameRange ? undefined : composition.props.poster;
+  if (poster !== undefined && !(Number.isInteger(poster) && poster >= 0 && poster < composition.durationInFrames))
+    throw new Error(`${composition.id}: poster frame ${poster} isn't in the film (0–${composition.durationInFrames - 1}). Fix "poster" in its index.ts.`);
   const finish = () => {
+    masterAudio(output);
+    if (poster !== undefined) {
+      fs.mkdirSync(path.join(dir, "stills"), { recursive: true });
+      bakePoster(output, poster, path.join(dir, "stills", name.replace(/\.mp4$/, "-poster.jpg")));
+    }
     fs.renameSync(output, final);
     console.log(`saved ${path.relative(ROOT, final)}`);
   };
@@ -77,7 +88,6 @@ for (const { composition, brand: b, video: v, format: f } of compositions) {
       "-c:a", "aac", "-b:a", "320k", "-shortest", "-movflags", "+faststart", output,
     ], { stdio: "inherit" });
     fs.rmSync(tmp, { recursive: true, force: true });
-    masterAudio(output);
     finish();
     continue;
   }
@@ -91,6 +101,5 @@ for (const { composition, brand: b, video: v, format: f } of compositions) {
       if (pct !== last) console.log(`${composition.id}: ${(last = pct)}%`);
     },
   });
-  masterAudio(output);
   finish();
 }

@@ -24,6 +24,9 @@ export const buildTimeline = <K extends string>(
     total: at,
     keys,
     scenes,
+    /** Middle frame of each scene change (the `overlap` where one scene exits under the next): `npm run review`
+     *  checks a strip of frames around each one, where crossfades go muddy. */
+    cuts: keys.slice(1).map((k) => scenes[k].from + Math.floor(overlap / 2)),
     /** Sequence span for a scene, including the tail that overlaps the next one. */
     span: (k: K) => ({ from: scenes[k].from, durationInFrames: scenes[k].dur + (k === last ? 0 : overlap) }),
   };

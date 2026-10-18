@@ -41,7 +41,12 @@ export type Video = {
   theme: Theme;
   /** The film itself — one component for every format; scenes adapt with useLayout(). */
   Film: React.FC;
+  /** Scene changes to check frame by frame (timeline.cuts): `npm run review` adds a strip around each. */
+  cuts?: number[];
+  /** The thumbnail: the film's strongest settled frame (text fully in, not mid-move). `npm run render` saves it as a
+   *  JPG and copies it over frame 0, which X, Slack, Discord and WhatsApp show before the video plays. */
+  poster?: number;
 };
 
-/** Props every composition carries, so tools can find a video's compositions. */
-export type VideoMeta = { brand: string; video: string; format: string };
+/** Props every composition carries, so tools can find a video's compositions (and its cuts and poster). */
+export type VideoMeta = { brand: string; video: string; format: string; cuts?: number[]; poster?: number };

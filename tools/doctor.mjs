@@ -91,6 +91,18 @@ export const antigravityStatus = () => {
   return { ok: true, reason: "installed", authVerified: false, detail: "installed · sign-in checked on first run", fix: "Run `agy` once to sign in.", bin };
 };
 
+/** Where each Director engine looks for skills, in the home folder or this repo. */
+const SKILL_DIRS = {
+  "Claude Code": [".claude/skills"],
+  Codex: [".agents/skills", ".codex/skills"],
+  Antigravity: [".gemini/config/skills", ".gemini/antigravity-cli/skills"],
+};
+/** The engines that can see Remotion's best-practices skill. */
+export const remotionSkillFor = (home = os.homedir()) =>
+  Object.entries(SKILL_DIRS)
+    .filter(([, dirs]) => dirs.some((d) => [home, ROOT].some((base) => fs.existsSync(path.join(base, d, "remotion-best-practices", "SKILL.md")))))
+    .map(([engine]) => engine);
+
 /** Every check: { id, label, ok, required, detail, fix, needs } */
 export const checks = () => {
   const out = [];
@@ -145,6 +157,17 @@ export const checks = () => {
   });
   const agy = antigravityStatus();
   add({ id: "antigravity", label: "Antigravity CLI", required: false, ok: agy.ok, detail: agy.detail, needs: "the Director chat (Antigravity engine)", fix: agy.fix });
+
+  // The Director's prompt points every engine at Remotion's own best-practices skill, which isn't part of this repo.
+  const ready = [["Claude Code", cl.ok], ["Codex", cdx.ok], ["Antigravity", agy.ok]].filter(([, ok]) => ok).map(([name]) => name);
+  const has = remotionSkillFor();
+  const lacking = ready.filter((name) => !has.includes(name));
+  add({
+    id: "remotion-skill", label: "Remotion skill (remotion-best-practices)", required: false, ok: has.length > 0 && !lacking.length,
+    detail: has.length ? `for ${has.join(", ")}${lacking.length ? ` · missing for ${lacking.join(", ")}` : ""}` : "not installed",
+    needs: "the Director's Remotion know-how",
+    fix: "Run `npx skills add remotion-dev/skills --skill remotion-best-practices -g` (it installs for every agent it finds).",
+  });
 
   add({
     id: "elevenlabs", label: "ElevenLabs API key", required: false, ok: settingsHaveKey(), detail: settingsHaveKey() ? "saved" : "not set (optional)",

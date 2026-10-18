@@ -2,7 +2,8 @@
 // Renders frames, then lays them out as labelled sheets:
 //   contact-<format>-N.png  a frame every 0.5 s (2 per second), 24 per sheet — pacing, variety, composition
 //   phone-<format>-N.png    a frame every 2 s at real phone size (360 px wide) — can you read it on a phone?
-//   strip-<format>-<t>.png  12 frames in a row around second t — fast moves, glitches, blur, overlaps
+//   strip-<format>-<t>.png  12 frames in a row around every scene change (the video's `cuts`) and every --strip
+//                           second t — muddy crossfades, fast moves, glitches, blur, overlaps
 //
 // Usage: npm run review -- <brand> <video> [--format=vertical] [--strip=12.5,31] [--out=<dir>]
 //   Default output: .director/tmp/<brand>-<video>/review/ (the Director clears it after each run).
@@ -74,8 +75,13 @@ for (const { composition: comp, format: f } of compositions) {
   // frames every 0.5 s, plus the last one
   const every = Math.max(1, Math.round(fps / 2));
   const sampled = [...new Set([...Array.from({ length: Math.ceil(total / every) }, (_, i) => i * every), total - 1])].filter((x) => x < total);
-  const stripFrames = strips.flatMap((t) => Array.from({ length: 12 }, (_, i) => Math.round(t * fps) - 5 + i).filter((x) => x >= 0 && x < total));
-  const frames = [...new Set([...sampled, ...stripFrames])].sort((a, b) => a - b);
+  // strips: every scene change, then every --strip second (one strip when two land within 2 frames)
+  const centres = [
+    ...(comp.props.cuts ?? []).map((at) => ({ at, title: `scene change at ${(at / fps).toFixed(1)} s` })),
+    ...strips.map((t) => ({ at: Math.round(t * fps), title: `12 frames around ${t} s` })),
+  ].filter((c, i, all) => c.at >= 0 && c.at < total && all.findIndex((o) => Math.abs(o.at - c.at) <= 2) === i);
+  const stripOf = (at) => Array.from({ length: 12 }, (_, i) => at - 5 + i).filter((x) => x >= 0 && x < total);
+  const frames = [...new Set([...sampled, ...centres.flatMap((c) => stripOf(c.at))])].sort((a, b) => a - b);
 
   const frameDir = path.join(outDir, `frames-${f}`);
   fs.mkdirSync(frameDir, { recursive: true });
@@ -110,13 +116,10 @@ for (const { composition: comp, format: f } of compositions) {
       path.join(outDir, `phone-${f}-${i + 1}.png`)));
   });
 
-  // strips: 12 consecutive frames around each requested second
-  for (const t of strips) {
-    const group = Array.from({ length: 12 }, (_, i) => Math.round(t * fps) - 5 + i).filter((x) => x >= 0 && x < total);
-    made.push(sheet(group.map((fr) => ({ file: fileOf(fr), label: `#${fr} · ${(fr / fps).toFixed(2)} s` })),
-      { cols: 6, cellW: portrait ? 180 : 300, cellH: portrait ? 320 : 169, title: `${comp.id} — 12 frames around ${t} s` },
-      path.join(outDir, `strip-${f}-${t}.png`)));
-  }
+  for (const c of centres)
+    made.push(sheet(stripOf(c.at).map((fr) => ({ file: fileOf(fr), label: `#${fr} · ${(fr / fps).toFixed(2)} s` })),
+      { cols: 6, cellW: portrait ? 180 : 300, cellH: portrait ? 320 : 169, title: `${comp.id} — ${c.title}` },
+      path.join(outDir, `strip-${f}-${(c.at / fps).toFixed(2)}.png`)));
 }
 
 console.log(`\nReview sheets (${made.length}):`);
@@ -124,11 +127,12 @@ for (const m of made) console.log(`  ${m.startsWith(ROOT + path.sep) ? path.rela
 console.log(`
 Now be a harsh motion director, not a proud author. Read every sheet, then score each 1–10:
   • hook — does the first 2 s grab you?
-  • readability — can you read every word on the phone sheets?
+  • readability — can you read every word on the phone sheets, and does each line stay up ~0.3 s per word?
   • motion quality — springs and eased moves, nothing robotic or floaty (check strips around fast moves)
   • variety — something new every 2–4 s; no two scenes with the same layout
-  • composition — clear focal point, nothing clipped, overlapping or crowded
-  • data accuracy — every claim is real; illustrative numbers carry "Example data"
+  • composition — clear focal point, nothing clipped, overlapping or crowded; no muddy double exposure in the scene-change strips
+  • data accuracy — every claim comes from the product; illustrative numbers carry "Example data"; no real personal data
   • sound sync — each cut, reveal and tap has its cue on the right frame (compare Soundtrack.tsx with the timeline)
+  • clarity — after one viewing, would a stranger know what it is, who it's for and how to get it?
 List the 3 biggest problems with timestamps. Fix them, then re-run (add --strip=<s> around fast moves).
 Repeat until every score is 8 or more.`);

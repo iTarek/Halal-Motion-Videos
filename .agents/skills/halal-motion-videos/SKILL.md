@@ -12,6 +12,8 @@ metadata: {"openclaw": {"os": ["win32", "darwin", "linux"], "requires": {"bins":
 
 # Halal Motion Videos
 
+**Are you the Director?** If your instructions say you're the Director inside the MotionVideos dashboard, this skill isn't for you: never run `scripts/video` or `npm run video` (that's how outside agents drive you). Build the video yourself, following `CLAUDE.md`.
+
 A local machine that makes short motion-graphics videos: product promos, App Store previews and social clips. One source renders 9:16 and 16:9.
 
 - **Structure:** every video belongs to a **brand** (an app or product), e.g. `my-app/video01`.
@@ -78,7 +80,11 @@ scripts/video status <brand> <video> --json
 | `done` | Built. With `--render`, wait until `render.status` is `done`. The MP4 paths are in `outputs`. |
 | `stopped` | Someone ran `stop`. `make` again to resume. |
 
-Hand the human the MP4 paths from `outputs` (`out/<brand>/<video>/<brand>-<video>-vertical.mp4`, `…-horizontal.mp4`).
+Hand the human everything they need to post it:
+
+- **The MP4s** from `outputs` (`out/<brand>/<video>/<brand>-<video>-vertical.mp4`, `…-horizontal.mp4`). Frame 0 is already the video's best frame, so X, Slack, Discord and WhatsApp show it as the thumbnail.
+- **The caption** from `share` (`SHARE.md`): 1–3 sentences, ready to paste. If you post for them, use it as the post text.
+- **The cover images** from `posters` (`stills/<name>-poster.jpg`), for platforms that take an uploaded cover (YouTube, Instagram, TikTok, LinkedIn).
 
 **One command instead of polling (scripts, cron jobs):** add `--wait` to `make`, `ask`, `approve` or `render`.
 
@@ -88,7 +94,7 @@ scripts/video make <brand> next "<about>" --format=vertical --render --wait --js
 
 - **Stays open:** until everything is finished, including rendering and audio mastering. The default limit is 90 minutes (`--timeout=<s>`).
 - **Milestones:** stream to **stderr** as they happen, e.g. "brief ready", "storyboard ready", "render · 40%", "saved …mp4", with a heartbeat every minute. Stdout stays one clean JSON object.
-- **The result:** ends with the MP4 path(s): `mp4` in JSON, or `MP4: <path>` lines last in text.
+- **The result:** ends with the MP4 path(s): `mp4` in JSON, or `MP4: <path>` lines last in text. The caption (`share`, `Caption:`) and cover images (`posters`, `Posters:`) come with it.
 - **Exit codes:** `0` ok · `1` failed · `2` blocked (answer with `ask`, then `make` again).
 
 ## Review before approving (optional)

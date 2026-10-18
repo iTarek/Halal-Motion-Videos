@@ -42,31 +42,45 @@
   "ok": true,
   "brand": "my-app",
   "video": "video01",
-  "step": "storyboard",
+  "step": "build",
   "running": true,
   "activity": "Checking frames (stills)",
+  "waiting": false,
   "autopilot": { "status": "running", "stopAt": null, "render": true, "note": "", "renderJob": null, "started": 1760000000000, "updated": 1760000000000 },
+  "engine": "claude",
   "claude": "ok",
-  "lastReply": "Storyboard: 4 key frames …",
+  "codex": "ok",
+  "antigravity": "Install Antigravity CLI from antigravity.google/download, then run `agy` once to sign in. The IDE alone is not the CLI.",
+  "lastReply": "Built: 8 scenes, every critique score 8+ …",
   "brief": "/…/src/brands/my-app/video01/BRIEF.md",
+  "share": "/…/src/brands/my-app/video01/SHARE.md",
   "storyboard": ["/…/out/my-app/video01/storyboard/hook-vertical-0.jpg", "…"],
   "render": { "job": 3, "status": "running", "progress": 42, "label": "Render my-app/video01 · all formats" },
   "outputs": ["/…/out/my-app/video01/my-app-video01-vertical.mp4"],
+  "posters": ["/…/out/my-app/video01/stills/my-app-video01-vertical-poster.jpg"],
   "mp4": [],
   "settings": { "format": "both", "length": 30, "language": "English", "voiceLanguage": "English — American accent", "voiceover": true, "voiceId": "…", "style": null, "website": "https://…", "folder": "/…" },
-  "next": "Claude is working (Checking frames (stills)). Check again in a minute or two."
+  "next": "Director is working (Checking frames (stills)). Check again in a minute or two."
 }
 ```
 
 | Field | Meaning |
 | --- | --- |
+| `ok` / `brand` / `video` | `true` when the command worked / which video this is |
 | `step` | `brief` → `storyboard` → `build` |
-| `running` / `activity` | Claude is working right now / on what |
+| `running` / `activity` | The Director is working right now / on what |
+| `waiting` | `true` while this video waits its turn behind another video of the same brand (they share the brand kit) |
+| `brief` | `BRIEF.md` once the Director has written it, else `null` |
+| `storyboard` | The 4 storyboard frames (hook, key feature, climax, end card), once made |
+| `settings` | The video's settings: `format`, `length`, `language`, `voiceLanguage`, `voiceover`, `voiceId`, `style`, `website`, `folder` (change them with `set`) |
+| `engine` | The Director engine for this video: `claude` (default), `codex` or `antigravity` |
 | `autopilot` | `null` if never started. `status`: `running`, `blocked`, `paused`, `failed`, `done`, `stopped`. `note` says why. |
-| `claude` | `"ok"`, or how to fix Claude Code (missing, too old, logged out) |
+| `claude` / `codex` / `antigravity` | `"ok"`, or how to fix that CLI (missing, too old, logged out) |
 | `lastReply` | The Director's latest message (its question when `blocked`, its error when `failed`) |
 | `render` | The latest render job for this video: `queued`, `running`, `done`, `failed`, `cancelled`, with `progress` 0–100. `log` holds the last lines when it failed. |
-| `outputs` | All finished MP4s for this video, newest first |
+| `outputs` | All finished MP4s for this video, newest first. Their frame 0 is the video's poster frame, when it has one. |
+| `share` | `SHARE.md`, the ready-to-post caption the Director writes in the build step, or `null` before that |
+| `posters` | The cover images (`stills/<name>-poster.jpg`, one per rendered format), newest first. Empty until a render of a video with a `poster` frame. |
 | `mp4` | The MP4s the latest render made, once it's `done` (after audio mastering). Otherwise empty. |
 | `next` | One line: what to do now |
 

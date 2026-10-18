@@ -1,0 +1,4 @@
+# The Agent Skill lives once, in .agents/skills/; these links show it to Claude Code and opencode too.
+# Links are never subject to text / line-ending normalization.
+.claude/skills/halal-motion-videos -text
+.opencode/skills/halal-motion-videos -text
