@@ -25,7 +25,7 @@ export const Feature: React.FC = () => {
   const card = (
     <Card
       style={{
-        width: p(900, 760),
+        width: p(830, 760), // on 9:16 it ends at 85%, clear of the right 12% that TikTok, Reels and Shorts cover
         padding: p("40px 44px", "38px 42px"),
         boxSizing: "border-box",
         display: "flex",

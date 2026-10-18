@@ -13,7 +13,8 @@ export const Title: React.FC = () => {
     <SceneFrame dur={SCENES.title.dur} enter="none" exit="push" drift={0.035}>
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", gap: p(36, 30) }}>
         <Kicker at={4} text={T.kicker} size={p(36, 32)} align="center" />
-        <Headline lines={[{ words: T.l1 }, { words: T.l2, accent: true }]} size={p(150, 140)} start={10} align="center" />
+        {/* 120 px on 9:16 keeps the longest line clear of the right 12% that TikTok, Reels and Shorts cover */}
+        <Headline lines={[{ words: T.l1 }, { words: T.l2, accent: true }]} size={p(120, 140)} start={10} align="center" />
       </AbsoluteFill>
     </SceneFrame>
   );
