@@ -273,6 +273,21 @@
   .composer-bar .model { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 10px 3px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent2); }
   .composer-bar .model svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
   .composer-bar .muted-note { font-size: 11.5px; }
+  .engine-field { display:inline-flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; }
+  .custom-select { position:relative; display:inline-flex; max-width:100%; }
+  .custom-select > select { display:none; }
+  .select-trigger { justify-content:space-between; min-width:112px; padding:7px 11px; font-size:12.5px; background:var(--panel2); border:1px solid var(--line2); border-radius:10px; }
+  .select-trigger .chevron { width:13px; height:13px; color:var(--muted); transition:transform .15s; }
+  .select-trigger[aria-expanded="true"] { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .select-trigger[aria-expanded="true"] .chevron { transform:rotate(180deg); }
+  .select-menu { position:absolute; inset-inline-end:0; top:calc(100% + 7px); min-width:100%; width:max-content; padding:5px; border:1px solid var(--line2); border-radius:12px; background:var(--panel); box-shadow:var(--shadow); z-index:30; }
+  .select-menu[hidden] { display:none; }
+  .select-option { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:8px 10px; border-radius:7px; color:var(--text); cursor:pointer; font-size:12.5px; }
+  .select-option.active { background:var(--panel2); }
+  .select-option[aria-selected="true"] { background:var(--accent-soft); color:var(--accent2); font-weight:600; }
+  .select-option .tick { width:13px; visibility:hidden; }
+  .select-option[aria-selected="true"] .tick { visibility:visible; }
+  .custom-select.language-select .select-trigger { min-width:104px; }
   .seg.small { padding: 2px; border-radius: 9px; }
   .seg.small button { padding: 3px 10px; font-size: 12px; text-transform: none; }
   .composer .hint { font-size: 11.5px; color: var(--faint); margin-top: 6px; }
@@ -412,6 +427,22 @@
   .err { color: var(--bad); font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
   .toast { position: fixed; bottom: 22px; left: 50%; transform: translate(-50%, 8px); background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 10; }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  [dir="rtl"] body { font-family: "Segoe UI", Tahoma, Arial, sans-serif; }
+  [dir="rtl"] nav { border-right:0; border-left:1px solid var(--line); }
+  [dir="rtl"] aside { border-left:0; border-right:1px solid var(--line); }
+  [dir="rtl"] .push { margin-left:0; margin-inline-start:auto; }
+  [dir="rtl"] .field .flabel { text-align:start; }
+  [dir="rtl"] .section-label { letter-spacing:0; }
+  [dir="rtl"] .steps, [dir="rtl"] .doc td, [dir="rtl"] .doc th { text-align:start; }
+  [dir="rtl"] .doc ul, [dir="rtl"] #confirmDialog ul { padding-left:0; padding-inline-start:18px; }
+  [dir="rtl"] .stepgroup, [dir="rtl"] .msg.meta { margin-left:0; margin-inline-start:36px; }
+  [dir="rtl"] #langSave { margin-left:0; margin-inline-start:auto; }
+  input, textarea { text-align:start; }
+  #prompt, .msg, .doc { unicode-bidi:plaintext; }
+  #urlInput, #folderInput, #elKey, #elVoice, #voVoice, #newBrand, #newVideo, #confirmInput, #stillFrames, code, pre, .log, .out .meta b, .file .nm { direction:ltr; unicode-bidi:isolate; }
+  @media(max-width:1180px) { [dir="rtl"] aside { border-right:0; } }
+  @media(max-width:720px) { [dir="rtl"] nav { border-left:0; } }
 </style>
 </head>
 <body>
@@ -449,10 +480,11 @@
     <b>Halal Motion Videos</b><span>video machine</span>
   </div>
   <span class="spacer"></span>
+  <select id="uiLanguage" aria-label="Interface language"><option value="en">English</option><option value="ar">العربية</option></select>
   <span class="pill" id="studioState" title="Remotion Studio"><span class="dot"></span><span class="lbl">Studio off</span></span>
-  <button id="settingsBtn" title="Settings — ElevenLabs voice-over"><svg class="i"><use href="#i-gear"/></svg><span class="lbl">Settings</span><span class="dot-warn" id="settingsDot" hidden></span></button>
-  <button id="studioBtn"><svg class="i"><use href="#i-studio"/></svg><span class="lbl">Open Studio</span></button>
-  <button class="primary" id="newBrandBtn"><svg class="i"><use href="#i-plus"/></svg><span class="lbl">New brand</span></button>
+  <button id="settingsBtn" aria-label="Settings" title="Settings — ElevenLabs voice-over"><svg class="i"><use href="#i-gear"/></svg><span class="lbl">Settings</span><span class="dot-warn" id="settingsDot" hidden></span></button>
+  <button id="studioBtn" aria-label="Open Studio"><svg class="i"><use href="#i-studio"/></svg><span class="lbl">Open Studio</span></button>
+  <button class="primary" id="newBrandBtn" aria-label="New brand"><svg class="i"><use href="#i-plus"/></svg><span class="lbl">New brand</span></button>
 </header>
 
 <div class="layout">
@@ -483,10 +515,10 @@
 <dialog id="settingsDialog">
   <form method="dialog" id="settingsForm">
     <h3>Settings</h3>
-    <p class="lead">Appearance is remembered in this browser. Voice-over settings are saved on this Mac in <code style="font:12px var(--mono)">.director/settings.json</code> (not in git, never shown to Claude).</p>
+    <p class="lead">Appearance is remembered in this browser. Voice-over settings are saved on this device in <code style="font:12px var(--mono)">.director/settings.json</code> (not in git, never shown to the Director).</p>
     <div class="set-section">
       <h4><svg class="i"><use href="#i-sun"/></svg>Appearance</h4>
-      <div class="sub">How this dashboard looks. System follows your Mac.</div>
+      <div class="sub">How this dashboard looks. System follows your device.</div>
       <div class="seg theme-seg" id="themeSeg">
         <button type="button" data-theme-pick="system"><svg class="i"><use href="#i-monitor"/></svg>System</button>
         <button type="button" data-theme-pick="light"><svg class="i"><use href="#i-sun"/></svg>Light</button>
@@ -495,7 +527,7 @@
     </div>
     <div class="set-section">
       <h4><svg class="i"><use href="#i-mic"/></svg>ElevenLabs voice-over</h4>
-      <div class="sub">Claude uses this to narrate videos with Eleven v4 — emotions, pacing and non-verbal cues included.</div>
+      <div class="sub">The Director uses this to narrate videos with Eleven v4 — emotions, pacing and non-verbal cues included.</div>
       <label for="elKey">API key</label>
       <div class="keyrow"><input id="elKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk_…" /></div>
       <div class="muted-note" id="elKeyHint" style="margin-top:4px"></div>
@@ -507,7 +539,7 @@
     </div>
     <div class="set-section">
       <h4><svg class="i"><use href="#i-check"/></svg>System check</h4>
-      <div class="sub">What this Mac has for each part of the machine. Run <code style="font:12px var(--mono)">npm run setup</code> to install what's missing.</div>
+      <div class="sub">What this device has for each part of the machine. Run <code style="font:12px var(--mono)">npm run setup</code> to install what's missing.</div>
       <div id="doctorList" class="doctor"><span class="muted-note">Checking…</span></div>
     </div>
     <div class="err" id="settingsErr"></div>
@@ -538,8 +570,11 @@
 </dialog>
 <div class="toast" id="toast"></div>
 
+<script src="/i18n.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
+const tr = (text) => window.dashboardI18n.translate(text);
+const confirmLocalized = (text) => window.confirm(tr(text));
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const icon = (n) => `<svg class="i"><use href="#i-${n}"/></svg>`;
 const RATIO = { vertical: [9, 16], horizontal: [16, 9], square: [1, 1], portrait: [4, 5] };
@@ -558,7 +593,7 @@ const api = async (path, body) => {
 };
 const hue = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 17);
 const fmtSize = (b) => b > 1e6 ? (b / 1e6).toFixed(1) + " MB" : Math.round(b / 1e3) + " KB";
-const fmtTime = (ms) => new Date(ms).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const fmtTime = (ms) => new Date(ms).toLocaleString(window.dashboardI18n.language, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const fmtDur = (ms) => { const s = Math.round(ms / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`; };
 
 // ---- tiny markdown for BRIEF / README / BRAND
@@ -612,11 +647,11 @@ function welcome() {
   return `<div class="welcome">
     <div class="logo" style="justify-content:center"><div class="mark" style="width:52px;height:52px;border-radius:15px"><svg viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M5 3.5v17l15-8.5z"/></svg></div></div>
     <h2>Make a motion video</h2>
-    <p>Every video lives in a brand. Pick one on the left, or start a new brand.</p>
+    <p>Every video lives in a brand. Pick one from the sidebar, or start a new brand.</p>
     <button class="primary" data-action="new-brand">${icon("plus")}New brand</button>
     <div class="steps">
       <div class="step"><span class="n">1</span><b>Create</b><span>New brand, or + next to a brand for another video.</span></div>
-      <div class="step"><span class="n">2</span><b>Build</b><span>Ask Claude to fill the brief, copy and scenes.</span></div>
+      <div class="step"><span class="n">2</span><b>Build</b><span>Ask the Director to fill the brief, copy and scenes.</span></div>
       <div class="step"><span class="n">3</span><b>Preview & render</b><span>Scrub it in Studio, then render MP4s here.</span></div>
     </div>
   </div>`;
@@ -658,23 +693,24 @@ function renderMain() {
       <div class="ask">
         <div class="ask-head">
           <span class="ask-av"><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z"/></svg></span>
-          <div><b>Chat with Claude, your AI Director</b><span>Describe the video or give notes. It edits this video's files and Studio updates live.</span></div>
+          <div><b>Chat with your AI Director</b><span>Describe the video or give notes. It edits this video's files and Studio updates live.</span></div>
         </div>
         <form class="composer" id="composer">
-          <textarea id="prompt" rows="1" placeholder="Message Claude…"></textarea>
+          <textarea id="prompt" rows="1" placeholder="Message Director…"></textarea>
           <button class="primary" id="sendBtn" type="submit">${icon("send")}Send</button>
         </form>
         <div class="composer-bar">
           <span class="model">${icon("star")}<span id="modelName">Opus 5.5</span></span>
           <span class="muted-note">Thinking</span>
           <div class="seg small" id="effortSeg"></div>
+          <label class="engine-field"><span>AI engine</span> <select id="engineSelect" aria-label="Change engine"></select></label>
           <span class="muted-note push">Enter to send · Shift+Enter for a new line</span>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-head"><h3>${icon("film")}Video settings</h3><span class="note">Claude follows these automatically</span></div>
+      <div class="card-head"><h3>${icon("film")}Video settings</h3><span class="note">The Director follows these automatically</span></div>
       <div class="vo-row" id="langRow" style="margin-top:0"></div>
       <div class="vo-row" id="voRow" style="margin-top:8px"></div>
     </div>
@@ -702,7 +738,7 @@ function introHtml() {
     "Teaser for Instagram Reels",
     "Explain how the app works in 3 simple steps",
   ];
-  return `<div class="intro"><b>Tell Claude what this video should be.</b> It writes the brief first and waits for your OK, then builds the scenes and checks its own frames. Add the product link and files under Materials so it uses the real thing.</div>
+  return `<div class="intro"><b>Tell your Director what this video should be.</b> It writes the brief first and waits for your OK, then builds the scenes and checks its own frames. Add the product link and files under Materials so it uses the real thing.</div>
     <div class="sugg">${sugg.map((t) => `<button data-sugg="${esc(t)}">${esc(t)}</button>`).join("")}</div>`;
 }
 
@@ -730,8 +766,8 @@ function renderDirector() {
   if (!dir || !$("#chat")) return;
   const PHASES = { brief: "Step 1 of 3 · Brief", storyboard: "Step 2 of 3 · Storyboard", build: "Step 3 of 3 · Build" };
   $("#dirHead").innerHTML = `<span class="phase ${dir.phase}">${PHASES[dir.phase] || dir.phase}</span>
-    ${dir.phase !== "brief" && !dir.running ? `<button class="ghost" data-dir="reopen" title="Claude goes back to editing the brief only">Back to brief</button>` : ""}
-    ${dir.messages.length && !dir.running ? `<button class="ghost" data-dir="reset" title="Clear this chat and start a fresh Claude session">New chat</button>` : ""}`;
+    ${dir.phase !== "brief" && !dir.running ? `<button class="ghost" data-dir="reopen" title="The Director goes back to editing the brief only">Back to brief</button>` : ""}
+    ${dir.messages.length && !dir.running ? `<button class="ghost" data-dir="reset" title="Clear this chat and start a fresh Director session">New chat</button>` : ""}`;
   const key = `${dir.messages.length}:${dir.messages.at(-1)?.ts ?? 0}`;
   if (key !== chatKey) {
     const el = $("#chat");
@@ -743,10 +779,10 @@ function renderDirector() {
   let st = "";
   if (dir.running) st = `<div class="working"><span class="spin"></span><span class="t">${esc(dir.step || "Working…")}</span><span class="el">${fmtDur(dir.elapsed)}</span><button class="ghost" data-dir="stop">Stop</button></div>`;
   else if (dir.phase === "brief" && dir.briefExists && dir.messages.some((m) => m.role === "claude"))
-    st = `<div class="approve"><div class="t"><b>Brief ready for review</b><span>Read it under Docs below, then approve — or reply with changes. Next, Claude shows you 4 key frames before building everything.</span></div><button class="primary" data-dir="approve">${icon("check")}Approve brief</button></div>`;
+    st = `<div class="approve"><div class="t"><b>Brief ready for review</b><span>Read it under Docs below, then approve — or reply with changes. Next, the Director shows you 4 key frames before building everything.</span></div><button class="primary" data-dir="approve">${icon("check")}Approve brief</button></div>`;
   else if (dir.phase === "storyboard" && !dir.running && dir.storyboard?.length)
     st = `<div class="approve storyboard">
-      <div class="t"><b>Storyboard ready: ${dir.storyboard.length} key frames</b><span>Is this the right look? Approve and Claude builds the whole video in this style, or reply with changes.</span></div>
+      <div class="t"><b>Storyboard ready: ${dir.storyboard.length} key frames</b><span>Is this the right look? Approve and The Director builds the whole video in this style, or reply with changes.</span></div>
       <button class="primary" data-dir="approve">${icon("check")}Approve storyboard & build</button>
       <div class="sb-frames">${dir.storyboard.map((f) => `<a href="${f.url}" target="_blank" title="${esc(f.name)}"><img src="${f.url}" alt="${esc(f.name)}" /><span>${(f.frame / 30).toFixed(1)} s · ${esc(f.name.split("-")[0])}</span></a>`).join("")}</div>
     </div>`;
@@ -754,27 +790,34 @@ function renderDirector() {
   const ap = dir.autopilot;
   if (ap) {
     const label = { running: "running", paused: "paused", blocked: "waiting for an answer", failed: "stopped with a problem", done: "done", stopped: "stopped" }[ap.status] ?? ap.status;
-    st += `<div class="autopilot"><b>Autopilot ${esc(label)}</b> · an agent is driving this video from the command line and approves each step itself${ap.note ? ` · ${esc(ap.note)}` : ""}</div>`;
+    st += `<div class="autopilot"><b>Autopilot ${esc(label)}</b><span> · an agent is driving this video from the command line and approves each step itself</span>${ap.note ? ` · <span>${esc(ap.note)}</span>` : ""}</div>`;
   }
-  // No Claude Code (missing, outdated or logged out)? Say so and how to fix it; the rest of the page still works.
-  const cl = dir.claude;
-  if (cl && !cl.ok) {
+  // Check if an AI CLI engine (Codex CLI or Claude Code) is ready
+  const engineOk = !!dir[dir.engine]?.ok;
+  if (!engineOk) {
     const code = (t) => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>");
     st = `<div class="no-claude">
-      <b>Claude Code isn't working on this Mac</b>
-      <span>${esc(cl.reason === "missing" ? "It isn't installed." : cl.reason === "old" ? `It's too old (${cl.detail}).` : "It isn't logged in.")} → ${code(cl.fix)}</span>
-      <span class="muted-note">The Director chat needs it. Everything else here works without it: Preview, Render, screenshots, sound design and voice-over (from the command line).</span>
+      <b>The selected Director engine is not ready</b>
+      <span>Codex CLI, Claude Code CLI or Antigravity CLI is required to power the AI Director.</span>
+      <span class="muted-note">Install and log in to Codex CLI, Claude Code or Antigravity CLI. Everything else here works without it: Preview, Render, screenshots, sound design and voice-over (from the command line).</span>
     </div>` + st;
   }
   $("#dirStatus").innerHTML = st;
-  $("#sendBtn").disabled = dir.running || (cl && !cl.ok);
-  $("#prompt").disabled = !!(cl && !cl.ok);
-  $("#prompt").placeholder = cl && !cl.ok ? "Set up Claude Code to chat with the Director" : "Message Claude…";
+  $("#sendBtn").disabled = dir.running || !engineOk;
+  $("#prompt").disabled = !engineOk;
+  $("#prompt").placeholder = !engineOk ? "Set up Codex CLI, Claude Code or Antigravity CLI to chat with the Director" : `Message Director (${esc(dir.model || "AI")})…`;
   renderVoiceRow();
   if (!effort || !dir.efforts[effort]) effort = dir.effort;
   $("#modelName").textContent = dir.model;
   $("#effortSeg").innerHTML = Object.entries(dir.efforts)
     .map(([k, label]) => `<button type="button" data-effort="${k}" class="${k === effort ? "on" : ""}">${esc(label)}</button>`).join("");
+  const engineSelect = $("#engineSelect");
+  engineSelect.innerHTML = ["codex", "claude", "antigravity"].map(engine => `<option value="${engine}" ${dir.engine === engine ? "selected" : ""}>${{codex:"Codex (ChatGPT)",claude:"Claude Code",antigravity:"Antigravity"}[engine]}</option>`).join("");
+  engineSelect.disabled = dir.running || dir.waiting || dir.autopilot?.status === "running";
+  engineSelect.onchange = async e => {
+    try { dir = await api("/api/director/engine", { ...sel, engine: e.target.value }); renderDirector(); toast("Engine changed"); }
+    catch (err) { toast(err.message); renderDirector(); }
+  };
 }
 
 const fileUrl = (p) => "/public/" + p.split("/").map(encodeURIComponent).join("/");
@@ -796,7 +839,7 @@ function renderMaterials() {
   matKey = key;
   const m = dir.materials;
   $("#materials").innerHTML = `<div class="card">
-    <div class="card-head"><h3>${icon("box")}Materials</h3><span class="note">Claude builds from these</span></div>
+    <div class="card-head"><h3>${icon("box")}Materials</h3><span class="note">The Director builds from these</span></div>
     <div class="field">
       <span class="flabel">${icon("link")}Website</span>
       <input id="urlInput" placeholder="https://example.com" value="${esc(dir.url || "")}" />
@@ -804,11 +847,11 @@ function renderMaterials() {
     </div>
     <div class="field" style="margin-top:8px">
       <span class="flabel">${icon("folder")}Project folder</span>
-      <input id="folderInput" placeholder="/Users/you/Projects/MyApp" value="${esc(dir.folder || "")}" spellcheck="false" />
+      <input id="folderInput" placeholder="C:\\Projects\\MyApp" value="${esc(dir.folder || "")}" spellcheck="false" />
       <button id="folderSave">Save</button>
-      ${dir.folderOk ? `<button class="ghost" data-reveal="project" title="Open in Finder">Open</button>` : ""}
+      ${dir.folderOk ? `<button class="ghost" data-reveal="project" title="Open in file manager">Open</button>` : ""}
     </div>
-    <div class="muted-note" style="margin:6px 0 0 118px;font-size:11.5px">${dir.folder && !dir.folderOk ? `<span style="color:var(--bad)">That folder isn't there anymore.</span> ` : ""}Claude can read it and copy assets out — never changes it. Tip: in Finder, select the folder and press ⌥⌘C to copy its path.</div>
+    <div class="muted-note" style="margin:6px 0 0 118px;font-size:11.5px">${dir.folder && !dir.folderOk ? `<span style="color:var(--bad)">That folder isn't there anymore.</span> ` : ""}The Director can read it and copy assets out — never changes it. Copy the folder path from your file manager.</div>
     <div class="drop-bar">
       <span class="muted-note">Upload to</span>
       <div class="seg">
@@ -949,7 +992,7 @@ async function refresh() {
   if (!c) return;
   try { dir = await api(`/api/director?${q()}`); } catch { dir = null; }
   renderDirector(); renderStyle(); renderMaterials();
-  const rk = JSON.stringify([fmt, docTab, c.video.outputs, c.video.doc, c.brand.brandDoc]);
+  const rk = JSON.stringify([window.dashboardI18n.language, fmt, docTab, c.video.outputs, c.video.doc, c.brand.brandDoc]);
   if (rk !== restKey) {
     const quick = $("#quick")?.checked, blurOn = $("#blurOn")?.checked, frames = $("#stillFrames")?.value;
     restKey = rk; renderRest();
@@ -986,15 +1029,15 @@ document.addEventListener("click", async (e) => {
   else if (d.cancel) { await api(`/api/jobs/${d.cancel}/cancel`, {}); refresh(); }
   else if (d.reveal) api("/api/reveal", { ...sel, where: d.reveal }).catch((err) => toast(err.message));
   else if (d.dir) {
-    if (d.dir === "reset" && !confirm("Clear this chat and start a fresh Claude session? Files stay as they are.")) return;
+    if (d.dir === "reset" && !confirmLocalized("Clear this chat and start a fresh Director session? Files stay as they are.")) return;
     try { dir = await api(`/api/director/${d.dir}`, { ...sel, effort }); chatKey = ""; renderDirector(); refresh(); }
     catch (err) { toast(err.message); }
   }
-  else if (d.sugg) { const ta = $("#prompt"); ta.value = d.sugg; ta.focus(); ta.dispatchEvent(new Event("input")); }
+  else if (d.sugg) { const ta = $("#prompt"); ta.value = tr(d.sugg); ta.focus(); ta.dispatchEvent(new Event("input")); }
   else if (t.id === "styleSave") { if (await styleAction("style-save", { name: $("#styleName").value, text: $("#styleText").value })) toast("Style saved and applied"); }
   else if (t.id === "styleDel") {
     const name = $("#styleSel").selectedOptions[0]?.textContent;
-    if (confirm(`Delete the style “${name}” from the library? Videos using it go back to no style.`) && (await styleAction("style-delete", { styleId: $("#styleSel").value }))) toast("Style deleted");
+    if (confirmLocalized(`Delete the style “${name}” from the library? Videos using it go back to no style.`) && (await styleAction("style-delete", { styleId: $("#styleSel").value }))) toast("Style deleted");
   }
   else if (d.formats) {
     try { dir = await api("/api/director/formats", { ...sel, formats: d.formats }); $("#langRow").dataset.key = ""; renderLangRow(); restKey = ""; refresh(); toast(`Format: ${t.textContent} — Preview and Render updated`); }
@@ -1007,7 +1050,7 @@ document.addEventListener("click", async (e) => {
   else if (d.openSettings) openSettings();
   else if (d.playfile) { testAudio?.pause(); testAudio = new Audio(fileUrl(d.playfile)); testAudio.play(); }
   else if (d.delout) {
-    if (!confirm(`Delete ${d.name}?\n\nIt goes to the Trash, so you can still get it back.`)) return;
+    if (!confirmLocalized(`Delete ${d.name}?\n\nIt goes to the Trash, so you can still get it back.`)) return;
     try { await api("/api/outputs/delete", { ...sel, file: d.delout }); toast(`Deleted ${d.name}`); restKey = ""; refresh(); }
     catch (err) { toast(err.message); }
   }
@@ -1016,7 +1059,7 @@ document.addEventListener("click", async (e) => {
   else if (d.effort) { effort = d.effort; renderDirector(); }
   else if (d.scope) { uploadScope = d.scope; matKey = ""; renderMaterials(); }
   else if (d.del) {
-    if (!confirm(`Delete ${d.del}?`)) return;
+    if (!confirmLocalized(`Delete ${d.del}?`)) return;
     try { await api("/api/files/delete", { file: d.del }); matKey = ""; refresh(); } catch (err) { toast(err.message); }
   }
   else if (t.id === "urlSave" || t.id === "folderSave") {
@@ -1077,7 +1120,7 @@ function renderStyle() {
       <textarea id="styleText" placeholder="Describe the look and feel: motion, pacing, transitions, typography, mood, sound…">${esc(cur?.text ?? "")}</textarea>
     </div>
     <div class="style-actions">
-      <span class="muted-note">Save with the same name to update it · a new name makes a new style · Claude uses it from your next message</span>
+      <span class="muted-note">Save with the same name to update it · a new name makes a new style · the Director uses it from your next message</span>
       ${cur ? `<button class="ghost danger" type="button" id="styleDel">${icon("trash")}Delete</button>` : ""}
       <button class="primary" type="button" id="styleSave">${icon("check")}Save style</button>
     </div>
@@ -1128,7 +1171,7 @@ function renderVoiceRow() {
   row.dataset.key = key;
   row.innerHTML = `
     <span class="lbl2">${icon("mic")}Voice-over</span>
-    <label class="switch ${v.configured ? "" : "locked"}" title="${v.configured ? "" : "Needs an ElevenLabs API key"}"><input type="checkbox" id="voOn" ${v.enabled ? "checked" : ""} ${v.configured ? "" : "disabled"} /><i></i><span>${v.enabled ? "On — Claude narrates this video" : v.configured ? "Off" : "Off — needs an ElevenLabs key"}</span></label>
+    <label class="switch ${v.configured ? "" : "locked"}" title="${v.configured ? "" : "Needs an ElevenLabs API key"}"><input type="checkbox" id="voOn" ${v.enabled ? "checked" : ""} ${v.configured ? "" : "disabled"} /><i></i><span>${v.enabled ? "On — the Director narrates this video" : v.configured ? "Off" : "Off — needs an ElevenLabs key"}</span></label>
     ${!v.configured ? `<span class="warn">Add your key in <button class="ghost" type="button" data-open-settings="1" style="padding:0 2px;color:var(--accent2)">Settings</button> to turn it on.</span>` : ""}
     ${v.enabled ? `
       <span class="note">Voice ID</span>
@@ -1140,7 +1183,7 @@ function renderVoiceRow() {
   $("#voOn").onchange = (e) => saveVoice({ enabled: e.target.checked });
 }
 async function saveVoice(patch) {
-  try { dir = await api("/api/director/voiceover", { ...sel, ...patch }); renderVoiceRow(); toast("Saved — Claude uses it from your next message"); }
+  try { dir = await api("/api/director/voiceover", { ...sel, ...patch }); renderVoiceRow(); toast("Saved — the Director uses it from your next message"); }
   catch (err) { toast(err.message); }
 }
 let testAudio = null;
@@ -1168,7 +1211,7 @@ async function loadDoctor() {
     const code = (t) => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>");
     box.innerHTML = checks.map((c) => `<div class="doc-row">
       <span class="m ${c.ok ? "ok" : c.required ? "bad" : "opt"}">${c.ok ? "✓" : c.required ? "✕" : "○"}</span>
-      <div><b>${esc(c.label)}</b> <span class="d">· ${esc(c.detail)} · for ${esc(c.needs)}</span>${c.ok ? "" : `<div class="fix">→ ${code(c.fix)}</div>`}</div>
+      <div><b>${esc(c.label)}</b> <span class="d">· ${c.detail.split(" · ").map(x=>`<span>${esc(x)}</span>`).join(" · ")} · <span>for</span> <span>${esc(c.needs)}</span></span>${c.ok ? "" : `<div class="fix">→ ${code(c.fix)}</div>`}</div>
     </div>`).join("");
   } catch (err) { box.innerHTML = `<span class="muted-note">${esc(err.message)}</span>`; }
 }
@@ -1290,5 +1333,6 @@ $("#newForm").onsubmit = async (e) => {
   setTimeout(loop, busy ? 1000 : 4000);
 })();
 </script>
+<script src="/selects.js"></script>
 </body>
 </html>

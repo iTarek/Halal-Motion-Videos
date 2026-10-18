@@ -3,6 +3,9 @@ import { bundle } from "@remotion/bundler";
 import { getCompositions } from "@remotion/renderer";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { findChrome } from "./chrome.mjs";
 
 /**
  * Frames rendered in parallel: up to 8, never more than this machine's cores (Remotion refuses more — e.g. a 4-core
@@ -10,7 +13,9 @@ import path from "node:path";
  */
 export const CONCURRENCY = Math.max(1, Math.min(8, os.availableParallelism()));
 
-export const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+export const browserExecutable = () => findChrome() || undefined;
 
 /** Splits argv into positional args and --key=value flags. */
 export const parseArgs = (argv) => {
@@ -27,7 +32,8 @@ export const parseArgs = (argv) => {
 /** Bundles once and returns the compositions matching brand / video / format (each optional). */
 export const findCompositions = async ({ brand, video, format }) => {
   const serveUrl = await bundle({ entryPoint: path.join(ROOT, "src", "index.ts") });
-  const all = await getCompositions(serveUrl);
+  const browser = browserExecutable();
+  const all = await getCompositions(serveUrl, browser ? { browserExecutable: browser } : {});
   const meta = (c) => c.props ?? c.defaultProps ?? {};
   const hits = all.filter((c) => {
     const m = meta(c);

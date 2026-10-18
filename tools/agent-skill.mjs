@@ -18,7 +18,10 @@ const remove = process.argv.includes("--remove");
 
 const hermes = path.join(home, ".hermes", "skills");
 const targets = [
-  { agent: "OpenClaw, Codex, other agents", dir: path.join(home, ".agents", "skills"), always: true },
+  { agent: "Antigravity", dir: path.join(home, ".gemini", "config", "skills"), always: true },
+  { agent: "Antigravity CLI", dir: path.join(home, ".gemini", "antigravity-cli", "skills"), when: path.join(home, ".gemini", "antigravity-cli") },
+  { agent: "Codex", dir: path.join(home, ".codex", "skills"), when: path.join(home, ".codex") },
+  { agent: "OpenClaw, other agents", dir: path.join(home, ".agents", "skills"), always: true },
   { agent: "Hermes", dir: fs.existsSync(path.join(hermes, "creative")) ? path.join(hermes, "creative") : hermes, when: path.join(home, ".hermes") },
   { agent: "OpenClaw", dir: path.join(home, ".openclaw", "skills"), when: path.join(home, ".openclaw") },
 ].filter((t) => t.always || fs.existsSync(t.when));
@@ -49,7 +52,11 @@ for (const t of targets) {
   }
   fs.mkdirSync(t.dir, { recursive: true });
   if (now) fs.unlinkSync(dest); // an old link, maybe to another copy of the repo
-  fs.symlinkSync(SKILL, dest, "dir");
+  try {
+    fs.symlinkSync(SKILL, dest, process.platform === "win32" ? "junction" : "dir");
+  } catch {
+    fs.cpSync(SKILL, dest, { recursive: true });
+  }
   console.log(`✓ ${short} → this repo   (${t.agent})`);
 }
 

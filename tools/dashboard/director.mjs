@@ -9,14 +9,21 @@ import { spawn } from "node:child_process";
 import { readSettings, SETTINGS_FILE } from "../settings.mjs";
 import { getStyle, listStyles } from "../styles.mjs";
 import { fixAudio } from "../audiofix.mjs";
+import { cliEnvironment, antigravityBin, antigravityStatus, codexBin, codexStatus, claudeStatus } from "../doctor.mjs";
 
 const MAX_MESSAGES = 400;
 
 // Always Opus 5.5 (runs on the user's Claude subscription via the logged-in CLI).
 // Needs Claude Code CLI 2.1.280+ (`claude update`).
 export const MODEL = { id: "claude-opus-5-5", label: "Opus 5.5" };
+export const CODEX_MODEL = { id: "chatgpt", label: "ChatGPT (Codex)" };
 export const EFFORTS = { medium: "Medium", high: "High", xhigh: "Extra high" };
 const DEFAULT_EFFORT = "high";
+let engineCheck = { at: 0, engine: "claude" };
+const defaultEngine = () => {
+  if (Date.now() - engineCheck.at > 30000) engineCheck = { at: Date.now(), engine: claudeStatus().ok ? "claude" : codexStatus().ok ? "codex" : antigravityStatus().ok ? "antigravity" : "claude" };
+  return engineCheck.engine;
+};
 export const DEFAULT_VIDEO_LANGUAGE = "English";
 export const DEFAULT_LENGTH = 30; // seconds
 export const DEFAULT_VOICE_LANGUAGE = "English — American accent";
@@ -30,7 +37,7 @@ const ALLOWED_TOOLS = [
 ];
 
 /** onBuilt(brand, video, { blur }) → render job id: used by the autopilot to queue a render when the build ends. */
-export const createDirector = ({ root, brandsDir, onBuilt }) => {
+export const createDirector = ({ root, brandsDir, onBuilt, spawnProcess = spawn }) => {
   const stateDir = path.join(root, ".director");
   const runs = new Map(); // "<brand>/<video>" → { proc, started, step }
 
@@ -95,7 +102,7 @@ export const createDirector = ({ root, brandsDir, onBuilt }) => {
   };
   const setFormats = (brand, video, which) => {
     if (!FORMAT_SETS[which]) throw new Error("Pick 9:16, 16:9 or both.");
-    if (busy(brand, video)) throw new Error("Claude is working on this video — wait or stop it first.");
+    if (busy(brand, video)) throw new Error("The Director is working on this video — wait or stop it first.");
     const file = indexOf(brand, video);
     let src = fs.readFileSync(file, "utf8");
     if (!/formats:\s*\[[^\]]*\]/.test(src)) throw new Error("Couldn't find the formats line in index.ts.");
@@ -201,7 +208,7 @@ You are working on ONE video: brand "${brand}", video "${video}".
 - Never run git commands. Never render MP4s.
 - You may npm install a package if a video genuinely needs it; say so in your reply.
 - Product URL: ${url || "(none given — ask for it if you need the product's real copy or visuals)"}
-- Product source folder on this Mac (READ-ONLY): ${folder || "(none given)"}${folder ? `
+- Product source folder on this device (READ-ONLY): ${folder || "(none given)"}${folder ? `
   Explore it for the real thing: app icons and images (e.g. *.xcassets, assets/, public/), fonts, colour definitions, localized strings,
   feature names, and the app's own sound effects (e.g. sounds/, *.caf, *.wav, *.mp3) — copy those into public/${brand}/brand/sfx/.
   Copy what you need with \`npm run copy-asset -- "<file or folder in the product folder>" public/${brand}/brand/<img|fonts|sfx>/\`
@@ -314,7 +321,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
 
   /** Sends a message to Claude for this video: now, or after the brand's current video finishes its step. */
   const run = (brand, video, text, effortArg) => {
-    if (busy(brand, video)) throw new Error("Claude is already working on this video.");
+    if (busy(brand, video)) throw new Error("The Director is already working on this video.");
     const s = load(brand, video);
     const effort = EFFORTS[effortArg] ? effortArg : EFFORTS[s.effort] ? s.effort : DEFAULT_EFFORT;
     s.effort = effort;
@@ -330,6 +337,192 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
     // each storyboard run starts from a clean folder, so the page only shows the new frames
     if (s.phase === "storyboard") fs.rmSync(storyboardDir(brand, video), { recursive: true, force: true });
 
+    const activeEngine = s.engine || defaultEngine();
+    if (s.sessionEngine && s.sessionEngine !== activeEngine) s.sessionId = null;
+    s.sessionEngine = activeEngine;
+    s.engine = activeEngine;
+
+    const r = { proc: null, started: Date.now(), step: `Starting ${activeEngine === "antigravity" ? "Antigravity" : activeEngine === "codex" ? "Codex CLI (ChatGPT)" : "Claude"}…`, gotEvents: false, stopped: false };
+    runs.set(key, r);
+
+    if (activeEngine === "codex") {
+      startCodex(brand, video, text, s, r, key);
+    } else if (activeEngine === "antigravity") {
+      startAntigravity(brand, video, text, s, r, key);
+    } else {
+      startClaude(brand, video, text, effort, s, r, key);
+    }
+  };
+
+  const startAntigravity = (brand, video, text, s, r, key) => {
+    const folder = projectFolder(brand);
+    const args = ["--input-format", "stream-json", "--output-format", "stream-json", "--dangerously-skip-permissions", "--print-timeout", "30m", "--effort", s.effort,
+      ...(folder ? ["--add-dir", folder] : []),
+      ...(s.sessionId ? ["--conversation", s.sessionId] : [])];
+    const proc = spawnProcess(antigravityBin(), args, { cwd: root, env: cliEnvironment(), windowsHide: true });
+    r.proc = proc;
+    proc.stdout.setEncoding("utf8");
+    proc.stderr.setEncoding("utf8");
+    proc.stdin.on("error", () => {});
+    const toolGuidance = "Use list_dir, view_file, find_by_name and grep_search for directory listings, reading and searching files; avoid shell commands for those tasks. For shell work, use the documented npm run commands directly. Wait for each command to finish (use command_status for background commands) before reporting completion. If a tool is denied, report the denial and stop; do not try to bypass it.";
+    const prompt = `${s.sessionId ? text : `${systemPrompt(brand, video, s)}\n\nUser instruction:\n${text}`}\n\n${toolGuidance}`;
+    proc.stdin.end(JSON.stringify({ event: "user", message: { content: prompt } }) + "\n", "utf8");
+    let buf = "", errText = "", resultSeen = false, responseText = "", toolError = "", deniedCommand = "";
+    const permissionHelp = "The Director uses --dangerously-skip-permissions. Restart the dashboard to load the current launcher; if the denial persists, check Antigravity's enforced policies and operating-system access restrictions.";
+    const consume = line => {
+      let e; try { e = JSON.parse(line); } catch { return; }
+      r.gotEvents = true;
+      if (e.conversation_id) s.sessionId = e.conversation_id;
+      if (e.event === "init") r.step = "Thinking…";
+      else if (e.event === "step_update") {
+        const step = e.step_update || {};
+        if (step.conversation_id) s.sessionId = step.conversation_id;
+        if (step.step_type === "tool" && step.state === "ACTIVE") {
+          r.step = `Antigravity · ${step.tool_name || "Working…"}`;
+          push(s, { role: "step", text: r.step });
+        }
+        if (step.step_type === "agent_response" && typeof step.text_delta === "string") {
+          responseText += step.text_delta;
+          r.step = "Replying…";
+        }
+        if (step.step_type === "tool" && step.tool_info?.error) {
+          toolError = String(step.tool_info.error.message || step.tool_info.error.type || "Tool failed").slice(-1000);
+          if (/permission|denied/i.test(toolError)) deniedCommand = String(step.tool_info.parameters?.CommandLine || "").slice(0, 1000);
+        }
+      } else if (e.event === "result") {
+        resultSeen = true;
+        const result = e.result || {};
+        if (result.conversation_id) s.sessionId = result.conversation_id;
+        const reply = (result.response || responseText).trim();
+        if (reply) push(s, { role: "claude", text: reply });
+        if (result.denied_actions?.length) {
+          const actions = result.denied_actions.map(a => a.display_name || a.action).join(", ");
+          push(s, { role: "system", text: `Antigravity stopped with an error: Permission denied (${actions}).${deniedCommand ? ` Command: ${deniedCommand}.` : ""} ${permissionHelp}` });
+        } else if (result.status !== "SUCCESS" || !reply) {
+          const detail = result.error || toolError || errText.trim().slice(-600) || (result.status === "SUCCESS" ? "No response was produced; the task did not finish." : result.status || "Unknown error");
+          push(s, { role: "system", text: `Antigravity stopped with an error: ${detail}${/permission|denied/i.test(detail) ? ` ${permissionHelp}` : ""}` });
+        } else push(s, { role: "meta", text: `${Math.round((Date.now() - r.started) / 1000)}s · Antigravity` });
+      }
+      save(brand, video, s);
+    };
+    proc.stdout.on("data", chunk => {
+      buf += chunk.toString();
+      let nl; while ((nl = buf.indexOf("\n")) >= 0) { consume(buf.slice(0,nl).trim()); buf = buf.slice(nl+1); }
+    });
+    proc.stderr.on("data", chunk => { errText = (errText + chunk.toString()).slice(-4000); });
+    proc.on("error", err => {
+      push(s, { role: "system", text: `Couldn't start Antigravity CLI (${err.message}). Install agy and sign in first.` });
+      save(brand, video, s);
+    });
+    proc.on("close", code => {
+      if (buf.trim()) consume(buf.trim());
+      runs.delete(key);
+      if (r.stopped) push(s, { role: "system", text: "Stopped." });
+      else if (code !== 0 || !resultSeen) push(s, { role: "system", text: `Antigravity exited (${code}). ${errText.trim().slice(-600)}` });
+      save(brand, video, s);
+      setImmediate(() => { startNext(brand); advance(brand, video); });
+    });
+  };
+
+  const startCodex = (brand, video, text, s, r, key) => {
+    const bin = codexBin();
+    const folder = projectFolder(brand);
+    const isResume = !!s.sessionId;
+    const args = isResume
+      ? ["exec", "resume", "--dangerously-bypass-approvals-and-sandbox", "--json", "-c", `model_reasoning_effort="${s.effort}"`, s.sessionId, "-"]
+      : ["exec", "-C", root, "--dangerously-bypass-approvals-and-sandbox", "--json", "-c", `model_reasoning_effort="${s.effort}"`, "-"];
+
+    const proc = spawnProcess(bin, args, { cwd: root, env: cliEnvironment(), windowsHide: true });
+    r.proc = proc;
+    proc.stdout.setEncoding("utf8");
+    proc.stderr.setEncoding("utf8");
+
+    const promptToSend = isResume
+      ? text
+      : `${systemPrompt(brand, video, s)}\n\n---\nUser instruction:\n${text}`;
+    proc.stdin.on("error", () => {}); // spawn errors are reported below
+    proc.stdin.end(promptToSend, "utf8");
+
+    let buf = "";
+    let errText = "";
+    proc.stdout.on("data", (chunk) => {
+      buf += chunk.toString();
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        let e;
+        try {
+          e = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        r.gotEvents = true;
+        if (e.type === "thread.started" && e.thread_id) {
+          s.sessionId = e.thread_id;
+          r.step = "Thinking…";
+        } else if (e.type === "turn.started") {
+          r.step = "Thinking…";
+        } else if (e.type === "turn.failed" || e.type === "error") {
+          push(s, { role: "system", text: `Codex stopped with an error: ${e.error?.message || e.message || "Unknown error"}` });
+        } else if (e.item) {
+          if (e.item.type === "command_execution") {
+            r.step = describeTool("Bash", { command: e.item.command || "" });
+            push(s, { role: "step", text: r.step });
+          } else if (e.item.type === "file_change" || e.item.type === "file_edit") {
+            r.step = describeTool("Write", { file_path: e.item.file_path || e.item.path });
+            push(s, { role: "step", text: r.step });
+          } else if (e.item.type === "agent_message") {
+            if (e.type === "item.completed" && e.item.text?.trim()) {
+              push(s, { role: "claude", text: e.item.text.trim() });
+            }
+          }
+        } else if (e.type === "turn.completed") {
+          push(s, {
+            role: "meta",
+            text: `${Math.round((Date.now() - r.started) / 1000)}s · ChatGPT (Codex)`,
+          });
+        }
+        save(brand, video, s);
+      }
+    });
+
+    proc.stderr.on("data", (c) => (errText += c.toString()));
+    proc.on("error", (err) => {
+      push(s, { role: "system", text: `Couldn't start Codex CLI (${err.message}). Is Codex installed and logged in?` });
+      save(brand, video, s);
+    });
+    let done = false;
+    const finish = (code) => {
+      if (done) return;
+      done = true;
+      runs.delete(key);
+      fs.rmSync(path.join(root, tmpDir(brand, video)), { recursive: true, force: true });
+      fs.rmSync(path.join(root, ".director", "tmp", `${brand}-brand`), { recursive: true, force: true });
+      try { fixAudio(path.join(root, "public", brand)); } catch {}
+      if (r.stopped) push(s, { role: "system", text: "Stopped." });
+      else if (code !== 0) {
+        const homeDenied = /Access is denied|os error 5|permission denied/i.test(errText) && /arg0|memories.*sqlite|memories DB/i.test(errText);
+        if (homeDenied) {
+          push(s, { role: "system", text: "Codex cannot write to its local data folder. Close the dashboard server and launch Start.bat from Windows under your normal user account, then retry. Diagnostic details:\n" + errText.trim().slice(-2400) });
+        } else if (isResume && !r.gotEvents) {
+          s.sessionId = null;
+          push(s, { role: "system", text: "Couldn't resume the previous Codex session — send your message again to start fresh." });
+        } else {
+          push(s, { role: "system", text: `Codex exited (${code}). ${errText.trim().slice(-2400)}` });
+        }
+      }
+      save(brand, video, s);
+      setImmediate(() => {
+        startNext(brand);
+        advance(brand, video);
+      });
+    };
+    proc.on("close", finish);
+  };
+
+  const startClaude = (brand, video, text, effort, s, r, key) => {
     const args = [
       "-p", text,
       "--model", MODEL.id,
@@ -352,9 +545,8 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       deny.push(...["Edit", "Write", "MultiEdit", "NotebookEdit"].map((t) => `${t}(${abs})`));
     }
     args.push("--disallowedTools", deny.join(","));
-    const proc = spawn(process.env.CLAUDE_BIN || "claude", args, { cwd: root, env: process.env });
-    const r = { proc, started: Date.now(), step: "Starting Claude…", gotEvents: false, stopped: false };
-    runs.set(key, r);
+    const proc = spawnProcess(process.env.CLAUDE_BIN || "claude", args, { cwd: root, env: cliEnvironment(), windowsHide: true });
+    r.proc = proc;
 
     let buf = "";
     let errText = "";
@@ -448,12 +640,12 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
     storyboard: "Continue: finish the storyboard — the 4 key frames.",
     build: "Continue the build where you stopped, then finish the critique loop.",
   };
-  /** Did the latest Claude run finish cleanly? (a result arrived, no error) */
+  /** Did the latest AI run finish cleanly? (a result arrived, no error) */
   const lastRunOk = (s) => {
     const i = s.messages.map((m) => m.role).lastIndexOf("user");
     if (i < 0) return false;
     const after = s.messages.slice(i + 1);
-    return after.some((m) => m.role === "meta") && !after.some((m) => m.role === "system" && /^(Claude stopped with an error|Claude exited|Couldn't)/.test(m.text));
+    return after.some((m) => m.role === "meta") && !after.some((m) => m.role === "system" && /^(Claude stopped with an error|Claude exited|Codex exited|Codex stopped|Antigravity exited|Antigravity stopped|Couldn't)/.test(m.text));
   };
   const setAuto = (a, status, note) => Object.assign(a, { status, note, updated: Date.now() });
 
@@ -471,18 +663,18 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       if (!s.messages.some((m) => m.role === "user"))
         return run(brand, video, "Make this video. Plan the brief from the product's website, folder and files.", a.effort);
       if (!lastRunOk(s)) {
-        if (a.retries >= 1) return setAuto(a, "failed", "Claude stopped twice in a row — read lastReply / the chat, then `make` again to retry.");
+        if (a.retries >= 1) return setAuto(a, "failed", "AI Director stopped twice in a row — read lastReply / the chat, then `make` again to retry.");
         a.retries++;
         return run(brand, video, RETRY[s.phase] ?? RETRY.build, a.effort);
       }
       a.retries = 0;
       if (s.phase === "brief") {
-        if (!briefWritten(brand, video)) return setAuto(a, "blocked", "Claude asked something before writing the brief — answer with `ask`; autopilot continues after.");
+        if (!briefWritten(brand, video)) return setAuto(a, "blocked", "Director asked something before writing the brief — answer with `ask`; autopilot continues after.");
         if (a.stopAt === "brief") return setAuto(a, "paused", "Brief ready (BRIEF.md). Review it, then `make` again to continue, or `ask` for changes.");
         return approve(brand, video, a.effort);
       }
       if (s.phase === "storyboard") {
-        if (!storyboardOf(brand, video).length) return setAuto(a, "blocked", "No storyboard frames yet — Claude needs an answer: reply with `ask`; autopilot continues after.");
+        if (!storyboardOf(brand, video).length) return setAuto(a, "blocked", "No storyboard frames yet — Director needs an answer: reply with `ask`; autopilot continues after.");
         if (a.stopAt === "storyboard") return setAuto(a, "paused", "Storyboard ready (4 key frames). Review them, then `make` again to build, or `ask` for changes.");
         return approve(brand, video, a.effort);
       }
@@ -501,13 +693,15 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       const r = runs.get(`${brand}/${video}`);
       const w = waitingFor(brand, video);
       const other = w && [...runs.keys()].find((k) => k.startsWith(`${brand}/`));
+      const activeEngine = s.engine || defaultEngine();
       return {
         phase: s.phase,
         voice: voiceOf(s),
         formats: formatsOf(brand, video),
         styleId: getStyle(s.styleId) ? s.styleId : null,
         styles: listStyles(),
-        model: MODEL.label,
+        engine: activeEngine,
+        model: activeEngine === "antigravity" ? "Antigravity" : activeEngine === "codex" ? CODEX_MODEL.label : MODEL.label,
         effort: EFFORTS[s.effort] ? s.effort : DEFAULT_EFFORT,
         efforts: EFFORTS,
         hasSession: !!s.sessionId,
@@ -551,7 +745,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
     reset(brand, video) {
       if (busy(brand, video)) throw new Error("Stop Claude first.");
       const old = load(brand, video);
-      save(brand, video, { sessionId: null, phase: old.phase, effort: old.effort, messages: [] });
+      save(brand, video, { ...old, sessionId: null, messages: [] });
     },
     stop(brand, video) {
       const a = autos.get(`${brand}/${video}`);
@@ -573,6 +767,15 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
     setStyle(brand, video, styleId) {
       const s = load(brand, video);
       s.styleId = styleId || null;
+      save(brand, video, s);
+    },
+    setEngine(brand, video, engine) {
+      if (!['claude', 'codex', 'antigravity'].includes(engine)) throw new Error("Engine must be 'claude', 'codex' or 'antigravity'.");
+      if (busy(brand, video)) throw new Error("Stop the Director before changing engines.");
+      const s = load(brand, video);
+      if (s.engine !== engine) s.sessionId = null;
+      s.engine = engine;
+      s.sessionEngine = engine;
       save(brand, video, s);
     },
     setVoiceover(brand, video, { enabled, voiceId, videoLanguage, voiceLanguage, length }) {

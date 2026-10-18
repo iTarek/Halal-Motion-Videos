@@ -2,12 +2,12 @@
 name: halal-motion-videos
 description: Make motion-graphics promo videos (MP4) for an app or product from the terminal. An autopilot writes the brief, storyboard and build, then renders.
 license: Halal Motion Videos License (see LICENSE in the repo)
-compatibility: macOS or Linux. Needs Node.js 22+, ffmpeg/ffprobe, Python 3, and Claude Code logged in (the Director). Run `npm run setup` once in the repo.
+compatibility: Windows, macOS or Linux. Needs Node.js 22+, ffmpeg/ffprobe, Python 3, and a signed-in Codex, Claude Code or Antigravity CLI. Run `npm run setup` once in the repo.
 version: 1.0.0
-platforms: [macos, linux]
+platforms: [windows, macos, linux]
 prerequisites:
-  commands: [node, npm, ffmpeg, ffprobe, python3]
-metadata: {"openclaw": {"os": ["darwin", "linux"], "requires": {"bins": ["node", "npm", "ffmpeg", "ffprobe", "python3"]}}, "hermes": {"tags": ["video", "motion-graphics", "remotion", "promo", "app-store"], "category": "creative"}}
+  commands: [node, npm, ffmpeg, ffprobe]
+metadata: {"openclaw": {"os": ["win32", "darwin", "linux"], "requires": {"bins": ["node", "npm", "ffmpeg", "ffprobe"]}}, "hermes": {"tags": ["video", "motion-graphics", "remotion", "promo", "app-store"], "category": "creative"}}
 ---
 
 # Halal Motion Videos
@@ -15,7 +15,7 @@ metadata: {"openclaw": {"os": ["darwin", "linux"], "requires": {"bins": ["node",
 A local machine that makes short motion-graphics videos: product promos, App Store previews and social clips. One source renders 9:16 and 16:9.
 
 - **Structure:** every video belongs to a **brand** (an app or product), e.g. `my-app/video01`.
-- **The Director:** Claude Code does the creative work. It captures real screenshots, writes copy from the product's own words, designs sound by code, adds an ElevenLabs voice-over and builds the scenes.
+- **The Director:** Codex CLI, Claude Code or Antigravity CLI does the creative work. It captures real screenshots, writes copy from the product's own words, designs sound by code, adds an ElevenLabs voice-over and builds the scenes.
 - **Your job:** drive it from the terminal. The autopilot approves each step itself; no browser needed.
 
 **Halal videos only.** Refuse anything that promotes or shows:
@@ -24,6 +24,12 @@ A local machine that makes short motion-graphics videos: product promos, App Sto
 - immodest or sexual content
 - mockery of Allah, the Qur'an, the Prophets or Islam
 - lies, scams, misleading claims, hate or violence
+
+## Windows and engine selection
+
+Run `npm run video -- <command>` from the repo on every platform. Select `--engine=codex`, `--engine=claude` or `--engine=antigravity` with `make` or `set`. Antigravity uses the official `agy` CLI, not the IDE launcher; run `agy` once to sign in and allow the project tools using its permission settings.
+
+The portable wrapper is `node scripts/video.mjs <command>`. The Bash wrapper `scripts/video` remains available on macOS/Linux. A copied skill needs the environment variable `HALAL_MOTION_VIDEOS` pointing to the repo.
 
 ## The command
 
@@ -134,6 +140,6 @@ More commands and every JSON field: [references/commands.md](references/commands
 
 ## Without Claude Code
 
-The autopilot needs Claude Code (`claude`, logged in). Without it, build by hand following `CLAUDE.md` in the repo root, the full manual.
+The autopilot needs one signed-in CLI: Codex (`codex`), Claude Code (`claude`) or Antigravity (`agy`). Without it, build by hand following `CLAUDE.md` in the repo root, the full manual.
 
 - **Tools:** `npm run new`, `shot` (screenshots), `sfx` (sound), `voice`, `stills`, `review` (self-critique sheets), `typecheck`, `render`.

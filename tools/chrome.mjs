@@ -15,7 +15,7 @@ const bundled = () => {
     for (const d of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, d.name);
       if (d.isDirectory()) stack.push(p);
-      else if (/^(chrome-headless-shell|headless_shell)$/.test(d.name)) return p;
+      else if (/^(chrome-headless-shell|headless_shell)(\.exe)?$/.test(d.name)) return p;
     }
   }
   return null;
@@ -29,7 +29,7 @@ export const CHROME_LINUX_ARGS = process.platform === "linux" ? ["--no-sandbox",
 
 const onPath = (name) => {
   try {
-    return execFileSync("which", [name], { encoding: "utf8" }).trim() || null;
+    return execFileSync(process.platform === "win32" ? "where.exe" : "which", [name], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim().split(/\r?\n/)[0] || null;
   } catch {
     return null;
   }
@@ -38,7 +38,13 @@ const onPath = (name) => {
 export const findChrome = () =>
   [
     process.env.CHROME_PATH,
+    process.env.REMOTION_CHROME_BIN,
     bundled(),
+    ...(process.platform === "win32" ? [
+      path.join(process.env.PROGRAMFILES || "C:\\Program Files", "Google/Chrome/Application/chrome.exe"),
+      path.join(process.env["PROGRAMFILES(X86)"] || "C:\\Program Files (x86)", "Microsoft/Edge/Application/msedge.exe"),
+      path.join(process.env.LOCALAPPDATA || "", "Google/Chrome/Application/chrome.exe"),
+    ] : []),
     // macOS
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",

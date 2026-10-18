@@ -87,3 +87,9 @@
 | `out/<brand>/<video>/storyboard/` | the 4 storyboard frames |
 | `out/<brand>/<video>/*.mp4` | renders |
 | `CLAUDE.md` (repo root) | the full manual: engine, sound design, voice-over, screenshots, rules |
+
+## Director engines and Windows
+
+The Antigravity Director uses `--dangerously-skip-permissions` to approve all tool requests for its process, including commands and writes, without changing global settings. Project rules and OS restrictions still apply. For standalone CLI runs with scoped permissions, `npm run antigravity-permissions` adds video command rules to global settings while preserving deny/ask rules and a backup. The Director treats denied actions and empty results as failures, even when the CLI reports `SUCCESS`.
+
+Use `npm run video -- <command>` from the repo on Windows, macOS or Linux. The portable skill wrapper is `node scripts/video.mjs <command>`; the Bash wrapper is for macOS/Linux. `make` and `set` accept `--engine=codex|claude|antigravity`. `status` reports the selected `engine` plus `codex`, `claude` and `antigravity` readiness. Antigravity uses the official agy CLI with stream-json and per-video conversation IDs; sign in with agy first and allow project tool commands using its permission settings. The IDE launcher is not a substitute for agy.

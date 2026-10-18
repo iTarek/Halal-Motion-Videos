@@ -1,6 +1,6 @@
 # Halal Motion Videos — a machine for motion-graphics videos
 
-Runs on **macOS and Linux** (not Windows). This repo makes short motion-graphics videos (product promos, App Store previews, social clips) with **Remotion** (React → MP4). You run it from a local dashboard, where a Claude-powered **Director** writes the brief, captures real screenshots, designs sound by code, generates voice-over and builds the scenes.
+Runs on **Windows, macOS and Linux**. This repo makes short motion-graphics videos (product promos, App Store previews, social clips) with **Remotion** (React → MP4). You run it from a local dashboard, where an AI **Director** (Codex, Claude Code or Antigravity) writes the brief, captures real screenshots, designs sound by code, generates voice-over and builds the scenes.
 
 - Every video lives inside a **brand** (an app or product).
 - A brand can have many videos: `my-app/video01`, `my-app/video02`, …
@@ -10,6 +10,8 @@ The usual request is **"make a new video for X"**. Follow the workflow near the 
 
 ## Setup
 
+On Windows, run the commands below once, then use `Start.bat`. The dashboard supports Arabic and English via its language selector. Select the Director engine inside the video page or with `--engine=codex|claude|antigravity`. See [the Arabic usage guide](USAGE.ar.md) for details.
+
 Double-click `Start.command` on macOS, or run `./Start.command` in a terminal on Linux: the first time it runs setup, then it starts the dashboard and opens it. Closing its window (or Ctrl+C) stops it. Or, step by step:
 
 ```bash
@@ -18,6 +20,8 @@ npm run doctor    # system check (also in the dashboard → Settings)
 npm start         # dashboard → http://localhost:4000
 ```
 
+The Antigravity Director launches with `--dangerously-skip-permissions`: tool permission requests are automatically approved for that process, including shell commands and file writes. This does not change global CLI settings or override operating-system access restrictions. The Director must still follow the project rules below. For standalone CLI runs with scoped permissions instead, `npm run antigravity-permissions` adds the project's video command rules to global settings, preserving existing deny/ask rules and a backup. A denied tool or an empty result appears as an error in the Director, even if the CLI reports `SUCCESS`.
+
 | Needs | For | Installed by `setup`? |
 | --- | --- | --- |
 | Node.js 22+ | everything | no: nodejs.org, `brew install node` (macOS), or your package manager / nvm (Linux) |
@@ -25,7 +29,7 @@ npm start         # dashboard → http://localhost:4000
 | Remotion's headless Chrome | rendering, stills, screenshots | yes (`npx remotion browser ensure`) |
 | ffmpeg + ffprobe | audio mastering, voice-over timing | no: `brew install ffmpeg` / `apt install ffmpeg` |
 | Python 3 + numpy + scipy | sound design | yes, into `.venv` (unless system Python already has them); Debian/Ubuntu need `sudo apt install python3-venv` first |
-| Claude Code CLI 2.1.280+, logged in | the Director chat only; everything else works without it | no: claude.com/claude-code; `claude update` if older |
+| Codex CLI, Claude Code CLI 2.1.280+, or Antigravity CLI (`agy`), signed in | the Director chat only | no: install one CLI and sign in |
 | ElevenLabs API key | voice-over (optional) | no: dashboard → Settings |
 
 `setup` never installs system-wide software; it prints the exact fix instead.

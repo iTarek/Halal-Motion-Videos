@@ -16,11 +16,11 @@ if (Number(process.versions.node.split(".")[0]) < MIN_NODE) {
 }
 
 step("npm packages");
-if (!fs.existsSync(path.join(ROOT, "node_modules", "remotion"))) sh("npm", ["install"]);
+if (!fs.existsSync(path.join(ROOT, "node_modules", "remotion"))) sh(process.platform === "win32" ? "npm.cmd" : "npm", ["install"], { shell: process.platform === "win32" });
 else console.log("  already installed");
 
 step("Remotion's headless Chrome (rendering, stills, screenshots)");
-sh("npx", ["remotion", "browser", "ensure"]);
+sh(process.execPath, [path.join(ROOT, "node_modules", "@remotion", "cli", "remotion-cli.js"), "browser", "ensure"]);
 
 step("Python + numpy + scipy (sound design)");
 const hasDeps = (py) => spawnSync(py, ["-c", "import numpy, scipy"], { stdio: "ignore" }).status === 0;
@@ -31,7 +31,8 @@ if (spawnSync(py, ["--version"], { stdio: "ignore" }).error) {
   console.log(`  ready (${py.includes(".venv") ? ".venv" : "system python3"})`);
 } else {
   console.log("  creating .venv with numpy + scipy…");
-  if (sh("python3", ["-m", "venv", ".venv"]) && sh(pythonBin(), ["-m", "pip", "install", "--quiet", "--upgrade", "pip"]) && sh(pythonBin(), ["-m", "pip", "install", "--quiet", "-r", "requirements.txt"])) {
+  const pyCmd = process.platform === "win32" ? "python" : "python3";
+  if (sh(pyCmd, ["-m", "venv", ".venv"]) && sh(pythonBin(), ["-m", "pip", "install", "--quiet", "--upgrade", "pip"]) && sh(pythonBin(), ["-m", "pip", "install", "--quiet", "-r", "requirements.txt"])) {
     console.log("  done");
   } else
     console.log(

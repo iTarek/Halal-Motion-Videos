@@ -6,12 +6,12 @@
 //
 // Usage: npm run review -- <brand> <video> [--format=vertical] [--strip=12.5,31] [--out=<dir>]
 //   Default output: .director/tmp/<brand>-<video>/review/ (the Director clears it after each run).
-import { renderFrames } from "@remotion/renderer";
+import { renderStill } from "@remotion/renderer";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { CONCURRENCY, findCompositions, parseArgs, ROOT } from "./lib.mjs";
+import { browserExecutable, CONCURRENCY, findCompositions, parseArgs, ROOT } from "./lib.mjs";
 import { CHROME_LINUX_ARGS, findChrome } from "./chrome.mjs";
 
 const { pos, flags } = parseArgs(process.argv.slice(2));
@@ -79,11 +79,20 @@ for (const { composition: comp, format: f } of compositions) {
   const frameDir = path.join(outDir, `frames-${f}`);
   fs.mkdirSync(frameDir, { recursive: true });
   process.stdout.write(`${comp.id}: rendering ${frames.length} frames at phone size… `);
-  await renderFrames({
-    serveUrl, composition: comp, inputProps: comp.props, frames, outputDir: frameDir,
-    imageFormat: "jpeg", jpegQuality: 85, scale, concurrency: Math.min(4, CONCURRENCY),
-    imageSequencePattern: "f-[frame].[ext]", onStart: () => {}, onFrameUpdate: () => {},
+  const browser = browserExecutable();
+  const queue = [...frames];
+  const workers = Array.from({ length: Math.min(4, CONCURRENCY) }, async () => {
+    while (queue.length) {
+      const fr = queue.shift();
+      const output = path.join(frameDir, `f-${fr}.jpg`);
+      await renderStill({
+        serveUrl, composition: comp, frame: fr, output,
+        imageFormat: "jpeg", jpegQuality: 85, scale,
+        ...(browser ? { browserExecutable: browser } : {}),
+      });
+    }
   });
+  await Promise.all(workers);
   console.log("done");
   const fileOf = (fr) => {
     const hit = fs.readdirSync(frameDir).find((n) => Number(n.match(/(\d+)/)?.[1]) === fr);

@@ -7,21 +7,29 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { spawn, execFile } from "node:child_process";
+import { spawn, execFile, execFileSync } from "node:child_process";
 import { createDirector } from "./director.mjs";
 import { deleteStyle, saveStyle } from "../styles.mjs";
-import { checks as systemChecks, claudeStatus } from "../doctor.mjs";
+import { checks as systemChecks, antigravityStatus, claudeStatus, codexStatus } from "../doctor.mjs";
 import { fixAudio } from "../audiofix.mjs";
 
-// Is the Director usable (Claude Code installed + logged in)? Cached: `claude auth status` spawns a process.
-let claudeCache = { at: 0, value: null };
-const claudeReady = (fresh = false) => {
-  if (fresh || !claudeCache.value || Date.now() - claudeCache.at > 30000) claudeCache = { at: Date.now(), value: claudeStatus() };
-  return claudeCache.value;
+// Is an AI engine usable for Director (Claude Code or Codex CLI)?
+let engineCache = { at: 0, value: null };
+const aiEngineReady = (fresh = false) => {
+  if (fresh || !engineCache.value || Date.now() - engineCache.at > 30000) {
+    const claude = claudeStatus();
+    const codex = codexStatus();
+    const antigravity = antigravityStatus();
+    const ok = claude.ok || codex.ok || antigravity.ok;
+    const active = claude.ok ? "claude" : codex.ok ? "codex" : antigravity.ok ? "antigravity" : null;
+    engineCache = { at: Date.now(), value: { ok, claude, codex, antigravity, active } };
+  }
+  return engineCache.value;
 };
 import { checkVoice, DEFAULT_VOICE_ID, readSettings, VOICE_MODELS, writeSettings } from "../settings.mjs";
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..");
+import { fileURLToPath } from "node:url";
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const HERE = path.join(ROOT, "tools", "dashboard");
 const BRANDS = path.join(ROOT, "src", "brands");
 const OUT = path.join(ROOT, "out");
@@ -172,6 +180,12 @@ const unregister = (file, name) => {
 const trash = (paths, label) => {
   const existing = paths.filter((p) => fs.existsSync(p));
   if (!existing.length) return;
+  if (existing.some(p => !path.resolve(p).startsWith(ROOT + path.sep))) throw new Error("Can't delete that.");
+  if (process.platform === "win32") {
+    const script = `Add-Type -AssemblyName Microsoft.VisualBasic; $items = ConvertFrom-Json $env:HMV_TRASH_PATHS; foreach ($item in $items) { if (Test-Path -LiteralPath $item -PathType Container) { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($item, 'OnlyErrorDialogs', 'SendToRecycleBin') } else { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($item, 'OnlyErrorDialogs', 'SendToRecycleBin') } }`;
+    execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { env: { ...process.env, HMV_TRASH_PATHS: JSON.stringify(existing) }, windowsHide: true });
+    return;
+  }
   const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
   const name = `MotionVideos ${label} ${stamp}`;
   let bin;
@@ -295,6 +309,8 @@ const server = http.createServer(async (req, res) => {
   const p = url.pathname;
   try {
     if (req.method === "GET" && p === "/") return send(res, 200, fs.readFileSync(path.join(HERE, "index.html")), "text/html");
+    if (req.method === "GET" && p === "/i18n.js") return send(res, 200, fs.readFileSync(path.join(HERE, "i18n.js")), "text/javascript; charset=utf-8");
+    if (req.method === "GET" && p === "/selects.js") return send(res, 200, fs.readFileSync(path.join(HERE, "selects.js")), "text/javascript; charset=utf-8");
     if (req.method === "GET" && p.startsWith("/out/")) return serveFile(req, res, OUT, decodeURIComponent(p.slice(5)));
     if (req.method === "GET" && p.startsWith("/public/")) return serveFile(req, res, PUBLIC, decodeURIComponent(p.slice(8)));
 
@@ -363,9 +379,16 @@ const server = http.createServer(async (req, res) => {
       if (!validVideo(q.brand, q.video)) return send(res, 400, { error: "Unknown video." });
       const { brand, video } = q;
       const action = p.slice("/api/director".length);
-      if (req.method === "GET" && action === "") return send(res, 200, { ...director.state(brand, video), claude: claudeReady() });
-      if (["/send", "/approve", "/autopilot"].includes(action) && !claudeReady(true).ok)
-        return send(res, 409, { error: `The Director needs Claude Code: ${claudeReady().fix}` });
+      if (req.method === "GET" && action === "") {
+        const eng = aiEngineReady();
+        const state = director.state(brand, video);
+        return send(res, 200, { ...state, claude: eng.claude, codex: eng.codex, antigravity: eng.antigravity, activeEngine: state.engine });
+      }
+      if (["/send", "/approve", "/autopilot"].includes(action)) {
+        const engine = director.state(brand, video).engine;
+        if (!aiEngineReady(true)[engine]?.ok)
+          return send(res, 409, { error: `The selected Director engine (${engine}) is not ready. Install it and log in, or choose another engine.` });
+      }
       if (req.method !== "POST") return send(res, 404, { error: "not found" });
       try {
         if (action === "/send") {
@@ -381,7 +404,8 @@ const server = http.createServer(async (req, res) => {
         else if (action === "/style-delete") {
           deleteStyle(String(q.styleId ?? ""));
           director.setStyle(brand, video, null);
-        } else if (action === "/voiceover") {
+        } else if (action === "/engine") director.setEngine(brand, video, q.engine);
+        else if (action === "/voiceover") {
           if (typeof q.voiceId === "string" && q.voiceId.trim() && !/^[A-Za-z0-9]{8,64}$/.test(q.voiceId.trim()))
             return send(res, 400, { error: "A voice ID is letters and numbers, like NOpBlnGInO9m6vDvFkFC." });
           director.setVoiceover(brand, video, { enabled: q.enabled, voiceId: q.voiceId, videoLanguage: q.videoLanguage, voiceLanguage: q.voiceLanguage, length: q.length });
@@ -396,7 +420,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, director.state(brand, video));
     }
 
-    // ---- brand settings: product website + product folder on this Mac (both optional)
+    // ---- brand settings: product website + product folder on this device (both optional)
     if (req.method === "POST" && p === "/api/brand-settings") {
       const body = await readBody(req);
       const { brand } = body;
@@ -412,7 +436,7 @@ const server = http.createServer(async (req, res) => {
         if (f.startsWith("~")) f = path.join(os.homedir(), f.slice(1));
         if (f) {
           f = path.resolve(f);
-          if (!fs.existsSync(f) || !fs.statSync(f).isDirectory()) return send(res, 400, { error: "That folder doesn't exist on this Mac." });
+          if (!fs.existsSync(f) || !fs.statSync(f).isDirectory()) return send(res, 400, { error: "That folder doesn't exist on this device." });
           if (f === "/" || f === os.homedir()) return send(res, 400, { error: "Pick the product's own folder, not the whole disk or home folder." });
           if (f === ROOT || f.startsWith(ROOT + path.sep)) return send(res, 400, { error: "That's this video machine itself — pick the product's folder." });
         }
@@ -514,7 +538,7 @@ const server = http.createServer(async (req, res) => {
       const whole = p === "/api/delete-brand";
       if (!NAME.test(brand ?? "") || !fs.existsSync(path.join(BRANDS, brand))) return send(res, 400, { error: "Unknown brand." });
       if (!whole && !validVideo(brand, video)) return send(res, 400, { error: "Unknown video." });
-      if (director.isBusy(brand, whole ? undefined : video)) return send(res, 409, { error: "Claude is working on this — stop it first." });
+      if (director.isBusy(brand, whole ? undefined : video)) return send(res, 409, { error: "The Director is working on this — stop it first." });
       if (jobs.some((j) => ["running", "queued"].includes(j.status) && j.brand === brand && (whole || j.video === video)))
         return send(res, 409, { error: "A render is running for this — cancel it first." });
       try {
@@ -556,7 +580,7 @@ const server = http.createServer(async (req, res) => {
       }[where];
       if (!target) return send(res, 400, { error: "Bad target." });
       fs.mkdirSync(target, { recursive: true });
-      execFile(process.platform === "darwin" ? "open" : "xdg-open", [target], () => {}); // Finder / Linux file manager
+      execFile(process.platform === "win32" ? "explorer.exe" : process.platform === "darwin" ? "open" : "xdg-open", [target], () => {});
       return send(res, 200, { ok: true });
     }
 

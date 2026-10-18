@@ -11,7 +11,7 @@
     "start": "node tools/dashboard/server.mjs",
     "setup": "node tools/setup.mjs",
     "doctor": "node tools/doctor.mjs",
-    "studio": "remotion studio",
+    "studio": "node node_modules/@remotion/cli/remotion-cli.js studio",
     "new": "node tools/new.mjs",
     "render": "node tools/render.mjs",
     "stills": "node tools/stills.mjs",
@@ -23,7 +23,9 @@
     "copy-asset": "node tools/copy-asset.mjs",
     "video": "node tools/video.mjs",
     "agent-skill": "node tools/agent-skill.mjs",
-    "typecheck": "tsc --noEmit"
+    "antigravity-permissions": "node tools/antigravity-permissions.mjs",
+    "test": "node --test tools/tests/*.test.mjs",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.529",

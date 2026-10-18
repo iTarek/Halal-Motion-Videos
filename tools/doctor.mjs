@@ -3,16 +3,19 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
+import { findChrome } from "./chrome.mjs";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const MIN_NODE = 22;
 export const MIN_CLAUDE = "2.1.280"; // first version that runs Opus 5.5
 
 const run = (cmd, args) => {
-  const r = spawnSync(cmd, args, { encoding: "utf8", timeout: 15000 });
+  const r = spawnSync(cmd, args, { encoding: "utf8", timeout: 15000, windowsHide: true, env: cliEnvironment() });
   return r.error ? null : { code: r.status, out: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() };
 };
+export const cliEnvironment = () => ({ ...process.env, HOME: process.env.HOME || os.homedir(), CODEX_HOME: process.env.CODEX_HOME || path.join(os.homedir(), ".codex") });
 const newer = (a, b) => {
   const [x, y] = [a, b].map((v) => v.split(".").map(Number));
   for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0);
@@ -22,13 +25,10 @@ const newer = (a, b) => {
 /** Python to use: the project's .venv if present, else python3. */
 export const pythonBin = () => {
   const venv = path.join(ROOT, ".venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
-  return fs.existsSync(venv) ? venv : "python3";
+  return fs.existsSync(venv) ? venv : (process.platform === "win32" ? "python" : "python3");
 };
 
-const remotionBrowser = () => {
-  const dir = path.join(ROOT, "node_modules", ".remotion", "chrome-headless-shell");
-  return fs.existsSync(dir) && fs.readdirSync(dir).length > 0;
-};
+const remotionBrowser = () => !!findChrome();
 
 const settingsHaveKey = () => {
   if (process.env.ELEVENLABS_API_KEY) return true;
@@ -58,6 +58,41 @@ export const claudeStatus = () => {
   return { ok: true, reason: "ok", detail: `v${version} · logged in${plan}`, fix: "" };
 };
 
+export const codexBin = () => {
+  const custom = process.env.CODEX_BIN;
+  if (custom && fs.existsSync(custom)) return custom;
+  const standard = path.join(process.env.USERPROFILE || "", ".codex", "plugins", ".plugin-appserver", "codex.exe");
+  if (fs.existsSync(standard)) return standard;
+  return "codex";
+};
+
+export const codexStatus = () => {
+  const bin = codexBin();
+  const v = run(bin, ["--version"]);
+  if (!v || v.code !== 0) return { ok: false, reason: "missing", detail: "not installed", fix: "Install Codex CLI." };
+  const auth = run(bin, ["login", "status"]);
+  if (!auth || auth.code !== 0) return { ok: false, reason: "logged-out", detail: `${v.out.split("\n")[0]} · not logged in`, fix: "Run `codex login` (use CODEX_BIN if Codex is not on PATH).", bin };
+  return { ok: true, reason: "ok", detail: `${v.out.match(/codex-cli[^\r\n]*/)?.[0] || "Codex CLI"} · logged in`, fix: "", bin };
+};
+
+export const antigravityBin = () => {
+  if (process.env.ANTIGRAVITY_BIN) return process.env.ANTIGRAVITY_BIN;
+  const native = process.platform === "win32"
+    ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "agy", "bin", "agy.exe")
+    : path.join(os.homedir(), ".local", "bin", "agy");
+  return fs.existsSync(native) ? native : "agy";
+};
+
+export const antigravityStatus = () => {
+  const bin = antigravityBin();
+  const version = run(bin, ["--version"]);
+  if (!version || version.code !== 0)
+    return { ok: false, reason: "missing", detail: "not installed", fix: "Install Antigravity CLI from antigravity.google/download, then run `agy` once to sign in. The IDE alone is not the CLI.", bin };
+  // The documented CLI has no non-interactive auth-status command. Do not infer
+  // authentication from credential files or make a billable prompt during doctor.
+  return { ok: true, reason: "installed", authVerified: false, detail: "installed · sign-in checked on first run", fix: "Run `agy` once to sign in.", bin };
+};
+
 /** Every check: { id, label, ok, required, detail, fix, needs } */
 export const checks = () => {
   const out = [];
@@ -84,7 +119,7 @@ export const checks = () => {
   add({
     id: "ffmpeg", label: "ffmpeg + ffprobe", required: true, ok: !!(ff && fp && ff.code === 0 && fp.code === 0),
     detail: ff?.out.split("\n")[0]?.replace(/ Copyright.*/, "") ?? "not found", needs: "audio mastering, voice-over timing",
-    fix: "Install ffmpeg: `brew install ffmpeg` (macOS) or `sudo apt install ffmpeg` (Linux).",
+    fix: process.platform === "win32" ? "Install FFmpeg for Windows from ffmpeg.org and add its bin folder to PATH (ffmpeg + ffprobe)." : "Install ffmpeg: `brew install ffmpeg` (macOS) or `sudo apt install ffmpeg` (Linux).",
   });
 
   const py = pythonBin();
@@ -94,15 +129,24 @@ export const checks = () => {
     id: "python", label: "Python 3 + numpy + scipy", required: true, ok: !!(pyDeps && pyDeps.code === 0),
     detail: pyv ? `${pyv.out}${pyDeps?.code === 0 ? ` · numpy ${pyDeps.out.split(" ")[0]} · scipy ${pyDeps.out.split(" ")[1]}` : " · numpy/scipy missing"}${py.includes(".venv") ? " (.venv)" : ""}` : "python3 not found",
     needs: "sound design (npm run sfx)",
-    fix: pyv ? "Run `npm run setup` (creates .venv with numpy + scipy; on Debian/Ubuntu first `sudo apt install python3-venv`)." : "Install Python 3 (`brew install python` on macOS, `sudo apt install python3 python3-venv` on Debian/Ubuntu), then `npm run setup`.",
+    fix: process.platform === "win32" ? "Install Python 3 from python.org with Add Python to PATH enabled, then run `npm run setup`." : pyv ? "Run `npm run setup` (creates .venv with numpy + scipy; on Debian/Ubuntu first `sudo apt install python3-venv`)." : "Install Python 3 (`brew install python` on macOS, `sudo apt install python3 python3-venv` on Debian/Ubuntu), then `npm run setup`.",
   });
 
   const cl = claudeStatus();
   add({
     id: "claude", label: "Claude Code CLI", required: false, ok: cl.ok,
-    detail: cl.detail, needs: "the Director chat only — everything else works without it",
+    detail: cl.detail, needs: "the Director chat (Claude engine)",
     fix: cl.fix,
   });
+
+  const cdx = codexStatus();
+  add({
+    id: "codex", label: "Codex CLI (ChatGPT)", required: false, ok: cdx.ok,
+    detail: cdx.detail, needs: "the Director chat (Codex engine)",
+    fix: cdx.fix,
+  });
+  const agy = antigravityStatus();
+  add({ id: "antigravity", label: "Antigravity CLI", required: false, ok: agy.ok, detail: agy.detail, needs: "the Director chat (Antigravity engine)", fix: agy.fix });
 
   add({
     id: "elevenlabs", label: "ElevenLabs API key", required: false, ok: settingsHaveKey(), detail: settingsHaveKey() ? "saved" : "not set (optional)",

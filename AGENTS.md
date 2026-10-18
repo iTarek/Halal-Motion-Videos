@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This repo is **Halal Motion Videos**. It makes short motion-graphics videos (product promos, App Store previews, social clips) with Remotion, on macOS or Linux.
+This repo is **Halal Motion Videos**. It makes short motion-graphics videos (product promos, App Store previews, social clips) with Remotion, on Windows, macOS or Linux.
 
 - **Driving it from a terminal:** no browser needed. Use the command-line tool below.
 - **Full manual:** [CLAUDE.md](CLAUDE.md) covers the layout, engine, sound design, voice-over, screenshots and rules. It's also the instructions for the Director (the Claude Code agent that builds each video).
@@ -20,7 +20,7 @@ npm run video -- status <brand> <video> --json    # poll every 1–2 minutes
 - **When `status` says `blocked`:** the Director asked a question. Answer with `npm run video -- ask <brand> <video> "<answer>"`.
 - **When `status` says `failed`:** run `make <brand> <video>` again. It resumes.
 - **Where the MP4s land:** `out/<brand>/<video>/`. The paths are in `status` → `outputs`.
-- **Needs:** Claude Code logged in (`claude`), because the Director does the creative work.
+- **Needs:** Codex CLI (`codex`), Claude Code (`claude`) or Antigravity CLI (`agy`), installed and signed in. Select with `--engine=codex|claude|antigravity`.
 
 All commands, flags, JSON fields and exit codes: [.agents/skills/halal-motion-videos/references/commands.md](.agents/skills/halal-motion-videos/references/commands.md).
 

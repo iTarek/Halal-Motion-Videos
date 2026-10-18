@@ -107,7 +107,7 @@ const lastReply = (d) => {
 };
 const nextStep = (d, render) => {
   const ap = d.autopilot;
-  if (d.running) return `Claude is working (${d.step}). Check again in a minute or two.`;
+  if (d.running) return `Director is working (${d.step}). Check again in a minute or two.`;
   if (ap?.status === "running") return "Autopilot is moving to the next step. Check again shortly.";
   if (ap?.status === "blocked") return "The Director asked something (see lastReply). Answer with `ask`; the autopilot then carries on.";
   if (ap?.status === "failed") return "Read lastReply, fix what it says if needed, then run `make` again to retry.";
@@ -137,7 +137,10 @@ const statusOf = async (brand, video) => {
     running: d.running, activity: d.step,
     waiting: !!d.waiting, // queued behind another video of the same brand (they take turns, one step each)
     autopilot: d.autopilot,
+    engine: d.engine || d.activeEngine || (d.codex?.ok ? "codex" : "claude"),
     claude: d.claude?.ok ? "ok" : d.claude?.fix ?? "unknown",
+    codex: d.codex?.ok ? "ok" : d.codex?.fix ?? "unknown",
+    antigravity: d.antigravity?.ok ? "ok" : d.antigravity?.fix ?? "unknown",
     lastReply: lastReply(d),
     brief: d.briefExists ? path.join(ROOT, "src", "brands", brand, video, "BRIEF.md") : null,
     storyboard: d.storyboard.map((f) => path.join(ROOT, "out", brand, video, "storyboard", f.name)),
@@ -230,6 +233,10 @@ const applySettings = async (brand, video) => {
     saved.push("website/folder");
   }
   if (!video) return saved;
+  if (flags.engine !== undefined) {
+    await api("/api/director/engine", { brand, video, engine: String(flags.engine) });
+    saved.push("engine");
+  }
   const vo = {};
   if (flags.length !== undefined) vo.length = Number(flags.length);
   if (flags.language !== undefined) vo.videoLanguage = String(flags.language);
@@ -301,7 +308,7 @@ switch (cmd) {
     if (flags["app-id"]) progress(storeSummary(fetchStoreAssets(brand, flags["app-id"])));
     await applySettings(brand, video);
     const st0 = await statusOf(brand, video);
-    if (st0.claude !== "ok") fail(`The Director needs Claude Code: ${st0.claude}`);
+    if (st0[st0.engine] !== "ok") fail(`The Director needs the selected engine (${st0.engine}): ${st0[st0.engine]}`);
     await api("/api/director/autopilot", {
       brand, video, prompt: words.join(" ").trim(),
       ...(flags["stop-at"] ? { stopAt: String(flags["stop-at"]) } : {}),
