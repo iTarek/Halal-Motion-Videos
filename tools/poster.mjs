@@ -17,6 +17,7 @@ export const bakePoster = (file, frame, jpg) => {
   const tmp = `${file.replace(/\.mp4$/i, "")}.poster.mp4`; // never the input itself
   const pick = `select=eq(n\\,${frame})`;
   try {
+    fs.rmSync(jpg, { force: true }); // a cover from an earlier render must not pass for this one
     ff(["-i", file, "-vf", pick, "-frames:v", "1", "-q:v", "2", jpg]);
     if (!fs.existsSync(jpg)) throw new Error(`Poster: frame ${frame} isn't in ${file}.`);
     // The same file twice: frame N of the second copy, moved to time 0, covers frame 0 of the first. Both are the

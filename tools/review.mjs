@@ -7,6 +7,9 @@
 //                           second t — muddy crossfades, fast moves, glitches, blur, overlaps
 //   wave.png                the soundtrack as a waveform, with every scene change marked, plus its loudness — does
 //                           each hit land on its moment? (it's the same in every format)
+//   voice-<format>-N.png    with a voice-over: the mix is heard back by speech to text, and this is the picture during
+//                           each spoken phrase, labelled with what's said — does the picture show it when it's said?
+//                           The phrases are also under wave.png and printed as "Heard:" with their real times.
 //
 // Usage: npm run review -- <brand> <video> [--format=vertical] [--strip=12.5,31] [--safe-area=on|off] [--out=<dir>]
 //   Default output: .director/tmp/<brand>-<video>/review/ (the Director clears it after each run).
@@ -17,6 +20,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { browserExecutable, CONCURRENCY, findCompositions, parseArgs, ROOT } from "./lib.mjs";
 import { CHROME_ARGS, findChrome } from "./chrome.mjs";
+import { phrasesOf, transcribe } from "./transcribe.mjs";
 
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [brand, video] = pos;
@@ -25,20 +29,23 @@ if (!brand || !video) {
   process.exit(1);
 }
 const format = typeof flags.format === "string" ? flags.format : undefined;
-// The video's Safe area switch (dashboard → Video settings, or `npm run video -- set … --safe-area=on|off`): on unless
-// switched off. --safe-area=on|off overrides it for this run.
-const savedSafeArea = (() => {
+const readJson = (file) => {
   try {
-    return JSON.parse(fs.readFileSync(path.join(ROOT, ".director", brand, `${video}.json`), "utf8")).safeArea !== false;
+    return JSON.parse(fs.readFileSync(file, "utf8"));
   } catch {
-    return true;
+    return null;
   }
-})();
-const safeArea = flags["safe-area"] === undefined ? savedSafeArea : flags["safe-area"] !== "off";
+};
+// The video's own settings (dashboard → Video settings, or `npm run video -- set …`). The Safe area switch is on unless
+// switched off; --safe-area=on|off overrides it for this run.
+const saved = readJson(path.join(ROOT, ".director", brand, `${video}.json`)) ?? {};
+const safeArea = flags["safe-area"] === undefined ? saved.safeArea !== false : flags["safe-area"] !== "off";
 const strips = typeof flags.strip === "string" ? flags.strip.split(",").map(Number).filter((n) => n >= 0) : [];
 const outDir = path.resolve(ROOT, typeof flags.out === "string" ? flags.out : path.join(".director", "tmp", `${brand}-${video}`, "review"));
-fs.rmSync(outDir, { recursive: true, force: true });
+// Clear the last run's sheets, and only those: --out can name a folder that holds other files.
+const OURS = /^((contact|phone|strip|voice)-.+\.png|wave\.png|soundtrack\.wav|frames-.+)$/;
 fs.mkdirSync(outDir, { recursive: true });
+for (const n of fs.readdirSync(outDir)) if (OURS.test(n)) fs.rmSync(path.join(outDir, n), { recursive: true, force: true });
 
 const chrome = findChrome(); // lays out the sheets
 if (!chrome) {
@@ -71,9 +78,10 @@ const shoot = (html, W, H, out) => {
 const unsafeEdges = (width, height) =>
   height / width > 1.7 ? { top: 12, bottom: 22, left: 6, right: 12 } : { top: 5, bottom: 5, left: 5, right: 5 };
 
-/** Lays out images in a labelled grid page and screenshots it. items: [{ file, label }]. zone: unsafeEdges() to tint. */
-const sheet = (items, { cols, cellW, cellH, title, zone }, out) => {
-  const gap = 8, pad = 16, labelH = 26, titleH = 40;
+/** Lays out images in a labelled grid page and screenshots it. items: [{ file, label }]. zone: unsafeEdges() to tint.
+ *  labelLines: room for longer labels (e.g. a spoken phrase). */
+const sheet = (items, { cols, cellW, cellH, title, zone, labelLines = 1 }, out) => {
+  const gap = 8, pad = 16, labelH = labelLines > 1 ? 4 + 18 * labelLines : 26, titleH = 40; // multi-line: 4 px + 18 px lines
   const rows = Math.ceil(items.length / cols);
   const W = pad * 2 + cols * cellW + (cols - 1) * gap;
   const H = pad * 2 + titleH + rows * (cellH + labelH) + (rows - 1) * gap;
@@ -87,7 +95,9 @@ const sheet = (items, { cols, cellW, cellH, title, zone }, out) => {
     .f{position:relative;width:${cellW}px;height:${cellH}px}
     .f img{display:block;width:100%;height:100%;object-fit:contain;background:#000}
     .f i{position:absolute;background:rgba(255,40,40,.28)}
-    .c>div:last-child{height:${labelH}px;line-height:${labelH}px;color:#e0a860;font-weight:bold}
+    .c>div:last-child{height:${labelH}px;color:#e0a860;font-weight:bold;${labelLines > 1
+      ? `box-sizing:border-box;padding-top:4px;line-height:18px;font-size:14px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:${labelLines};overflow:hidden`
+      : `line-height:${labelH}px`}}
   </style></head><body><div class="t">${esc(title)}</div><div class="g">${items
     .map((it) => `<div class="c"><div class="f"><img src="${esc(pathToFileURL(it.file).href)}">${tint}</div><div>${esc(it.label)}</div></div>`)
     .join("")}</div></body></html>`;
@@ -96,10 +106,11 @@ const sheet = (items, { cols, cellW, cellH, title, zone }, out) => {
 
 /**
  * The soundtrack as a sheet: waveform (peak, and RMS brighter), a seconds ruler, a coral line at every scene change,
- * and the mix's loudness and true peak. It's the raw mix: `npm run render` masters it to -16 LUFS.
+ * the voice-over's phrases where they're really heard (blue), and the mix's loudness and true peak. It's the raw mix:
+ * `npm run render` masters it to -16 LUFS.
  */
-const waveSheet = (wav, { fps, total, cuts, title }, out) => {
-  const W = 1600, H = 300, pad = 16, titleH = 40, rulerH = 26;
+const waveSheet = (wav, { fps, total, cuts, title, phrases = [] }, out) => {
+  const W = 1600, H = 300, pad = 16, titleH = 40, rulerH = 26 + (phrases.length ? 2 * 18 + 6 : 0);
   const pcm = execFileSync("ffmpeg", ["-v", "error", "-i", wav, "-ac", "1", "-ar", "8000", "-f", "s16le", "-"], { maxBuffer: 256 * 1024 * 1024 });
   const s = new Int16Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.length / 2));
   const per = Math.max(1, Math.ceil(s.length / W));
@@ -123,6 +134,14 @@ const waveSheet = (wav, { fps, total, cuts, title }, out) => {
     ${bars("peak", "#6b665e")}${bars("rms", "#d8d2c6")}
     ${cuts.map((c) => `<line x1="${xOf(c / fps)}" x2="${xOf(c / fps)}" y1="0" y2="${H}" stroke="#ff7a59" stroke-width="2"/>`).join("")}
     ${seconds.filter((t) => t % step === 0).map((t) => `<text x="${xOf(t) + 3}" y="${H + 18}" fill="#9a948a" font-size="13">${t} s</text>`).join("")}
+    ${phrases.map((p, i) => {
+      // each phrase: its span shaded on the waveform, its words below in two alternating rows
+      const x = xOf(p.start), w = Math.max(2, xOf(p.end) - x), y = H + 38 + (i % 2) * 18;
+      const words = p.text.length > 48 ? `${p.text.slice(0, 47)}…` : p.text;
+      return `<rect x="${x}" y="0" width="${w}" height="${H}" fill="#5aa9ff" fill-opacity=".10"/>` +
+        `<line x1="${x}" x2="${x}" y1="${H}" y2="${y - 12}" stroke="#5aa9ff" stroke-opacity=".6"/>` +
+        `<text x="${x + 3}" y="${y}" fill="#8cc4ff" font-size="13">${esc(words)}</text>`;
+    }).join("")}
   </svg>`;
   // loudness of the raw mix (EBU R128): integrated LUFS and true peak
   const r = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", wav, "-af", "ebur128=peak=true", "-f", "null", "-"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
@@ -147,6 +166,35 @@ const secs = (frame, fps) => `${(frame / fps).toFixed(1)} s`;
 
 const { serveUrl, compositions } = await findCompositions({ brand, video, format });
 const made = [];
+
+// The soundtrack first: the same in every format, so rendered once. With a voice-over it's heard back by speech to
+// text, so the sheets show where each phrase really lands (not where the timeline meant it to).
+let wave = null, phrases = [], heardNote = "";
+if (compositions.length) {
+  const { composition: comp } = compositions[0];
+  const wav = path.join(outDir, "soundtrack.wav");
+  process.stdout.write(`${comp.id}: rendering the soundtrack… `);
+  await renderMedia({
+    serveUrl, composition: comp, inputProps: comp.props, codec: "wav", outputLocation: wav, overwrite: true,
+    concurrency: Math.min(4, CONCURRENCY), ...(browser ? { browserExecutable: browser } : {}),
+  });
+  // a voiceover.json left over from before the Voice-over switch went off isn't in the mix: nothing to hear
+  const script = saved.voiceover === false ? null : readJson(path.join(ROOT, "src", "brands", brand, video, "voiceover.json"));
+  if (script) {
+    try {
+      phrases = phrasesOf((await transcribe(wav, { language: script.language })).words);
+      if (!phrases.length) heardNote = "speech to text heard no words: is the voice-over in the mix, and loud enough?";
+    } catch (e) {
+      heardNote = `couldn't hear the voice-over back (${e.message})`;
+    }
+  }
+  wave = waveSheet(wav, { fps: comp.fps, total: comp.durationInFrames, cuts: comp.props.cuts ?? [], phrases,
+    title: `${brand}/${video} — soundtrack (${comp.props.cuts?.length ? "coral = scene change" : "add cuts: timeline.cuts to index.ts to mark scene changes"}${phrases.length ? ", blue = voice" : ""})` },
+    path.join(outDir, "wave.png"));
+  fs.rmSync(wav, { force: true });
+  console.log(`done (${Number.isFinite(wave.lufs) ? `${wave.lufs} LUFS, true peak ${wave.peak} dBFS` : "silent"}${phrases.length ? `, ${phrases.length} spoken phrases heard` : ""})`);
+}
+
 for (const { composition: comp, format: f } of compositions) {
   const { fps, durationInFrames: total, width, height } = comp;
   const portrait = height > width;
@@ -162,7 +210,9 @@ for (const { composition: comp, format: f } of compositions) {
     ...strips.map((t) => ({ at: Math.round(t * fps), title: `12 frames around ${t} s` })),
   ].filter((c, i, all) => c.at >= 0 && c.at < total && all.findIndex((o) => Math.abs(o.at - c.at) <= 2) === i);
   const stripOf = (at) => Array.from({ length: 12 }, (_, i) => at - 5 + i).filter((x) => x >= 0 && x < total);
-  const frames = [...new Set([...sampled, ...centres.flatMap((c) => stripOf(c.at))])].sort((a, b) => a - b);
+  // the middle of each spoken phrase
+  const voiceAt = phrases.map((p) => Math.min(total - 1, Math.round(((p.start + p.end) / 2) * fps)));
+  const frames = [...new Set([...sampled, ...centres.flatMap((c) => stripOf(c.at)), ...voiceAt])].sort((a, b) => a - b);
 
   const frameDir = path.join(outDir, `frames-${f}`);
   fs.mkdirSync(frameDir, { recursive: true });
@@ -175,10 +225,8 @@ for (const { composition: comp, format: f } of compositions) {
     ...(browser ? { browserExecutable: browser } : {}),
   });
   console.log("done");
-  const fileOf = (fr) => {
-    const hit = fs.readdirSync(frameDir).find((n) => Number(n.match(/(\d+)/)?.[1]) === fr);
-    return hit ? path.join(frameDir, hit) : null;
-  };
+  const rendered = new Map(fs.readdirSync(frameDir).map((n) => [Number(n.match(/(\d+)/)?.[1]), path.join(frameDir, n)]));
+  const fileOf = (fr) => rendered.get(fr);
 
   // contact sheets: 24 per page, small
   const thumbW = portrait ? 180 : 300;
@@ -203,27 +251,24 @@ for (const { composition: comp, format: f } of compositions) {
     made.push(sheet(stripOf(c.at).map((fr) => ({ file: fileOf(fr), label: `#${fr} · ${(fr / fps).toFixed(2)} s` })),
       { cols: 6, cellW: portrait ? 180 : 300, cellH: portrait ? 320 : 169, title: `${comp.id} — ${c.title}` },
       path.join(outDir, `strip-${f}-${(c.at / fps).toFixed(2)}.png`)));
-}
 
-// the soundtrack: the same in every format, so rendered once
-if (compositions.length) {
-  const { composition: comp } = compositions[0];
-  const wav = path.join(outDir, "soundtrack.wav");
-  process.stdout.write(`${comp.id}: rendering the soundtrack… `);
-  await renderMedia({
-    serveUrl, composition: comp, inputProps: comp.props, codec: "wav", outputLocation: wav, overwrite: true,
-    concurrency: Math.min(4, CONCURRENCY), ...(browser ? { browserExecutable: browser } : {}),
+  // voice sync: the picture in the middle of each spoken phrase, labelled with what's said there
+  const voiceW = portrait ? 240 : 360;
+  chunk(phrases.map((p, i) => ({ p, fr: voiceAt[i] })), portrait ? 4 : 3).forEach((group, i, all) => {
+    made.push(sheet(group.map(({ p, fr }) => ({ file: fileOf(fr), label: `${p.start.toFixed(1)}–${p.end.toFixed(1)} s · “${p.text}”` })),
+      { cols: portrait ? 4 : 3, cellW: voiceW, cellH: Math.round(voiceW * height / width), labelLines: 3,
+        title: `${comp.id} — voice ${i + 1}/${all.length}: the picture while each phrase is heard. Does it show what's said?` },
+      path.join(outDir, `voice-${f}-${i + 1}.png`)));
   });
-  const w = waveSheet(wav, { fps: comp.fps, total: comp.durationInFrames, cuts: comp.props.cuts ?? [],
-    title: `${brand}/${video} — soundtrack (${comp.props.cuts?.length ? "coral = scene change" : "add cuts: timeline.cuts to index.ts to mark scene changes"})` },
-    path.join(outDir, "wave.png"));
-  fs.rmSync(wav, { force: true });
-  console.log(`done (${Number.isFinite(w.lufs) ? `${w.lufs} LUFS, true peak ${w.peak} dBFS` : "silent"})`);
-  made.push(w.out);
 }
+if (wave) made.push(wave.out);
 
 console.log(`\nReview sheets (${made.length}):`);
 for (const m of made) console.log(`  ${m.startsWith(ROOT + path.sep) ? path.relative(ROOT, m) : m}`);
+if (phrases.length) {
+  console.log("\nHeard (speech to text of the mix: where each phrase really lands):");
+  for (const p of phrases) console.log(`  ${p.start.toFixed(1).padStart(5)}–${p.end.toFixed(1).padEnd(5)} s  ${p.text}`);
+} else if (heardNote) console.log(`\nVoice-over: ${heardNote}`);
 console.log(`
 Now be a harsh motion director, not a proud author. Read every sheet, then score each 1–10:
   • hook — does the first 2 s grab you?
@@ -234,7 +279,9 @@ Now be a harsh motion director, not a proud author. Read every sheet, then score
     strips${safeArea ? "; no key text or button in the red edges of the phone sheets" : " (safe area off: edge to edge is fine)"}
   • data accuracy — every claim comes from the product; illustrative numbers carry "Example data"; no real personal data
   • sound sync — in wave.png every whoosh and hit peaks on its moment (the coral lines are scene changes), no long dead
-    gaps, nothing marked TOO HOT; then Soundtrack.tsx against the timeline for the taps and reveals
+    gaps, nothing marked TOO HOT; then Soundtrack.tsx against the timeline for the taps and reveals${phrases.length ? `
+  • voice sync (part of sound sync) — in the voice sheets and the "Heard" list, the picture shows what the voice says
+    while it says it: a word on screen lands within ~0.2 s of being spoken; no line missing, cut off or drowned` : ""}
   • clarity — after one viewing, would a stranger know what it is, who it's for and how to get it?
 List the 3 biggest problems with timestamps. Fix them, then re-run (add --strip=<s> around fast moves).
 Repeat until every score is 8 or more.`);

@@ -21,6 +21,10 @@ if (!brand) {
   process.exit(1);
 }
 const frameRange = typeof flags.frames === "string" ? flags.frames.split("-").map(Number) : undefined;
+if (frameRange && !(frameRange.length <= 2 && frameRange.every((n) => Number.isInteger(n) && n >= 0) && frameRange[0] <= frameRange.at(-1))) {
+  console.error(`--frames=${flags.frames}: use first-last frame, e.g. --frames=0-89 (or one frame, --frames=45).`);
+  process.exit(1);
+}
 // Motion blur: the film is rendered `blur` times, each shifted by a fraction of a frame (180° shutter), and ffmpeg
 // averages them. 8 is smooth; 4 is faster but can leave ghost copies on fast moves.
 const blur = flags.blur ? Math.max(2, Math.min(16, Number(flags.blur === true ? 8 : flags.blur) || 8)) : 0;
@@ -61,45 +65,42 @@ for (const { composition, brand: b, video: v, format: f } of compositions) {
     ...(browser ? { browserExecutable: browser } : {}),
     frameRange: frameRange && frameRange.length === 2 ? [frameRange[0], frameRange[1]] : frameRange?.[0],
   };
-  if (blur) {
-    console.log(`${composition.id}: motion blur — ${blur} sub-frame passes, then blending (this takes a while)`);
-    const tmp = path.join(dir, `.blur-${f}`);
-    fs.rmSync(tmp, { recursive: true, force: true });
-    fs.mkdirSync(tmp, { recursive: true });
-    const subs = [];
-    for (let i = 0; i < blur; i++) {
-      const sub = path.join(tmp, `sub-${i}.mp4`);
-      last = -1;
-      await renderMedia({ ...common, codec: "h264", crf: 8, muted: true, outputLocation: sub,
-        inputProps: { ...composition.props, subframe: (i / blur) * 0.5 }, onProgress: progress(`${composition.id} pass ${i + 1}/${blur}`) });
-      subs.push(sub);
+  const tmp = path.join(dir, `.blur-${f}`); // the motion blur passes
+  try {
+    if (blur) {
+      console.log(`${composition.id}: motion blur — ${blur} sub-frame passes, then blending (this takes a while)`);
+      fs.rmSync(tmp, { recursive: true, force: true });
+      fs.mkdirSync(tmp, { recursive: true });
+      const subs = [];
+      for (let i = 0; i < blur; i++) {
+        const sub = path.join(tmp, `sub-${i}.mp4`);
+        last = -1;
+        await renderMedia({ ...common, codec: "h264", crf: 8, muted: true, outputLocation: sub,
+          inputProps: { ...composition.props, subframe: (i / blur) * 0.5 }, onProgress: progress(`${composition.id} pass ${i + 1}/${blur}`) });
+        subs.push(sub);
+      }
+      const audio = path.join(tmp, "audio.wav");
+      await renderMedia({ serveUrl, composition, codec: "wav", outputLocation: audio, inputProps: composition.props,
+        overwrite: true, concurrency: CONCURRENCY, frameRange: common.frameRange, ...(browser ? { browserExecutable: browser } : {}) });
+      console.log(`${composition.id}: blending ${blur} passes…`);
+      execFileSync("ffmpeg", [
+        "-hide_banner", "-loglevel", "error", "-y",
+        ...subs.flatMap((s) => ["-i", s]), "-i", audio,
+        "-filter_complex", `${subs.map((_, i) => `[${i}:v]`).join("")}mix=inputs=${blur}[v]`,
+        "-map", "[v]", "-map", `${blur}:a`,
+        "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p",
+        "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
+        "-c:a", "aac", "-b:a", "320k", "-shortest", "-movflags", "+faststart", output,
+      ], { stdio: "inherit" });
+      fs.rmSync(tmp, { recursive: true, force: true });
+    } else {
+      await renderMedia({ ...common, codec: "h264", outputLocation: output, audioBitrate: "320k", onProgress: progress(composition.id) });
     }
-    const audio = path.join(tmp, "audio.wav");
-    await renderMedia({ serveUrl, composition, codec: "wav", outputLocation: audio, inputProps: composition.props,
-      overwrite: true, concurrency: CONCURRENCY, frameRange: common.frameRange, ...(browser ? { browserExecutable: browser } : {}) });
-    console.log(`${composition.id}: blending ${blur} passes…`);
-    execFileSync("ffmpeg", [
-      "-hide_banner", "-loglevel", "error", "-y",
-      ...subs.flatMap((s) => ["-i", s]), "-i", audio,
-      "-filter_complex", `${subs.map((_, i) => `[${i}:v]`).join("")}mix=inputs=${blur}[v]`,
-      "-map", "[v]", "-map", `${blur}:a`,
-      "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p",
-      "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
-      "-c:a", "aac", "-b:a", "320k", "-shortest", "-movflags", "+faststart", output,
-    ], { stdio: "inherit" });
-    fs.rmSync(tmp, { recursive: true, force: true });
     finish();
-    continue;
+  } catch (e) {
+    // hidden, half-written files would stay in out/ for good
+    fs.rmSync(output, { force: true });
+    fs.rmSync(tmp, { recursive: true, force: true });
+    throw e;
   }
-  await renderMedia({
-    ...common,
-    codec: "h264",
-    outputLocation: output,
-    audioBitrate: "320k",
-    onProgress: ({ progress }) => {
-      const pct = Math.floor(progress * 10) * 10;
-      if (pct !== last) console.log(`${composition.id}: ${(last = pct)}%`);
-    },
-  });
-  finish();
 }

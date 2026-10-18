@@ -15,19 +15,22 @@
 //     "stability": 0.5, "similarity": 0.75,  // optional defaults for every line (0–1)
 //     "lines": [
 //       { "id": "intro", "text": "[warm, unhurried] ..." , "stability": 0.35 },
-//       ...
+//       { "id": "story", "file": "vo/story-take2.m4a" },   // a recorded take (path in public/<brand>/<video>/):
+//       ...                                              // not generated, transcribed for its words and timings
 //     ]
 //   }
 //
 // Output:
-//   public/<brand>/<video>/vo/<id>.mp3                      the audio
-//   src/brands/<brand>/<video>/voiceover.gen.ts             VO.<id> = { src, seconds, words[] } — time scenes to it
+//   public/<brand>/<video>/vo/<id>.mp3                      the audio (a recorded line stays where it is)
+//   src/brands/<brand>/<video>/voiceover.gen.ts             VO.<id> = { src, seconds, words[] } — time scenes to it;
+//                                                           a recorded line also has `text`, what speech to text heard
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { readSettings, ROOT } from "./settings.mjs";
 import { viaDashboard } from "./broker.mjs";
+import { transcribe } from "./transcribe.mjs";
 
 await viaDashboard("voice"); // inside the Director's sandbox the key is hidden: the dashboard runs it
 
@@ -81,10 +84,22 @@ if (flags.text) {
 }
 const lines = script.lines ?? [];
 if (!lines.length) fail("voiceover.json has no lines.");
+const videoPublic = path.join(ROOT, "public", brand, video);
+/** A recorded line's audio: inside public/<brand>/<video>/ only. */
+const takeOf = (l) => {
+  const abs = path.resolve(videoPublic, String(l.file));
+  if (!abs.startsWith(videoPublic + path.sep)) fail(`Line "${l.id}": "file" must be inside public/${brand}/${video}/.`);
+  if (!fs.existsSync(abs)) fail(`Line "${l.id}": public/${brand}/${video}/${l.file} isn't there.`);
+  // .caf / .aiff can't play in Studio or renders; copy-asset and uploads convert them to a .wav beside them
+  if (!/\.(mp3|m4a|aac|wav|ogg)$/i.test(abs))
+    fail(`Line "${l.id}": use an mp3, m4a, aac, wav or ogg recording (for .caf or .aiff, the .wav that \`npm run copy-asset\` makes beside it).`);
+  return abs;
+};
 for (const l of lines) {
   if (!LINE_ID.test(l.id ?? "")) fail(`Line id "${l.id}" must be letters, digits, underscore (starting with a letter).`);
-  if (!String(l.text ?? "").trim()) fail(`Line "${l.id}" has no text.`);
-  if (l.text.length > 10000) fail(`Line "${l.id}" is over Eleven v4's 10,000-character limit.`);
+  if (l.file) takeOf(l);
+  else if (!String(l.text ?? "").trim()) fail(`Line "${l.id}" has no text (or "file" for a recorded take).`);
+  else if (l.text.length > 10000) fail(`Line "${l.id}" is over Eleven v4's 10,000-character limit.`);
 }
 
 const voiceId = script.voice || directorState.voiceId || settings.voiceId;
@@ -201,6 +216,25 @@ const only = typeof flags.only === "string" ? new Set(flags.only.split(",").map(
 
 const results = {};
 for (const [i, line] of lines.entries()) {
+  if (line.file) {
+    // A recorded take: speech to text gives its words and timings, so scenes sync to it like a generated line.
+    const take = takeOf(line);
+    const language = line.language || script.language;
+    const hash = crypto.createHash("sha1").update(fs.readFileSync(take)).update(String(language ?? "")).digest("hex");
+    const cached = cache[line.id];
+    if (!flags.force && (only ? !only.has(line.id) : cached?.hash === hash) && cached) {
+      results[line.id] = cached.result;
+      console.log(`= ${line.id} (recorded, unchanged, ${cached.result.seconds}s)`);
+      continue;
+    }
+    process.stdout.write(`… ${line.id}: transcribing the recorded take … `);
+    const heard = await transcribe(take, { language });
+    const seconds = Math.round((durationOf(take) || heard.words.at(-1)?.end || 0) * 1000) / 1000;
+    results[line.id] = { src: path.relative(videoPublic, take).split(path.sep).join("/"), seconds, words: heard.words, text: heard.text };
+    cache[line.id] = { hash, result: results[line.id] };
+    console.log(`${seconds}s, ${heard.words.length} words timed: "${heard.text.slice(0, 80)}${heard.text.length > 80 ? "…" : ""}"`);
+    continue;
+  }
   const body = {
     text: line.text,
     model_id: line.model || model,
@@ -246,5 +280,7 @@ export type VoId = keyof typeof VO;
 `;
   fs.writeFileSync(path.join(srcDir, "voiceover.gen.ts"), gen);
   const total = lines.reduce((t, l) => t + (results[l.id]?.seconds ?? 0), 0);
-  console.log(`\nWrote src/brands/${brand}/${video}/voiceover.gen.ts — ${lines.length} lines, ${total.toFixed(1)}s of voice, voice ${voiceId}.`);
+  const recorded = lines.filter((l) => l.file).length;
+  const made = recorded === lines.length ? "all recorded" : `voice ${voiceId}${recorded ? `, ${recorded} recorded` : ""}`;
+  console.log(`\nWrote src/brands/${brand}/${video}/voiceover.gen.ts — ${lines.length} lines, ${total.toFixed(1)}s of voice, ${made}.`);
 }

@@ -1195,8 +1195,11 @@ function renderVoiceRow() {
   $("#voOn").onchange = (e) => saveVoice({ enabled: e.target.checked });
 }
 async function saveVoice(patch) {
-  try { dir = await api("/api/director/voiceover", { ...sel, ...patch }); renderVoiceRow(); toast("Saved — the Director uses it from your next message"); }
+  try { dir = await api("/api/director/voiceover", { ...sel, ...patch }); toast("Saved — the Director uses it from your next message"); }
   catch (err) { toast(err.message); }
+  // redraw both rows from what the server holds: a switch whose save failed flips back
+  for (const id of ["#voRow", "#langRow"]) if ($(id)) delete $(id).dataset.key;
+  renderVoiceRow(); // also redraws the language row
 }
 let testAudio = null;
 async function playVoice(voiceId, btn) {

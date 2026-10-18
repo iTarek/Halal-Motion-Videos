@@ -109,11 +109,11 @@ tools/dashboard/            the local dashboard: server.mjs, director.mjs (Claud
 | `npm run studio` | Remotion Studio: brand folder → video folder → one composition per format |
 | `npm run render -- <brand> [video] [format] [--frames=a-b] [--blur]` | MP4s to `out/<brand>/<video>/`, audio mastered to -16 LUFS; the video's `poster` frame becomes frame 0 (the thumbnail platforms show) and `stills/<name>-poster.jpg`; `--blur` = film-look motion blur (~8× slower) |
 | `npm run stills -- <brand> <video> <frame…> [--format=…] [--dir=…]` | JPGs to `out/<brand>/<video>/stills/` (or `--dir`) |
-| `npm run review -- <brand> <video> [--strip=12.5,31]` | review sheets for the critique loop → `.director/tmp/<brand>-<video>/review/` |
+| `npm run review -- <brand> <video> [--strip=12.5,31] [--safe-area=on|off]` | review sheets for the critique loop → `.director/tmp/<brand>-<video>/review/`; with a voice-over it hears the mix back (speech to text) |
 | `npm run shot -- <brand> [video]` | real screenshots of the live site/app from `shots.json` → `public/<brand>/…/img/shots/` |
 | `npm run appstore -- <brand> <app id or App Store URL>` | iOS apps: 1024 icon + full-size store screenshots → `public/<brand>/brand/img/store/`, the listing → `BRAND.md` |
 | `npm run sfx -- <brand> [video] [--look]` | design sounds by code: the brand's kit (no video) or one video's → `public/<brand>/…/sfx/` |
-| `npm run voice -- <brand> <video> [--only=id] [--force]` | ElevenLabs v4 voice-over from `voiceover.json` → `public/<brand>/<video>/vo/` + `voiceover.gen.ts` |
+| `npm run voice -- <brand> <video> [--only=id] [--force]` | ElevenLabs v4 voice-over from `voiceover.json` → `public/<brand>/<video>/vo/` + `voiceover.gen.ts`; a recorded line (`"file"`) is transcribed for its word timings instead |
 | `npm run copy-asset -- <src> <public/…>` | copy files from anywhere (e.g. the product's project folder) into `public/` only |
 | `npm run typecheck` | `tsc --noEmit` |
 
@@ -234,6 +234,7 @@ The dashboard sends these into every Director message; follow them without being
 | `phone-<format>-N.png` | a frame every 2 s at real phone size (360 px wide), unsafe edges tinted red when Safe area is on | can every word be read on a phone? Is anything important under the red? |
 | `strip-<format>-<t>.png` | 12 consecutive frames around every scene change (`cuts` in `index.ts`) and every `--strip=<t>` second | scene changes and fast moves: muddy crossfades, glitches, blur, overlaps |
 | `wave.png` | the soundtrack as a waveform, scene changes as coral lines, with its loudness and true peak (the raw mix: renders master it) | does every whoosh and hit peak on its moment? Dead gaps? "TOO HOT"? |
+| `voice-<format>-N.png` (with a voice-over) | the mix heard back by speech to text: the picture during each spoken phrase, labelled with what's said; also printed as "Heard:" and shown in blue on `wave.png` | does the picture show what the voice says, while it says it? |
 
 Be a harsh motion director, not a proud author. Read every sheet and score each item 1–10:
 
@@ -243,7 +244,7 @@ Be a harsh motion director, not a proud author. Read every sheet and score each 
 4. **Variety:** something new every 2–4 s.
 5. **Composition:** a clear focal point; nothing clipped, overlapping or crowded; no muddy double exposure at a scene change; nothing important in the red edges.
 6. **Data accuracy:** every claim comes from the product, illustrative numbers are labelled, no real personal data shows.
-7. **Sound sync:** in `wave.png`, every whoosh and hit peaks on its moment; every cut, reveal and tap has its cue on the right frame.
+7. **Sound sync:** in `wave.png`, every whoosh and hit peaks on its moment; every cut, reveal and tap has its cue on the right frame; with a voice-over, the voice sheets show the picture saying what the voice says, when it says it.
 8. **Clarity:** after one viewing, would a stranger know what it is, who it's for and how to get it?
 
 Fix the 3 biggest problems, re-run, and repeat until every score is 8+ (at most 4 rounds in a Director run). The sheets are temporary.
@@ -440,7 +441,24 @@ npm run voice -- <brand> <video> --id=test --text="[whispering] Testing."   # on
 - **Scene lengths:** base them on `VO.<id>.seconds`, e.g. `Math.ceil((VO.intro.seconds + 0.6) * FPS)` in `timeline.ts`, which leaves breathing room.
 - **Placement:** put each line in `Soundtrack.tsx`, e.g. `{ at: S.intro.from + 8, src: asset(VO.intro.src), vol: 1 }`.
 - **Mix:** drop the bed and sfx to about half while the voice plays.
-- **Sync:** `VO.<id>.words` can make on-screen words land with the voice (`start` and `end` are seconds from the line's start).
+- **Sync:** time every on-screen word the voice says from `VO.<id>.words` (`start` and `end` are seconds from the line's start), never by guessing. Keep one place that says where each line starts, used by both the scenes and `Soundtrack.tsx`, e.g. in `timeline.ts`:
+
+```ts
+/** Where each voice line starts, in frames from its scene's start (Soundtrack.tsx places the lines here too). */
+export const VO_AT = { intro: 8, feature: 4 } satisfies Record<VoId, number>;
+/** Frame (in its scene) where word `i` of a line is spoken: reveal that word's visual on it. */
+export const wordAt = (id: VoId, i: number) => VO_AT[id] + Math.round(VO[id].words[i].start * FPS);
+```
+
+- **Check it by ear:** you can't listen, so `npm run review` listens for you. It hears the finished mix back with speech to text and prints "Heard:" (each phrase with the time it really lands), marks the phrases on `wave.png`, and makes `voice-<format>-N.png` (the picture while each phrase is heard). If the picture doesn't show what's said when it's said, fix the timing, not the words.
+
+### Your own recording
+
+The user can give you a recorded voice-over instead of ElevenLabs:
+
+1. Copy it into the video's folder: `npm run copy-asset -- "<the recording>" public/<brand>/<video>/vo/`.
+2. Give it a line with `"file"` instead of `"text"` in `voiceover.json`: `{ "id": "story", "file": "vo/story-take2.m4a" }`. One recording can be one line, or cut it into a line per scene first.
+3. `npm run voice -- <brand> <video>` doesn't generate it: it transcribes it (ElevenLabs speech to text, same key), so `VO.story` gets `seconds`, `words` with timings and `text` (what was heard), like a generated line. Time the scenes to it the same way. The speaker's words are theirs: never add claims the recording doesn't make.
 
 ### Eleven v4 cheat sheet
 

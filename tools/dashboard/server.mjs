@@ -12,7 +12,8 @@ import { createDirector } from "./director.mjs";
 import { deleteStyle, saveStyle } from "../styles.mjs";
 import { checks as systemChecks, antigravityStatus, claudeStatus, codexStatus } from "../doctor.mjs";
 import { fixAudio } from "../audiofix.mjs";
-import { checkToolRequest } from "../broker.mjs";
+import { checkHearRequest, checkToolRequest } from "../broker.mjs";
+import { transcribe } from "../transcribe.mjs";
 
 // Is each Director engine installed and logged in? Cached for the page's polling: every check spawns the CLI.
 const ENGINE_STATUS = { claude: claudeStatus, codex: codexStatus, antigravity: antigravityStatus };
@@ -244,13 +245,14 @@ const send = (res, code, body, type = "application/json") => {
   res.end(type === "application/json" ? JSON.stringify(body) : body);
 };
 
+const MAX_BODY = 5 * 1024 * 1024; // JSON only (uploads stream): a chat message, a setting. Bigger is dropped.
 const readBody = (req) =>
   new Promise((resolve) => {
-    let s = "";
-    req.on("data", (c) => (s += c));
+    let s = "", big = false;
+    req.on("data", (c) => (big ||= s.length + c.length > MAX_BODY) || (s += c));
     req.on("end", () => {
       try {
-        resolve(JSON.parse(s || "{}"));
+        resolve(big ? {} : JSON.parse(s || "{}"));
       } catch {
         resolve({});
       }
@@ -376,12 +378,26 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // ---- voice and shot for a sandboxed Director (Codex on macOS): its sandbox hides the ElevenLabs key and the browser
-    // profiles, so the tools ask here (tools/broker.mjs). The ticket ties a request to its running video.
-    if (req.method === "POST" && p === "/api/director/tool") {
+    // ---- for a sandboxed Director (Codex on macOS): its sandbox hides the ElevenLabs key and the browser profiles, so
+    // voice and shot run here, and review's soundtrack is heard here (tools/broker.mjs). The ticket ties a request to
+    // its running video.
+    if (req.method === "POST" && (p === "/api/director/tool" || p === "/api/director/hear")) {
       const q = await readBody(req);
       const run = director.ticketRun(String(q.ticket ?? ""));
       if (!run) return send(res, 403, { error: "No Director run has that ticket." });
+      if (p === "/api/director/hear") {
+        let file;
+        try {
+          file = checkHearRequest(q.file, run, ROOT);
+        } catch (e) {
+          return send(res, 400, { error: e.message });
+        }
+        try {
+          return send(res, 200, await transcribe(file, { language: typeof q.language === "string" ? q.language.slice(0, 12) : undefined }));
+        } catch (e) {
+          return send(res, 502, { error: e.message });
+        }
+      }
       let args;
       try {
         args = checkToolRequest(q.tool, q.args, run);

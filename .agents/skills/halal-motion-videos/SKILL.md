@@ -134,6 +134,17 @@ Pass these to `make`, or change them with `scripts/video set <brand> [video] …
 **ElevenLabs key (voice-over):** pipe it in, never put it on the command line:
 `printf %s "$ELEVENLABS_API_KEY" | scripts/video voice-settings --key-stdin`
 
+**The human's own voice-over recording:** copy it into the video first, then say so in the description. The copy needs the video's name, so make the video first (or use an existing one):
+
+```bash
+cd "$(scripts/video where)"                       # the repo root: copy-asset runs there
+npm run video -- new <brand>                      # prints <brand>/<video>, e.g. my-app/video03
+npm run copy-asset -- /path/to/take.m4a public/<brand>/<video>/vo/
+npm run video -- make <brand> <video> "… Narrate it with my recording vo/take.m4a." --voiceover=on
+```
+
+The Director doesn't generate a voice then: speech to text times every word of the recording (same ElevenLabs key), and the scenes are synced to it. Every review also hears the finished mix back, so the picture is checked against what is actually said.
+
 More commands and every JSON field: [references/commands.md](references/commands.md).
 
 ## Rules

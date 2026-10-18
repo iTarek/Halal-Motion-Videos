@@ -185,6 +185,9 @@ ${v.safeArea
   Brief: add a "Voice-over" column to the story table — the exact spoken line per scene, in the voice language above.
   Build: write src/brands/${brand}/${video}/voiceover.json, run \`npm run voice -- ${brand} ${video}\`, then time scenes to the
   generated durations (import { VO } from "./voiceover.gen") and place each line in Soundtrack.tsx. Keep sfx/bed quieter under the voice.
+  Sync every on-screen word the voice says to VO.<id>.words (a wordAt helper, as in CLAUDE.md), never by guessing; \`npm run review\`
+  hears the finished mix back and shows the picture while each phrase is heard, so check it there.
+  If the user gives you their own recording, use it instead of generating: a line with "file" (CLAUDE.md → "Your own recording").
   Follow the "Voice-over" section of CLAUDE.md for the file format and Eleven v4 audio tags (emotion, pacing, non-verbal).`;
   };
 
@@ -206,6 +209,7 @@ ${v.safeArea
     const m = materials(brand, video);
     const url = brandSettings(brand).url;
     const folder = projectFolder(brand);
+    const { safeArea } = voiceOf(s);
     const common = `
 You are the Director inside the MotionVideos dashboard. The user talks to you from a chat box on the page, not a terminal.
 You are working on ONE video: brand "${brand}", video "${video}".
@@ -282,12 +286,13 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
   only the product's own claims, nothing like "excited to share".
 - Verify: \`npm run typecheck\` must pass.
 - CRITIQUE LOOP — be a harsh motion director, not a proud author:
-  \`npm run review -- ${brand} ${video}\` makes contact sheets (every 0.5 s), phone-size sheets${voiceOf(s).safeArea ? " (unsafe edges in red)" : ""},
-  12-frame strips around every scene change (add --strip=<s> for fast moves) and wave.png (the soundtrack, scene changes
-  marked), in ${tmpDir(brand, video)}/review/. Read every sheet and score 1–10: hook, readability (phone size, and ~0.3 s
-  per word on screen), motion quality, variety (something new every 2–4 s), composition (no muddy crossfades${voiceOf(s).safeArea ? ", nothing in the red" : ""}),
-  data accuracy, sound sync (wave.png: every hit on its moment), clarity (would a stranger know what it is,
-  who it's for, how to get it?). Don't claim a fix you haven't re-run and looked at.
+  \`npm run review -- ${brand} ${video}\` makes contact sheets (every 0.5 s), phone-size sheets${safeArea ? " (unsafe edges in red)" : ""},
+  12-frame strips around every scene change (add --strip=<s> for fast moves), wave.png (the soundtrack, scene changes
+  marked) and, with a voice-over, voice sheets plus a "Heard:" list (the mix heard back by speech to text), in
+  ${tmpDir(brand, video)}/review/. Read every sheet and score 1–10: hook, readability (phone size, and ~0.3 s
+  per word on screen), motion quality, variety (something new every 2–4 s), composition (no muddy crossfades${safeArea ? ", nothing in the red" : ""}),
+  data accuracy, sound sync (wave.png: every hit on its moment; voice sheets: the picture says what the voice says, when),
+  clarity (would a stranger know what it is, who it's for, how to get it?). Don't claim a fix you haven't re-run and looked at.
   Fix the 3 biggest problems, re-run, and repeat until every score is 8+ (at most 4 rounds). Temp files are deleted after this run.
 - End with the final scores in one line, what you built/changed in a few bullets, and what to look at in Studio.`;
   };
@@ -347,7 +352,8 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
   };
 
   /** Starts Codex or Antigravity. Codex on macOS goes inside the sandbox (sandbox.mjs), with a ticket that lets its voice
-   *  and shot run through the dashboard and no secrets in its environment but its own login; the rest as they are. */
+   *  and shot run through the dashboard (and review's soundtrack is heard there) and no secrets in its environment but
+   *  its own login; the rest as they are. */
   const launch = (engine, bin, args, brand, r) => {
     if (!sandboxed(engine)) return spawnProcess(bin, args, { cwd: root, env: cliEnvironment(), windowsHide: true });
     const env = cliEnvironment();

@@ -243,16 +243,18 @@ const applySettings = async (brand, video) => {
     await api("/api/director/engine", { brand, video, engine: String(flags.engine) });
     saved.push("engine");
   }
+  // a switch: --x or --x=on, --x=off; anything else is a typo, not "off"
+  const onOff = (name) => {
+    if (![true, "on", "off"].includes(flags[name])) fail(`--${name} is on or off.`);
+    return flags[name] !== "off";
+  };
   const vo = {};
   if (flags.length !== undefined) vo.length = Number(flags.length);
   if (flags.language !== undefined) vo.videoLanguage = String(flags.language);
   if (flags["voice-language"] !== undefined) vo.voiceLanguage = String(flags["voice-language"]);
-  if (flags.voiceover !== undefined) vo.enabled = flags.voiceover === true || flags.voiceover === "on";
+  if (flags.voiceover !== undefined) vo.enabled = onOff("voiceover");
   if (flags["voice-id"] !== undefined) vo.voiceId = flags["voice-id"] === true ? "" : String(flags["voice-id"]);
-  if (flags["safe-area"] !== undefined) {
-    if (flags["safe-area"] !== true && !["on", "off"].includes(String(flags["safe-area"]))) fail("--safe-area is on or off.");
-    vo.safeArea = flags["safe-area"] !== "off";
-  }
+  if (flags["safe-area"] !== undefined) vo.safeArea = onOff("safe-area");
   if (Object.keys(vo).length) {
     await api("/api/director/voiceover", { brand, video, ...vo });
     saved.push(...Object.keys(vo));

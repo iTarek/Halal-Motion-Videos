@@ -31,7 +31,7 @@ Every video belongs to a **brand** (an app or product), and one source renders e
 
 ## Quick start
 
-**Runs on macOS and Linux** (Windows isn't supported).
+**Runs on Windows, macOS and Linux.**
 
 **On a Mac:** double-click **`Start.command`**.
 
@@ -40,6 +40,8 @@ Every video belongs to a **brand** (an app or product), and one source renders e
 - **To stop:** close the Terminal window.
 
 **On Linux:** run `./Start.command` in a terminal. It does the same, and Ctrl+C stops it.
+
+**On Windows:** run `npm run setup` once (below), then double-click **`Start.bat`**.
 
 **Step by step:**
 
@@ -53,12 +55,12 @@ npm start          # → http://localhost:4000
 
 | Needs | For |
 | --- | --- |
-| **macOS or Linux** | Windows isn't supported |
+| **Windows, macOS or Linux** | everything (the Codex Director's sandbox is macOS only) |
 | **Node.js 22+** | everything |
 | **ffmpeg** (with ffprobe) | audio mastering, voice-over timing |
 | **Python 3** | sound design (`setup` adds numpy + scipy in a `.venv`; on Debian/Ubuntu install `python3-venv` first) |
-| **[Claude Code](https://claude.com/claude-code) 2.1.280+**, set up and logged in | the Director chat (Opus 5.5) — everything else works without it |
-| **ElevenLabs API key** | voice-over (optional; add it in the dashboard → Settings) |
+| **One Director CLI**, signed in: [Claude Code](https://claude.com/claude-code) 2.1.280+ (default), Codex (`codex`) or Antigravity (`agy`) | the Director chat — everything else works without it |
+| **ElevenLabs API key** | voice-over, and hearing it back in review (optional; add it in the dashboard → Settings) |
 
 `npm run setup` installs the npm packages, Remotion's headless Chrome and the Python packages. It never installs system software; for Node, ffmpeg, Python and Claude Code it prints the exact command instead. Run `npm run doctor` at any time, or open **Settings → System check** in the dashboard.
 

@@ -52,6 +52,8 @@ test('an agent switches the safe area off and on, and sees it in status',async t
   assert.deepEqual(sent,[false,true]);
   const bad=await run('set','demo','video01','--safe-area=maybe');
   assert.notEqual(bad.code,0);assert.match(bad.out+bad.err,/--safe-area is on or off/);
+  const typo=await run('set','demo','video01','--voiceover=yes'); // a typo isn't "off"
+  assert.notEqual(typo.code,0);assert.match(typo.out+typo.err,/--voiceover is on or off/);
   assert.equal(sent.length,2); // nothing sent for a bad value
 });
 
