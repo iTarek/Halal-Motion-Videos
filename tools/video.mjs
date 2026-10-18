@@ -63,7 +63,7 @@ const up = async () => {
     return false;
   }
 };
-const AGENT_API = 3; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters, new Director prompt
+const AGENT_API = 4; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area
 const ensureServer = async () => {
   if (await up()) {
     const { agentApi } = await (await fetch(`${BASE}/api/state`)).json();
@@ -152,7 +152,8 @@ const statusOf = async (brand, video) => {
     mp4: render?.status === "done" ? render.files : [], // what the latest render made
     settings: {
       format: d.formats, length: d.voice.length, language: d.voice.videoLanguage, voiceLanguage: d.voice.voiceLanguage,
-      voiceover: d.voice.enabled, voiceId: d.voice.effectiveVoiceId, style: d.styles.find((x) => x.id === d.styleId)?.name ?? null,
+      voiceover: d.voice.enabled, voiceId: d.voice.effectiveVoiceId, safeArea: d.voice.safeArea !== false,
+      style: d.styles.find((x) => x.id === d.styleId)?.name ?? null,
       website: d.url || null, folder: d.folder || null,
     },
     next: nextStep(d, render),
@@ -248,6 +249,10 @@ const applySettings = async (brand, video) => {
   if (flags["voice-language"] !== undefined) vo.voiceLanguage = String(flags["voice-language"]);
   if (flags.voiceover !== undefined) vo.enabled = flags.voiceover === true || flags.voiceover === "on";
   if (flags["voice-id"] !== undefined) vo.voiceId = flags["voice-id"] === true ? "" : String(flags["voice-id"]);
+  if (flags["safe-area"] !== undefined) {
+    if (flags["safe-area"] !== true && !["on", "off"].includes(String(flags["safe-area"]))) fail("--safe-area is on or off.");
+    vo.safeArea = flags["safe-area"] !== "off";
+  }
   if (Object.keys(vo).length) {
     await api("/api/director/voiceover", { brand, video, ...vo });
     saved.push(...Object.keys(vo));
@@ -397,7 +402,7 @@ switch (cmd) {
     const [brand, video] = pos;
     if (!brand) fail("Usage: npm run video -- set <brand> [video] [settings]");
     const saved = await applySettings(brand, video);
-    if (!saved.length) fail("Nothing to set. Brand: --url --folder · video: --length --format --language --voice-language --voiceover --voice-id --style");
+    if (!saved.length) fail("Nothing to set. Brand: --url --folder · video: --length --format --language --voice-language --voiceover --voice-id --safe-area --style --engine");
     out(`Saved: ${saved.join(", ")}.`, { ok: true, saved, ...(video ? { settings: (await statusOf(brand, video)).settings } : {}) });
     break;
   }

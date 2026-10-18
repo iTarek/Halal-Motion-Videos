@@ -121,6 +121,8 @@
     'Settings — ElevenLabs voice-over':'الإعدادات — التعليق الصوتي عبر ElevenLabs',
     'No guardrails':'بلا حواجز أمان',
     'Share':'نص المشاركة',
+    'Safe area':'المنطقة الآمنة',
+    'Keeps key text out of the edges TikTok, Reels and Shorts cover with their buttons and captions. Off for videos nothing is laid over, like App Store previews.':'تُبعد النصوص المهمة عن الأطراف التي تغطيها أزرار تيك توك وريلز وشورتس وتعليقاتها. أوقفها للفيديوهات التي لا يُعرض فوقها شيء، مثل معاينات متجر التطبيقات.',
     'Remotion skill (remotion-best-practices)':'مهارة Remotion ‏(remotion-best-practices)',"the Director's Remotion know-how":'خبرة المخرج في Remotion',
     'The Director can read it and copy assets out — never changes it.':'يقرأ المخرج المجلد وينسخ مواده دون تعديله.',
     'Tip: in Finder, select the folder and press ⌥⌘C to copy its path.':'تلميح: في Finder، حدّد المجلد واضغط ⁦⌥⌘C⁩ لنسخ مساره.', // ⁦…⁩ keeps the shortcut left-to-right

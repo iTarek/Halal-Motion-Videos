@@ -40,7 +40,7 @@ const PORT = Number(process.env.PORT ?? 4000);
 const STUDIO_PORT = Number(process.env.STUDIO_PORT ?? 3000);
 const NAME = /^[a-z][a-z0-9-]*$/;
 let creating = Promise.resolve(); // POST /api/new runs one at a time
-const AGENT_API = 3; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters)
+const AGENT_API = 4; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters; 4: safeArea)
 // The autopilot queues a render when a build ends (renderJob is defined below; called later, at run time).
 const director = createDirector({ root: ROOT, brandsDir: BRANDS, dashboardUrl: `http://127.0.0.1:${PORT}`, onBuilt: (brand, video, opts) => renderJob({ brand, video, ...opts }).id });
 
@@ -432,7 +432,7 @@ const server = http.createServer(async (req, res) => {
         else if (action === "/voiceover") {
           if (typeof q.voiceId === "string" && q.voiceId.trim() && !/^[A-Za-z0-9]{8,64}$/.test(q.voiceId.trim()))
             return send(res, 400, { error: "A voice ID is letters and numbers, like NOpBlnGInO9m6vDvFkFC." });
-          director.setVoiceover(brand, video, { enabled: q.enabled, voiceId: q.voiceId, videoLanguage: q.videoLanguage, voiceLanguage: q.voiceLanguage, length: q.length });
+          director.setVoiceover(brand, video, { enabled: q.enabled, voiceId: q.voiceId, videoLanguage: q.videoLanguage, voiceLanguage: q.voiceLanguage, length: q.length, safeArea: q.safeArea });
         }
         else if (action === "/reopen") director.reopenBrief(brand, video);
         else if (action === "/stop") director.stop(brand, video);

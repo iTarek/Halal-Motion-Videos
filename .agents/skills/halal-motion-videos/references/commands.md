@@ -59,7 +59,7 @@
   "outputs": ["/…/out/my-app/video01/my-app-video01-vertical.mp4"],
   "posters": ["/…/out/my-app/video01/stills/my-app-video01-vertical-poster.jpg"],
   "mp4": [],
-  "settings": { "format": "both", "length": 30, "language": "English", "voiceLanguage": "English — American accent", "voiceover": true, "voiceId": "…", "style": null, "website": "https://…", "folder": "/…" },
+  "settings": { "format": "both", "length": 30, "language": "English", "voiceLanguage": "English — American accent", "voiceover": true, "voiceId": "…", "safeArea": true, "style": null, "website": "https://…", "folder": "/…" },
   "next": "Director is working (Checking frames (stills)). Check again in a minute or two."
 }
 ```
@@ -72,7 +72,7 @@
 | `waiting` | `true` while this video waits its turn behind another video of the same brand (they share the brand kit) |
 | `brief` | `BRIEF.md` once the Director has written it, else `null` |
 | `storyboard` | The 4 storyboard frames (hook, key feature, climax, end card), once made |
-| `settings` | The video's settings: `format`, `length`, `language`, `voiceLanguage`, `voiceover`, `voiceId`, `style`, `website`, `folder` (change them with `set`) |
+| `settings` | The video's settings: `format`, `length`, `language`, `voiceLanguage`, `voiceover`, `voiceId`, `safeArea`, `style`, `website`, `folder` (change them with `set`; flags in SKILL.md → Settings) |
 | `engine` | The Director engine for this video: `claude` (default), `codex` or `antigravity` |
 | `autopilot` | `null` if never started. `status`: `running`, `blocked`, `paused`, `failed`, `done`, `stopped`. `note` says why. |
 | `claude` / `codex` / `antigravity` | `"ok"`, or how to fix that CLI (missing, too old, logged out) |

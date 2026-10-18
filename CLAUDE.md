@@ -127,7 +127,7 @@ Composition ids are `<brand>-<video>-<format>`, e.g. `my-app-video01-vertical`.
 
 | Card | What's in it |
 | --- | --- |
-| **Director** | Claude chat, thinking level; **Video** row (format 9:16 / 16:9 / both, length, video language, voice language); **Voice-over** row (on/off, voice ID) |
+| **Director** | Claude chat, thinking level; **Video** row (format 9:16 / 16:9 / both, length, Safe area switch, video language, voice language); **Voice-over** row (on/off, voice ID) |
 | **Style** | pick or save a named style from the shared library |
 | **Materials** | product website + project folder (per brand); drag-and-drop uploads (brand-wide or this video) |
 | **Preview** | opens each format in Remotion Studio |
@@ -197,6 +197,7 @@ The dashboard sends these into every Director message; follow them without being
 
 - **Format:** 9:16, 16:9 or both. The dashboard writes it straight into the video's `index.ts` `formats`, so don't change that line; design every scene for the chosen shape(s).
 - **Length:** seconds, default 30. Size `timeline.ts` to it (±1 s), and narration must fit inside it.
+- **Safe area:** on (default) or off, per video (dashboard switch, or `npm run video -- set … --safe-area=on|off`). On: follow "Safe area" under Design quality, and `review` tints the unsafe edges red. Off: nothing is laid over this video (an App Store preview, a website hero), so the frame is yours edge to edge.
 - **Video language:** default English. All on-screen text is in it; set the theme `direction` to match.
 - **Voice language / accent:** default "English — American accent". See Voice-over below.
 - **Style:** a named description of look and motion from the shared library `styles/library.json`. Any video of any brand can use it, and it's managed in the Style card. Apply it within the brand kit's colours and fonts.
@@ -209,9 +210,13 @@ The dashboard sends these into every Director message; follow them without being
 - **A new composition every scene:** change the layout, the scale, the angle. Something new every 2–4 s.
 - **Motion with weight:** use springs (`springAt`, `springTo`, `SPRING.snappy | bouncy | soft`) for anything that moves into place. It speeds up, overshoots a hair and settles. Use `prog`/`ease` only for camera drifts and fades.
 - **Premium type:** headlines rise word by word from behind a mask (`MaskRise`), not a plain fade.
-- **Connected scenes:** match cuts (an element carries across the cut), camera pushes and pulls, a light sweep at cuts.
+- **Connected scenes:** match cuts (an element carries across the cut), camera pushes and pulls, a light sweep at cuts. Best of all, a persistent object that travels through scenes and changes role; every transition is motivated by something on screen.
 - **The first 2 s are the hook:** the most striking frame of the film goes there, not a logo fading in.
-- **Time to read:** pace comes from motion and cuts, never from pulling text away early. A line the viewer must read stays fully in and still for about 0.3 s per word, at least 0.8 s for a short label: fast in, then hold. Lines revealed one after another hold too; don't land a new line on every beat.
+- **Time to read:** pace comes from motion and cuts, never from pulling text away early. A line the viewer must read stays fully in and still for about 0.3 s per word, at least 0.8 s for a short label and 2 s for the final line: fast in, then hold. Lines revealed one after another hold too; don't land a new line on every beat.
+- **Timing numbers** (defaults to leave on purpose, not by accident): entrances 0.6–1 s; exits about half that, easing in (they leave fast); about 0.09 s between words, 0.2–0.25 s between list items or cards; typing about 0.035 s per character.
+- **One accent, one hero:** one accent colour, and it means something (the answer, the change, the winner): if everything is accented, nothing is. One hero moment per video; build to it, don't spend it early.
+- **Nothing dead-still:** grain (`Finish`), a slowly drifting background, idle elements that breathe (a blinking caret, a slow turn). Text holds still while it's being read.
+- **Safe area** (when the video's Safe area switch is on, the default): key text and buttons stay 5% from every edge. On 9:16 (TikTok, Reels, Shorts) keep them out of the top 12%, the bottom 22% and the right 12%, where the app lays its header, caption and buttons over the video. The phone review sheets tint those edges red.
 - **Show it in use:** the product doing its job (entry → key action → result) beats a page describing it. Simulate the tap, the swipe, the typing, the result appearing.
 - **Clear to a stranger:** after one viewing, someone who's never heard of the product knows what it does, who it's for and how to get it.
 - **Every frame postable:** any frozen frame should be worth sharing. The strongest settled one becomes the `poster` in `index.ts`: renders put it on frame 0, the thumbnail X, Slack, Discord and WhatsApp show.
@@ -226,8 +231,9 @@ The dashboard sends these into every Director message; follow them without being
 | Sheet | What | Judge |
 | --- | --- | --- |
 | `contact-<format>-N.png` | a frame every 0.5 s, 24 per sheet | pacing, variety, composition |
-| `phone-<format>-N.png` | a frame every 2 s at real phone size (360 px wide) | can every word be read on a phone? |
+| `phone-<format>-N.png` | a frame every 2 s at real phone size (360 px wide), unsafe edges tinted red when Safe area is on | can every word be read on a phone? Is anything important under the red? |
 | `strip-<format>-<t>.png` | 12 consecutive frames around every scene change (`cuts` in `index.ts`) and every `--strip=<t>` second | scene changes and fast moves: muddy crossfades, glitches, blur, overlaps |
+| `wave.png` | the soundtrack as a waveform, scene changes as coral lines, with its loudness and true peak (the raw mix: renders master it) | does every whoosh and hit peak on its moment? Dead gaps? "TOO HOT"? |
 
 Be a harsh motion director, not a proud author. Read every sheet and score each item 1–10:
 
@@ -235,9 +241,9 @@ Be a harsh motion director, not a proud author. Read every sheet and score each 
 2. **Readability:** can you read every word at phone size, and does each line stay up long enough to read (about 0.3 s per word)?
 3. **Motion quality:** springs and eased moves, nothing robotic or floaty.
 4. **Variety:** something new every 2–4 s.
-5. **Composition:** a clear focal point; nothing clipped, overlapping or crowded; no muddy double exposure at a scene change.
+5. **Composition:** a clear focal point; nothing clipped, overlapping or crowded; no muddy double exposure at a scene change; nothing important in the red edges.
 6. **Data accuracy:** every claim comes from the product, illustrative numbers are labelled, no real personal data shows.
-7. **Sound sync:** every cut, reveal and tap has its cue on the right frame.
+7. **Sound sync:** in `wave.png`, every whoosh and hit peaks on its moment; every cut, reveal and tap has its cue on the right frame.
 8. **Clarity:** after one viewing, would a stranger know what it is, who it's for and how to get it?
 
 Fix the 3 biggest problems, re-run, and repeat until every score is 8+ (at most 4 rounds in a Director run). The sheets are temporary.
@@ -370,12 +376,15 @@ def heartbeat(p, kit):
 
 ### Mixing habits that work
 
+- **Accent, don't narrate:** cuts, reveals and taps get sounds; continuous motion (drifts, grain, slow turns) stays silent.
 - **A cue on every cut:** a whoosh whose peak lands on the cut, plus a hit or soft thump on it.
 - **Ticks on UI beats:** light ticks as each item lands.
 - **Reveals:** shimmer on a logo or mark reveal.
-- **The end:** a riser that peaks on the endcard, plus an impact on it.
-- **Levels:** bed around 0.2; whooshes 0.3–0.5; hits 0.5–0.85; under a voice-over, halve everything.
+- **The payoff:** one riser per video, peaking on the end card (or the hero moment), plus the video's one big impact on it. Don't spend either earlier.
+- **Levels:** bed around 0.2; whooshes 0.3–0.5; hits 0.5–0.85; under a voice-over, halve everything. Duck the bed under the hero moment too.
 - **One key:** tonal sounds (chimes, shimmers, stings, the bed) share one key per video, e.g. every `chime` `freq` on the notes of one scale. The soundtrack then sounds composed, not collected.
+- **Pitch tells progress:** a sequence of tonal cues (items landing, steps completing) rises in pitch and resolves on the payoff.
+- **Pan follows the picture:** a sound for something on the left sits left, and a sequence sweeps across. Cues can't pan when they play (Remotion has no pan), so design panned variants in `sfx.json`, e.g. `"fx": [{ "pan": -0.4 }]`.
 
 Running `npm run sfx` with no arguments rebuilds the shared fallback kit in `public/_shared/sfx/`. It reproduces the existing files exactly.
 

@@ -63,6 +63,19 @@ test('Antigravity runs as it is, outside the sandbox, so the page warns about it
   calls[0].p.emit('close',0);
 });
 
+test('The Safe area switch is on by default and tells the Director either way',t=>{
+  const {director,calls}=fixture(t);
+  assert.equal(director.state('demo','video01').voice.safeArea,true);
+  director.send('demo','video01','Hello');
+  assert.match(calls[0].args.join(' '),/SAFE AREA: ON/);
+  calls[0].p.emit('close',0);
+  director.setVoiceover('demo','video01',{safeArea:false});
+  assert.equal(director.state('demo','video01').voice.safeArea,false);
+  director.send('demo','video01','Again');
+  assert.match(calls[1].args.join(' '),/SAFE AREA: OFF/);
+  calls[1].p.emit('close',0);
+});
+
 test('A Director that fails to launch is not left working',t=>{
   const {director}=fixture(t,'codex',true);
   assert.throws(()=>director.send('demo','video01','Hello'),/EINVAL/);

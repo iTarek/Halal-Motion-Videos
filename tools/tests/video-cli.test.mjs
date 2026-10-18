@@ -11,7 +11,7 @@ for (const engine of ['codex','antigravity','claude']) test(`make selects ${engi
     const body=raw?JSON.parse(raw):{};
     const url=new URL(req.url,'http://localhost');
     let data;
-    if(url.pathname==='/api/state') data={agentApi:3,brands:[{brand:'demo',videos:[{video:'video01',outputs:{videos:[]}}]}],jobs:[]};
+    if(url.pathname==='/api/state') data={agentApi:4,brands:[{brand:'demo',videos:[{video:'video01',outputs:{videos:[]}}]}],jobs:[]};
     else if(url.pathname==='/api/director/engine'){selected=body.engine;data={ok:true};}
     else if(url.pathname==='/api/director/autopilot'){started=true;data={ok:true};}
     else if(url.pathname==='/api/director') data={engine:selected,claude:{ok:engine==='claude',fix:'not installed'},codex:{ok:engine==='codex'},antigravity:{ok:engine==='antigravity'},phase:'brief',messages:[],storyboard:[],styles:[],voice:{length:10},autopilot:started?{status:'running'}:null};
@@ -26,13 +26,42 @@ for (const engine of ['codex','antigravity','claude']) test(`make selects ${engi
   assert.equal(code,0,err+out);assert.equal(started,true);assert.equal(JSON.parse(out).engine,engine);
 });
 
+// The Safe area switch, from an agent: `set --safe-area=on|off` reaches the dashboard and shows in status.settings.
+test('an agent switches the safe area off and on, and sees it in status',async t=>{
+  let safeArea=true;const sent=[];
+  const server=http.createServer(async(req,res)=>{
+    let raw='';for await(const c of req) raw+=c;
+    const url=new URL(req.url,'http://localhost');
+    if(url.pathname==='/api/director/voiceover'){const b=JSON.parse(raw);sent.push(b.safeArea);safeArea=b.safeArea;}
+    const data=url.pathname==='/api/state'
+      ? {agentApi:4,brands:[{brand:'demo',videos:[{video:'video01',outputs:{videos:[],stills:[]}}]}],jobs:[]}
+      : {ok:true,engine:'claude',claude:{ok:true},phase:'brief',running:false,messages:[],storyboard:[],styles:[],voice:{length:10,safeArea},autopilot:null};
+    res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const run=async(...args)=>{
+    const proc=spawn(process.execPath,[fileURLToPath(new URL('../video.mjs',import.meta.url)),...args,'--json'],{env:{...process.env,PORT:String(server.address().port)},windowsHide:true});
+    let out='',err='';proc.stdout.setEncoding('utf8');proc.stderr.setEncoding('utf8');proc.stdout.on('data',x=>out+=x);proc.stderr.on('data',x=>err+=x);
+    return {code:await new Promise(resolve=>proc.on('close',resolve)),out,err};
+  };
+  const off=await run('set','demo','video01','--safe-area=off');
+  assert.equal(off.code,0,off.err);assert.equal(JSON.parse(off.out).settings.safeArea,false);
+  const on=await run('set','demo','video01','--safe-area=on');
+  assert.equal(JSON.parse(on.out).settings.safeArea,true);
+  assert.deepEqual(sent,[false,true]);
+  const bad=await run('set','demo','video01','--safe-area=maybe');
+  assert.notEqual(bad.code,0);assert.match(bad.out+bad.err,/--safe-area is on or off/);
+  assert.equal(sent.length,2); // nothing sent for a bad value
+});
+
 // Agent first: everything a finished video comes with reaches an agent through `status` (CLAUDE.md → Agent first).
 test('status hands an agent the MP4s, the caption and the cover images',async t=>{
   const server=http.createServer((req,res)=>{
     const url=new URL(req.url,'http://localhost');
     const stills=[{name:'demo-video01-vertical-poster.jpg',rel:'stills/demo-video01-vertical-poster.jpg'},{name:'vertical-030.jpg',rel:'stills/vertical-030.jpg'}];
     const data=url.pathname==='/api/state'
-      ? {agentApi:3,brands:[{brand:'demo',videos:[{video:'video01',share:'Caption.',outputs:{videos:[{name:'demo-video01-vertical.mp4',rel:'demo-video01-vertical.mp4'}],stills}}]}],
+      ? {agentApi:4,brands:[{brand:'demo',videos:[{video:'video01',share:'Caption.',outputs:{videos:[{name:'demo-video01-vertical.mp4',rel:'demo-video01-vertical.mp4'}],stills}}]}],
          jobs:[{id:1,brand:'demo',video:'video01',label:'Render vertical',status:'done',progress:100,log:['saved out/demo/video01/demo-video01-vertical.mp4']}]}
       : {engine:'claude',claude:{ok:true},phase:'build',messages:[],storyboard:[],styles:[],voice:{length:10},autopilot:null};
     res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));

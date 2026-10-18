@@ -146,13 +146,17 @@ export const createDirector = ({ root, brandsDir, onBuilt, spawnProcess = spawn,
       videoLanguage: s.videoLanguage || DEFAULT_VIDEO_LANGUAGE,
       length: s.lengthSeconds || DEFAULT_LENGTH,
       voiceLanguage: s.voiceLanguage || DEFAULT_VOICE_LANGUAGE,
+      safeArea: s.safeArea !== false, // keep clear of TikTok/Reels/Shorts UI; on unless the user switches it off
     };
   };
 
   const voiceBlock = (brand, video, s) => {
     const v = voiceOf(s);
     const lang = `- VIDEO LENGTH: ${v.length} seconds (the user set this). Size timeline.ts to it (±1 s) — and if there's narration, it must fit comfortably inside it.
-- VIDEO LANGUAGE (all on-screen text): ${v.videoLanguage}. Set the brand theme's direction to match (rtl for Arabic, Hebrew, Urdu…).`;
+- VIDEO LANGUAGE (all on-screen text): ${v.videoLanguage}. Set the brand theme's direction to match (rtl for Arabic, Hebrew, Urdu…).
+${v.safeArea
+    ? "- SAFE AREA: ON (the user set this). Key text and buttons stay 5% from every edge, and on 9:16 out of the top 12%, the bottom 22% and the right 12%, where TikTok, Reels and Shorts lay their header, caption and buttons. The review's phone sheets tint those edges red."
+    : "- SAFE AREA: OFF (the user set this): no app lays its UI over this video, so the frame is yours edge to edge (just keep text off the very edge)."}`;
     const style = getStyle(s.styleId);
     const styleLine = style
       ? `\n- VIDEO STYLE "${style.name}" (the user picked this): ${style.text}\n  Apply it to motion, pacing, typography, transitions and sound — within the brand kit's colours and fonts.`
@@ -278,11 +282,12 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
   only the product's own claims, nothing like "excited to share".
 - Verify: \`npm run typecheck\` must pass.
 - CRITIQUE LOOP — be a harsh motion director, not a proud author:
-  \`npm run review -- ${brand} ${video}\` makes contact sheets (every 0.5 s), phone-size sheets and 12-frame strips around
-  every scene change (add --strip=<s> for fast moves), in ${tmpDir(brand, video)}/review/. Read every sheet and score 1–10:
-  hook, readability (phone size, and ~0.3 s per word on screen), motion quality, variety (something new every 2–4 s),
-  composition (no muddy crossfades), data accuracy, sound sync, clarity (would a stranger know what it is, who it's for,
-  how to get it?).
+  \`npm run review -- ${brand} ${video}\` makes contact sheets (every 0.5 s), phone-size sheets${voiceOf(s).safeArea ? " (unsafe edges in red)" : ""},
+  12-frame strips around every scene change (add --strip=<s> for fast moves) and wave.png (the soundtrack, scene changes
+  marked), in ${tmpDir(brand, video)}/review/. Read every sheet and score 1–10: hook, readability (phone size, and ~0.3 s
+  per word on screen), motion quality, variety (something new every 2–4 s), composition (no muddy crossfades${voiceOf(s).safeArea ? ", nothing in the red" : ""}),
+  data accuracy, sound sync (wave.png: every hit on its moment), clarity (would a stranger know what it is,
+  who it's for, how to get it?). Don't claim a fix you haven't re-run and looked at.
   Fix the 3 biggest problems, re-run, and repeat until every score is 8+ (at most 4 rounds). Temp files are deleted after this run.
 - End with the final scores in one line, what you built/changed in a few bullets, and what to look at in Studio.`;
   };
@@ -819,8 +824,9 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       s.sessionEngine = engine;
       save(brand, video, s);
     },
-    setVoiceover(brand, video, { enabled, voiceId, videoLanguage, voiceLanguage, length }) {
+    setVoiceover(brand, video, { enabled, voiceId, videoLanguage, voiceLanguage, length, safeArea }) {
       const s = load(brand, video);
+      if (typeof safeArea === "boolean") s.safeArea = safeArea;
       if (length !== undefined) {
         const n = Math.round(Number(length));
         if (!(n >= 3 && n <= 600)) throw new Error("Length is in seconds, between 3 and 600.");

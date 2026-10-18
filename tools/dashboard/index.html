@@ -1152,7 +1152,7 @@ async function styleAction(action, body) {
 function renderLangRow() {
   const v = dir?.voice; const row = $("#langRow");
   if (!v || !row || ["langVideo", "langVoice", "vidLength"].includes(document.activeElement?.id)) return;
-  const key = JSON.stringify([v.videoLanguage, v.voiceLanguage, v.enabled, v.length, dir.formats]);
+  const key = JSON.stringify([v.videoLanguage, v.voiceLanguage, v.enabled, v.length, v.safeArea, dir.formats]);
   if (row.dataset.key === key) return;
   row.dataset.key = key;
   row.innerHTML = `
@@ -1163,6 +1163,7 @@ function renderLangRow() {
         ${[["vertical", "9:16"], ["horizontal", "16:9"], ["both", "Both"]].map(([k, l]) => `<button type="button" data-formats="${k}" class="${dir.formats === k ? "on" : ""}">${l}</button>`).join("")}
       </div>
       <span class="note">Length</span><input id="vidLength" type="number" min="3" max="600" step="1" value="${v.length}" style="width:62px;font-family:inherit" title="Target length in seconds" /><span class="note">s</span>
+      <label class="switch" title="Keeps key text out of the edges TikTok, Reels and Shorts cover with their buttons and captions. Off for videos nothing is laid over, like App Store previews."><input type="checkbox" id="safeOn" ${v.safeArea ? "checked" : ""} /><i></i><span>Safe area</span></label>
     </div>
     <div class="vrow">
       <span class="lbl2" style="visibility:hidden">${icon("film")}Video</span>
@@ -1170,6 +1171,7 @@ function renderLangRow() {
       ${v.enabled ? `<span class="note">Voice</span><input id="langVoice" value="${esc(v.voiceLanguage)}" placeholder="English — American accent" style="width:200px;font-family:inherit" title="Language and accent of the voice-over" />` : ""}
       <button class="ghost" id="langSave" type="button">Save</button>
     </div>`;
+  $("#safeOn").onchange = (e) => saveVoice({ safeArea: e.target.checked });
 }
 
 function renderVoiceRow() {
