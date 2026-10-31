@@ -29,7 +29,8 @@ const engineReadyNow = (id) => {
   if (engineCache.value) engineCache.value[id] = status;
   return status;
 };
-import { checkVoice, DEFAULT_VOICE_ID, readSettings, VOICE_MODELS, writeSettings } from "../settings.mjs";
+import { checkVoice, DEFAULT_VOICE_ID, GEMINI_MODELS, GEMINI_VOICES, readSettings, VOICE_MODELS, voiceFits, voiceProviderOf, writeSettings } from "../settings.mjs";
+import { checkGemini, geminiSpeech } from "../gemini.mjs";
 
 import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -41,7 +42,7 @@ const PORT = Number(process.env.PORT ?? 4000);
 const STUDIO_PORT = Number(process.env.STUDIO_PORT ?? 3000);
 const NAME = /^[a-z][a-z0-9-]*$/;
 let creating = Promise.resolve(); // POST /api/new runs one at a time
-const AGENT_API = 4; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters; 4: safeArea)
+const AGENT_API = 5; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters; 4: safeArea; 5: Gemini voice-over)
 // The autopilot queues a render when a build ends (renderJob is defined below; called later, at run time).
 const director = createDirector({ root: ROOT, brandsDir: BRANDS, dashboardUrl: `http://127.0.0.1:${PORT}`, onBuilt: (brand, video, opts) => renderJob({ brand, video, ...opts }).id });
 
@@ -319,10 +320,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && p.startsWith("/out/")) return serveFile(req, res, OUT, decodeURIComponent(p.slice(5)));
     if (req.method === "GET" && p.startsWith("/public/")) return serveFile(req, res, PUBLIC, decodeURIComponent(p.slice(8)));
 
-    // ---- Settings (ElevenLabs). The key never goes back to the browser — only a hint.
+    // ---- Settings (ElevenLabs, and optionally Gemini). The keys never go back to the browser — only a hint.
     if (p === "/api/settings") {
       const pub = (extra = {}) => {
-        const el = readSettings().elevenlabs;
+        const st = readSettings();
+        const { elevenlabs: el, gemini: gm } = st;
         return {
           elevenlabs: {
             hasKey: !!el.apiKey,
@@ -333,13 +335,20 @@ const server = http.createServer(async (req, res) => {
             models: VOICE_MODELS,
             defaultVoiceId: DEFAULT_VOICE_ID,
           },
+          gemini: { hasKey: !!gm.apiKey, keyHint: gm.apiKey ? `…${gm.apiKey.slice(-4)}` : "", voice: gm.voice, voices: GEMINI_VOICES, model: gm.model, models: GEMINI_MODELS },
+          voiceProvider: st.voiceProvider, // picked: ElevenLabs unless Gemini is
+          provider: voiceProviderOf(st), // in use: the picked one if its key is saved, else the one with a key
           ...extra,
         };
       };
       if (req.method === "GET") return send(res, 200, pub());
       if (req.method !== "POST") return send(res, 404, { error: "not found" });
       const b = await readBody(req);
-      const cur = readSettings().elevenlabs;
+      // the free checks first, before asking ElevenLabs or Google anything
+      if (b.geminiVoice !== undefined && !voiceFits("gemini", b.geminiVoice)) return send(res, 400, { error: `No Gemini voice "${b.geminiVoice}". Voices: ${GEMINI_VOICES.join(", ")}` });
+      if (b.geminiModel !== undefined && !GEMINI_MODELS[b.geminiModel]) return send(res, 400, { error: `No Gemini model "${b.geminiModel}". Models: ${Object.keys(GEMINI_MODELS).join(", ")}` });
+      if (b.voiceProvider !== undefined && !["elevenlabs", "gemini"].includes(b.voiceProvider)) return send(res, 400, { error: "Voice-over is by elevenlabs or gemini." });
+      const { elevenlabs: cur, gemini: gm } = readSettings();
       const apiKey = typeof b.apiKey === "string" && b.apiKey.trim() ? b.apiKey.trim() : b.clearKey ? "" : cur.apiKey;
       const voiceId = typeof b.voiceId === "string" && b.voiceId.trim() ? b.voiceId.trim() : cur.voiceId;
       if (!/^[A-Za-z0-9]{8,64}$/.test(voiceId)) return send(res, 400, { error: "A voice ID is letters and numbers, like NOpBlnGInO9m6vDvFkFC." });
@@ -350,25 +359,56 @@ const server = http.createServer(async (req, res) => {
         if (!check.ok) return send(res, 400, { error: check.error });
         voiceName = check.name;
       }
-      writeSettings({ elevenlabs: { apiKey, voiceId, voiceName, model } });
+      // Gemini: only written once someone uses it, so a settings file without it stays as it was
+      const gKey = typeof b.geminiKey === "string" && b.geminiKey.trim() ? b.geminiKey.trim() : b.clearGeminiKey ? "" : gm.apiKey;
+      const gModel = b.geminiModel ?? gm.model;
+      const gVoice = voiceFits("gemini", b.geminiVoice) || gm.voice;
+      if (gKey && (gKey !== gm.apiKey || gModel !== gm.model)) {
+        const check = await checkGemini(gKey, gModel); // free: reads the model, makes no audio
+        if (!check.ok) return send(res, 400, { error: check.error });
+      }
+      writeSettings({
+        elevenlabs: { apiKey, voiceId, voiceName, model },
+        ...(gKey || gm.apiKey ? { gemini: { apiKey: gKey, voice: gVoice, model: gModel } } : {}),
+        ...(b.voiceProvider ? { voiceProvider: b.voiceProvider } : {}),
+      });
       return send(res, 200, pub({ saved: true }));
     }
 
     // System check (same as `npm run doctor`)
     if (req.method === "GET" && p === "/api/doctor") return send(res, 200, { checks: systemChecks() });
 
-    // Plays a short sample in the browser (uses a few ElevenLabs credits).
+    // Plays a short sample in the browser (uses a few credits): with the provider asked for, else the one in use.
+    // Settings sends the key in its box, so a pasted key is tested before it's saved; no key means the saved one.
     if (req.method === "POST" && p === "/api/voice/test") {
       const b = await readBody(req);
-      const el = readSettings().elevenlabs;
-      if (!el.apiKey) return send(res, 400, { error: "Add your ElevenLabs API key first." });
+      const st = readSettings();
+      const typedKey = typeof b.apiKey === "string" ? b.apiKey.trim() : "";
+      if (typedKey && !/^[\x21-\x7e]{8,256}$/.test(typedKey)) return send(res, 400, { error: "That doesn't look like an API key." });
+      if ((b.provider ?? voiceProviderOf(st)) === "gemini") {
+        const key = typedKey || st.gemini.apiKey;
+        if (!key) return send(res, 400, { error: "Add your Gemini API key first." });
+        try {
+          const wav = await geminiSpeech({
+            key, model: GEMINI_MODELS[b.model] ? b.model : st.gemini.model, voice: voiceFits("gemini", b.voiceId) || st.gemini.voice,
+            text: String(b.text || "Hi! This is the voice for your Halal Motion Videos narration.").slice(0, 500), style: "warm and friendly",
+          });
+          res.writeHead(200, { "Content-Type": "audio/wav", "Cache-Control": "no-store" });
+          return res.end(wav);
+        } catch (e) {
+          return send(res, 400, { error: e.message });
+        }
+      }
+      const el = st.elevenlabs;
+      const key = typedKey || el.apiKey;
+      if (!key) return send(res, 400, { error: "Add your ElevenLabs API key first." });
       const voiceId = /^[A-Za-z0-9]{8,64}$/.test(b.voiceId ?? "") ? b.voiceId : el.voiceId;
       const text = String(b.text || "[warm, friendly] Hi! This is the voice for your Halal Motion Videos narration.").slice(0, 500);
       try {
         const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
           method: "POST",
-          headers: { "xi-api-key": el.apiKey, "Content-Type": "application/json" },
-          body: JSON.stringify({ text, model_id: el.model }),
+          headers: { "xi-api-key": key, "Content-Type": "application/json" },
+          body: JSON.stringify({ text, model_id: VOICE_MODELS[b.model] ? b.model : el.model }),
         });
         if (!r.ok) return send(res, 400, { error: `ElevenLabs ${r.status}: ${(await r.text()).slice(0, 200)}` });
         res.writeHead(200, { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" });
@@ -393,7 +433,8 @@ const server = http.createServer(async (req, res) => {
           return send(res, 400, { error: e.message });
         }
         try {
-          return send(res, 200, await transcribe(file, { language: typeof q.language === "string" ? q.language.slice(0, 12) : undefined }));
+          const language = typeof q.language === "string" ? q.language.slice(0, 12) : undefined;
+          return send(res, 200, await transcribe(file, { language, install: false }));
         } catch (e) {
           return send(res, 502, { error: e.message });
         }

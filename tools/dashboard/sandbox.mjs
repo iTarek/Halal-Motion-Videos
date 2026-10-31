@@ -1,6 +1,7 @@
 // A macOS sandbox (sandbox-exec) for Codex, a Director engine that brings no guardrails of its own.
 // It gives it what Claude's permission rules give Claude:
-//   • writes only inside this repo (never .git, .director/settings.json, the browser profiles, or MP4s in out/), plus
+//   • writes only inside this repo (never .git, tools/, .director/settings.json, the browser profiles, local Whisper,
+//     or MP4s in out/: the dashboard runs tools/ and Whisper outside the sandbox), plus
 //     temp folders, the npm cache and the engine's own data folder — the product folder stays read-only
 //   • no reading .director/settings.json (API keys), .director/browser/ (logins) or anything in the home folder except
 //     this repo, the product folder and the tools it runs (node, npm, Python packages, the engine itself)
@@ -52,6 +53,8 @@ export const sandboxProfile = ({ root, engineHome, projectFolder, settingsFile, 
     `(deny file-read-data (require-all (subpath ${str(H)}) (require-not ${anyOf(readable)})))`,
     `(deny file-write* (require-not ${anyOf(writable)}))`,
     `(deny file-write* (subpath ${str(path.join(R, ".git"))}))`,
+    // what the dashboard runs outside the sandbox for this run: the tools, and local Whisper's program
+    `(deny file-write* (subpath ${str(path.join(R, "tools"))}) (subpath ${str(path.join(R, ".director", "whisper"))}))`,
     `(deny file-write* (require-all (subpath ${str(path.join(R, "out"))}) (regex #"\\.mp4$")))`,
     `(deny file-read* file-write* (literal ${str(real(settingsFile))}) (subpath ${str(real(browserDir))}))`,
   ].join("\n");

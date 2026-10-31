@@ -8,7 +8,7 @@ import { PassThrough } from 'node:stream';
 import { createDirector } from '../dashboard/director.mjs';
 import { canSandbox, SANDBOX_EXEC } from '../dashboard/sandbox.mjs';
 
-function fixture(t, engine, failSpawn) {
+function fixture(t, engine, failSpawn, readSettings) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hmv-director-'));
   t.after(() => {
     assert.ok(path.resolve(root).startsWith(path.resolve(os.tmpdir()) + path.sep));
@@ -22,7 +22,7 @@ function fixture(t, engine, failSpawn) {
     const p=new EventEmitter(); p.stdin=new PassThrough();p.stdout=new PassThrough();p.stderr=new PassThrough();p.kill=()=>{};
     calls.push({bin,args,options,p});return p;
   };
-  const director=createDirector({root,brandsDir:path.join(root,'src/brands'),onBuilt:()=>{},spawnProcess});
+  const director=createDirector({root,brandsDir:path.join(root,'src/brands'),onBuilt:()=>{},spawnProcess,...(readSettings?{readSettings}:{})});
   if (engine) director.setEngine('demo','video01',engine);
   return {director,calls,root};
 }
@@ -220,4 +220,23 @@ test('New chat preserves selected engine and clears its session',t=>{
   director.reset('demo','video01');
   const s=director.state('demo','video01');
   assert.equal(s.engine,'antigravity');assert.equal(s.hasSession,false);assert.deepEqual(s.messages,[]);
+});
+
+test('With an ElevenLabs key the voice-over prompt is as before; with Gemini the Director writes for Gemini',t=>{
+  const settings=(gemini,voiceProvider)=>()=>({elevenlabs:{apiKey:'el',voiceId:'NOpBlnGInO9m6vDvFkFC',voiceName:'Rachel',model:'eleven_v4'},
+    gemini:{apiKey:gemini,voice:'Kore',model:'gemini-3.8-flash-tts'},voiceProvider});
+  const el=fixture(t,undefined,false,settings('','elevenlabs'));
+  el.director.send('demo','video01','Hello');
+  const elPrompt=el.calls[0].args.join(' ');
+  assert.match(elPrompt,/ElevenLabs eleven_v4 is set up\. Voice: NOpBlnGInO9m6vDvFkFC \(Rachel\)/);
+  assert.doesNotMatch(elPrompt,/Gemini/);
+  el.calls[0].p.emit('close',0);
+  const gm=fixture(t,undefined,false,settings('gm','gemini'));
+  assert.equal(gm.director.state('demo','video01').voice.provider,'gemini');
+  gm.director.send('demo','video01','Hello');
+  const gmPrompt=gm.calls[0].args.join(' ');
+  assert.match(gmPrompt,/Gemini text to speech \(gemini-3\.8-flash-tts\) is set up, not ElevenLabs\. Voice: Kore/);
+  assert.match(gmPrompt,/Never \[square-bracket\] tags/);
+  assert.doesNotMatch(gmPrompt,/Eleven v4 audio tags/);
+  gm.calls[0].p.emit('close',0);
 });

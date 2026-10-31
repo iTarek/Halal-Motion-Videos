@@ -531,11 +531,31 @@
       <label for="elKey">API key</label>
       <div class="keyrow"><input id="elKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk_…" /></div>
       <div class="muted-note" id="elKeyHint" style="margin-top:4px"></div>
+      <div id="elTestRow" style="margin-top:10px"><button type="button" id="elTest"><svg class="i"><use href="#i-volume"/></svg>Test ElevenLabs voice</button></div>
+      <div class="ok-line" id="elOk" hidden></div>
       <label for="elVoice">Default voice ID</label>
       <input id="elVoice" autocomplete="off" spellcheck="false" style="font-family:var(--mono);font-size:12.5px" />
       <label for="elModel">Model</label>
       <select id="elModel"></select>
-      <div class="ok-line" id="elOk" hidden></div>
+    </div>
+    <div class="set-section">
+      <h4><svg class="i"><use href="#i-mic"/></svg>Gemini voice-over (optional)</h4>
+      <div class="sub">Narrate with a Google AI Studio key instead of ElevenLabs: emotions and pauses included. Word timings then come from speech to text on this device (Whisper, about 500 MB, installed the first time it's needed).</div>
+      <label for="gmKey">API key</label>
+      <div class="keyrow"><input id="gmKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…" /></div>
+      <div class="muted-note" id="gmKeyHint" style="margin-top:4px"></div>
+      <div id="gmTestRow" style="margin-top:10px"><button type="button" id="gmTest"><svg class="i"><use href="#i-volume"/></svg>Test Gemini voice</button></div>
+      <div class="ok-line" id="gmOk" hidden></div>
+      <label for="gmVoice">Default voice</label>
+      <select id="gmVoice"></select>
+      <label for="gmModel">Model</label>
+      <select id="gmModel"></select>
+    </div>
+    <div class="set-section" id="gmPick" hidden>
+      <h4><svg class="i"><use href="#i-volume"/></svg>Voice-over engine</h4>
+      <div class="sub">Both keys are saved: pick which one narrates your videos.</div>
+      <label for="voProvider">Narrate with</label>
+      <select id="voProvider"><option value="elevenlabs">ElevenLabs</option><option value="gemini">Gemini</option></select>
     </div>
     <div class="set-section">
       <h4><svg class="i"><use href="#i-check"/></svg>System check</h4>
@@ -543,12 +563,9 @@
       <div id="doctorList" class="doctor"><span class="muted-note">Checking…</span></div>
     </div>
     <div class="err" id="settingsErr"></div>
-    <div class="actions" style="justify-content:space-between">
-      <button type="button" id="elTest"><svg class="i"><use href="#i-volume"/></svg>Test voice</button>
-      <span style="display:flex;gap:8px">
-        <button type="button" id="settingsCancel">Close</button>
-        <button class="primary" value="ok">Save</button>
-      </span>
+    <div class="actions">
+      <button type="button" id="settingsCancel">Close</button>
+      <button class="primary" value="ok">Save</button>
     </div>
   </form>
 </dialog>
@@ -1183,9 +1200,16 @@ function renderVoiceRow() {
   row.dataset.key = key;
   row.innerHTML = `
     <span class="lbl2">${icon("mic")}Voice-over</span>
-    <label class="switch ${v.configured ? "" : "locked"}" title="${v.configured ? "" : "Needs an ElevenLabs API key"}"><input type="checkbox" id="voOn" ${v.enabled ? "checked" : ""} ${v.configured ? "" : "disabled"} /><i></i><span>${v.enabled ? "On — the Director narrates this video" : v.configured ? "Off" : "Off — needs an ElevenLabs key"}</span></label>
+    <label class="switch ${v.configured ? "" : "locked"}" title="${v.configured ? "" : "Needs an ElevenLabs or Gemini API key"}"><input type="checkbox" id="voOn" ${v.enabled ? "checked" : ""} ${v.configured ? "" : "disabled"} /><i></i><span>${v.enabled ? "On — the Director narrates this video" : v.configured ? "Off" : "Off — needs an ElevenLabs or Gemini key"}</span></label>
     ${!v.configured ? `<span class="warn">Add your key in <button class="ghost" type="button" data-open-settings="1" style="padding:0 2px;color:var(--accent2)">Settings</button> to turn it on.</span>` : ""}
-    ${v.enabled ? `
+    ${v.enabled && v.provider === "gemini" ? `
+      <span class="note">Voice</span>
+      <input id="voVoice" list="gmVoiceList" placeholder="${esc(v.defaultVoiceId)}" value="${esc(v.voiceId)}" title="Gemini voice for this video — leave empty to use the default from Settings" />
+      <datalist id="gmVoiceList">${(settings?.gemini.voices ?? []).map((x) => `<option value="${esc(x)}">`).join("")}</datalist>
+      <span class="note">empty = default</span>
+      <button class="ghost" id="voSave" type="button">Save</button>
+      <button class="ghost" id="voPlay" type="button" title="Hear this voice">${icon("volume")}</button>
+      <span class="note">${v.voiceId ? "custom voice" : `using default · ${esc(v.defaultVoiceName)}`} · ${esc(v.model === "gemini-3.8-flash-lite-tts" ? "Gemini Flash-Lite" : "Gemini Flash")}</span>` : v.enabled ? `
       <span class="note">Voice ID</span>
       <input id="voVoice" placeholder="${esc(v.defaultVoiceId)}" value="${esc(v.voiceId)}" title="Voice ID for this video — leave empty to use the default from Settings" />
       <span class="note">empty = default</span>
@@ -1202,10 +1226,10 @@ async function saveVoice(patch) {
   renderVoiceRow(); // also redraws the language row
 }
 let testAudio = null;
-async function playVoice(voiceId, btn) {
+async function playVoice(voiceId, btn, provider, extra = {}) {
   try {
     btn && (btn.disabled = true);
-    const r = await fetch("/api/voice/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ voiceId }) });
+    const r = await fetch("/api/voice/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ voiceId, provider, ...extra }) });
     if (!r.ok) throw new Error((await r.json()).error);
     testAudio?.pause();
     testAudio = new Audio(URL.createObjectURL(await r.blob()));
@@ -1217,7 +1241,7 @@ async function playVoice(voiceId, btn) {
 let settings = null;
 async function loadSettings() {
   try { settings = await api("/api/settings"); } catch { return; }
-  $("#settingsDot").hidden = settings.elevenlabs.hasKey;
+  $("#settingsDot").hidden = settings.elevenlabs.hasKey || settings.gemini.hasKey;
 }
 async function loadDoctor() {
   const box = $("#doctorList");
@@ -1251,23 +1275,51 @@ async function openSettings() {
   $("#elModel").innerHTML = Object.entries(el.models).map(([k, l]) => `<option value="${k}" ${k === el.model ? "selected" : ""}>${esc(l)}</option>`).join("");
   $("#elOk").hidden = !(el.hasKey && el.voiceName);
   $("#elOk").textContent = el.voiceName ? `✓ Key works · default voice: ${el.voiceName}` : "";
+  fillGemini();
   $("#settingsErr").textContent = "";
   $("#settingsDialog").showModal();
 }
 $("#settingsBtn").onclick = openSettings;
 $("#settingsCancel").onclick = () => $("#settingsDialog").close();
-$("#elTest").onclick = (e) => playVoice($("#elVoice").value.trim(), e.currentTarget);
+// Each key's test plays the voice and model picked below it, with the key in the box: a pasted key is tested before it's saved.
+$("#elTest").onclick = (e) => playVoice($("#elVoice").value.trim(), e.currentTarget, "elevenlabs", { apiKey: $("#elKey").value.trim(), model: $("#elModel").value });
+$("#gmTest").onclick = (e) => playVoice($("#gmVoice").value, e.currentTarget, "gemini", { apiKey: $("#gmKey").value.trim(), model: $("#gmModel").value });
+/** A test shows once its box has a key to test: saved, or just pasted. (The row: a button's own display style would win over its hidden.) */
+function showTests() {
+  $("#elTestRow").hidden = !(settings.elevenlabs.hasKey || $("#elKey").value.trim());
+  $("#gmTestRow").hidden = !(settings.gemini.hasKey || $("#gmKey").value.trim());
+}
+$("#elKey").oninput = $("#gmKey").oninput = showTests;
+/** The Gemini part of Settings, and the engine box: it only shows once both keys are saved (with one key, that one narrates). */
+function fillGemini() {
+  const gm = settings.gemini;
+  $("#gmKey").value = "";
+  $("#gmKey").placeholder = gm.hasKey ? `Saved (${gm.keyHint}) — paste a new key to replace it` : "AIza…";
+  $("#gmKeyHint").textContent = gm.hasKey ? "" : "Get it at aistudio.google.com → Get API key.";
+  $("#gmVoice").innerHTML = gm.voices.map((v) => `<option ${v === gm.voice ? "selected" : ""}>${esc(v)}</option>`).join("");
+  $("#gmModel").innerHTML = Object.entries(gm.models).map(([k, l]) => `<option value="${k}" ${k === gm.model ? "selected" : ""}>${esc(l)}</option>`).join("");
+  $("#gmPick").hidden = !(gm.hasKey && settings.elevenlabs.hasKey);
+  $("#voProvider").value = settings.voiceProvider;
+  showTests(); // runs after every open and save, once both key boxes are reset
+  $("#gmOk").hidden = !gm.hasKey;
+  $("#gmOk").textContent = gm.hasKey ? `✓ Key works${settings.provider === "gemini" ? " · narrates your videos" : ""}` : "";
+}
 $("#settingsForm").onsubmit = async (e) => {
   e.preventDefault();
   $("#settingsErr").textContent = "Checking with ElevenLabs…";
   try {
-    settings = await api("/api/settings", { apiKey: $("#elKey").value.trim(), voiceId: $("#elVoice").value.trim(), model: $("#elModel").value });
+    settings = await api("/api/settings", {
+      apiKey: $("#elKey").value.trim(), voiceId: $("#elVoice").value.trim(), model: $("#elModel").value,
+      geminiKey: $("#gmKey").value.trim(), geminiVoice: $("#gmVoice").value, geminiModel: $("#gmModel").value,
+      ...($("#gmPick").hidden ? {} : { voiceProvider: $("#voProvider").value }),
+    });
     $("#settingsErr").textContent = "";
     $("#elKey").value = "";
     $("#elKey").placeholder = `Saved (${settings.elevenlabs.keyHint}) — paste a new key to replace it`;
     $("#elOk").hidden = !settings.elevenlabs.voiceName;
     $("#elOk").textContent = `✓ Saved · default voice: ${settings.elevenlabs.voiceName}`;
-    $("#settingsDot").hidden = settings.elevenlabs.hasKey;
+    $("#settingsDot").hidden = settings.elevenlabs.hasKey || settings.gemini.hasKey;
+    fillGemini();
     if ($("#voRow")) $("#voRow").dataset.key = "";
     toast("Settings saved"); refresh();
   } catch (err) { $("#settingsErr").textContent = err.message; }

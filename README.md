@@ -7,7 +7,7 @@ Open the dashboard, describe the video, and a Claude-powered **Director** does t
 - writes the brief, then shows you a **4-frame storyboard** before building everything
 - captures **real screenshots** of your site or web app in a headless browser
 - designs **sound effects by code** (no samples, no stock library), landing each one on its peak
-- generates **voice-over** with ElevenLabs Eleven v4 (optional)
+- generates **voice-over** with ElevenLabs Eleven v4, or Gemini text to speech (optional)
 - builds the scenes in React with springs and masked type, then **grades its own video** (hook, readability at phone size, motion, variety, composition, accuracy, sound sync, clarity to a stranger) and fixes it until every score is 8/10+, checking every scene change frame by frame
 - delivers it **ready to post**: the best frame as the thumbnail (baked into frame 0, which X, Slack, Discord and WhatsApp show) and a caption to paste
 - optional **film look**: real motion blur on fast moves
@@ -61,6 +61,7 @@ npm start          # → http://localhost:4000
 | **Python 3** | sound design (`setup` adds numpy + scipy in a `.venv`; on Debian/Ubuntu install `python3-venv` first) |
 | **One Director CLI**, signed in: [Claude Code](https://claude.com/claude-code) 2.1.280+ (default), Codex (`codex`) or Antigravity (`agy`) | the Director chat — everything else works without it |
 | **ElevenLabs API key** | voice-over, and hearing it back in review (optional; add it in the dashboard → Settings) |
+| **or a Gemini API key** | voice-over without ElevenLabs (optional; Settings). Word timings then come from local Whisper: `npm run whisper`, or the first voice-over, installs it (about 500 MB) |
 
 `npm run setup` installs the npm packages, Remotion's headless Chrome and the Python packages. It never installs system software; for Node, ffmpeg, Python and Claude Code it prints the exact command instead. Run `npm run doctor` at any time, or open **Settings → System check** in the dashboard.
 
@@ -84,7 +85,7 @@ npm start          # → http://localhost:4000
 | `npm run shot -- <brand> [video]` | real screenshots from `shots.json` |
 | `npm run appstore -- <brand> <app id>` | an iOS app's icon, store screenshots and listing from the App Store |
 | `npm run sfx -- <brand> [video] [--look]` | design sounds from `sfx.json` |
-| `npm run voice -- <brand> <video>` | ElevenLabs voice-over from `voiceover.json` |
+| `npm run voice -- <brand> <video>` | voice-over from `voiceover.json` (ElevenLabs, or Gemini) |
 | `npm run doctor` | system check |
 | `npm run video -- <command>` | everything from a terminal, for AI agents and scripts (see below) |
 

@@ -1,5 +1,7 @@
-// Voice-over with ElevenLabs (Eleven v4). The API key comes from the dashboard's Settings
-// (.director/settings.json) or ELEVENLABS_API_KEY — it is never passed on the command line.
+// Voice-over with ElevenLabs (Eleven v4), or with Gemini text to speech when that's the provider in Settings. The API
+// key comes from the dashboard's Settings (.director/settings.json) or ELEVENLABS_API_KEY — never the command line.
+// Gemini sends no word timings, so its lines are heard back by speech to text (ElevenLabs', or local Whisper without
+// an ElevenLabs key: installed on first use) and the script's words are timed to what's heard.
 //
 // Usage:
 //   npm run voice -- <brand> <video>                  generate every line in <video>/voiceover.json (unchanged lines are skipped)
@@ -9,12 +11,15 @@
 //
 // voiceover.json (in src/brands/<brand>/<video>/):
 //   {
-//     "voice": "optional voice id (default: Settings, then the video's Director setting)",
-//     "model": "eleven_v4" | "eleven_v4_turbo",
+//     "provider": "elevenlabs" | "gemini",   // optional: default is the one in use in Settings
+//     "voice": "optional voice id (default: Settings, then the video's Director setting); a voice name for Gemini",
+//     "model": "eleven_v4" | "eleven_v4_turbo" | "gemini-3.8-flash-tts" | "gemini-3.8-flash-lite-tts",
 //     "language": "ar",                      // optional ISO 639-1 code
-//     "stability": 0.5, "similarity": 0.75,  // optional defaults for every line (0–1)
+//     "stability": 0.5, "similarity": 0.75,  // optional defaults for every line (0–1; ElevenLabs only)
+//     "style": "warm, unhurried",            // Gemini only: how every line is said (a line can have its own)
 //     "lines": [
 //       { "id": "intro", "text": "[warm, unhurried] ..." , "stability": 0.35 },
+//       { "id": "hook", "text": "Every prayer <short pause> on time.", "style": "calm" },   // Gemini: <cues>, never [tags]
 //       { "id": "story", "file": "vo/story-take2.m4a" },   // a recorded take (path in public/<brand>/<video>/):
 //       ...                                              // not generated, transcribed for its words and timings
 //     ]
@@ -28,9 +33,10 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { readSettings, ROOT } from "./settings.mjs";
+import { GEMINI_MODELS, readSettings, ROOT, voiceFits, voiceProviderOf } from "./settings.mjs";
 import { viaDashboard } from "./broker.mjs";
-import { transcribe } from "./transcribe.mjs";
+import { geminiSpeech } from "./gemini.mjs";
+import { alignWords, transcribe } from "./transcribe.mjs";
 
 await viaDashboard("voice"); // inside the Director's sandbox the key is hidden: the dashboard runs it
 
@@ -55,8 +61,8 @@ if (!fs.existsSync(srcDir)) fail(`No video at src/brands/${brand}/${video}`);
 const outDir = path.join(ROOT, "public", brand, video, "vo");
 const cacheFile = path.join(outDir, ".cache.json");
 
-const settings = readSettings().elevenlabs;
-if (!settings.apiKey) fail("No ElevenLabs API key. Add it in the dashboard → Settings (or set ELEVENLABS_API_KEY).");
+const st = readSettings();
+const settings = st.elevenlabs;
 
 // Per-video voice override saved by the dashboard (Director → Voice-over).
 const directorState = (() => {
@@ -84,6 +90,13 @@ if (flags.text) {
 }
 const lines = script.lines ?? [];
 if (!lines.length) fail("voiceover.json has no lines.");
+
+// Who speaks: voiceover.json can pin a provider; otherwise the one in use in Settings (ElevenLabs unless Gemini is picked)
+if (script.provider !== undefined && !["elevenlabs", "gemini"].includes(script.provider)) fail(`"provider" is "elevenlabs" or "gemini".`);
+const provider = script.provider ?? voiceProviderOf(st);
+const gemini = provider === "gemini";
+if (!provider || (!gemini && !settings.apiKey)) fail("No ElevenLabs API key. Add it in the dashboard → Settings (or set ELEVENLABS_API_KEY) — or a Gemini API key.");
+if (gemini && !st.gemini.apiKey) fail("No Gemini API key. Add it in the dashboard → Settings (or: npm run video -- voice-settings --gemini-key-stdin).");
 const videoPublic = path.join(ROOT, "public", brand, video);
 /** A recorded line's audio: inside public/<brand>/<video>/ only. */
 const takeOf = (l) => {
@@ -99,11 +112,17 @@ for (const l of lines) {
   if (!LINE_ID.test(l.id ?? "")) fail(`Line id "${l.id}" must be letters, digits, underscore (starting with a letter).`);
   if (l.file) takeOf(l);
   else if (!String(l.text ?? "").trim()) fail(`Line "${l.id}" has no text (or "file" for a recorded take).`);
-  else if (l.text.length > 10000) fail(`Line "${l.id}" is over Eleven v4's 10,000-character limit.`);
+  else if (!gemini && l.text.length > 10000) fail(`Line "${l.id}" is over Eleven v4's 10,000-character limit.`);
+  // Gemini says the text word for word: an ElevenLabs [tag] would be read out
+  else if (gemini && /\[[^\]\n]*\]/.test(l.text))
+    fail(`Line "${l.id}": [tags] are ElevenLabs' — for Gemini, say how it's spoken in "style" and use <angle-bracket> cues inline (<short pause>, <laugh>).`);
 }
 
-const voiceId = script.voice || directorState.voiceId || settings.voiceId;
+const voiceId = script.voice || voiceFits("elevenlabs", directorState.voiceId) || settings.voiceId;
 const model = script.model || settings.model;
+// Gemini: a voice name (another provider's saved voice falls back to the default) and a Gemini model
+const geminiVoice = voiceFits("gemini", script.voice) || voiceFits("gemini", directorState.voiceId) || st.gemini.voice;
+const geminiModel = (m) => (GEMINI_MODELS[m] ? m : GEMINI_MODELS[script.model] ? script.model : st.gemini.model);
 const clamp = (v, d) => (typeof v === "number" && v >= 0 && v <= 1 ? v : d);
 
 // ---- ElevenLabs calls
@@ -235,6 +254,38 @@ for (const [i, line] of lines.entries()) {
     console.log(`${seconds}s, ${heard.words.length} words timed: "${heard.text.slice(0, 80)}${heard.text.length > 80 ? "…" : ""}"`);
     continue;
   }
+  if (gemini) {
+    const g = { voice: geminiVoice, model: geminiModel(line.model), text: line.text, style: line.style || script.style || "" };
+    const language = line.language || script.language;
+    const hash = crypto.createHash("sha1").update(JSON.stringify({ provider, ...g, language })).digest("hex");
+    const file = path.join(outDir, `${line.id}.mp3`);
+    const cached = cache[line.id];
+    let result = !flags.force && (only ? !only.has(line.id) : cached?.hash === hash) && fs.existsSync(file) && cached ? cached.result : null;
+    if (result) process.stdout.write(`= ${line.id} (unchanged, ${result.seconds}s)`);
+    else {
+      process.stdout.write(`… ${line.id}: generating with ${g.model} (${g.voice}) … `);
+      const wav = await geminiSpeech({ key: st.gemini.apiKey, ...g });
+      execFileSync("ffmpeg", ["-v", "error", "-y", "-i", "pipe:0", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "192k", file], { input: wav });
+      result = { src: `vo/${line.id}.mp3`, seconds: Math.round(durationOf(file) * 1000) / 1000, words: [] };
+      process.stdout.write(`${result.seconds}s`);
+    }
+    // No timings come with Gemini's audio: hear it back and time the script's own words to it. A line whose hearing
+    // failed keeps its audio (no new take next run); only the hearing is tried again.
+    let note = "";
+    if (!result.words.length) {
+      let why = "nothing heard";
+      try {
+        result = { ...result, words: alignWords(line.text, (await transcribe(file, { language })).words) };
+      } catch (e) {
+        why = e.message;
+      }
+      note = result.words.length ? `, ${result.words.length} words timed` : ` — no word timings (${why}): time the scene to the line's start and seconds`;
+    }
+    results[line.id] = result;
+    cache[line.id] = { hash, result };
+    console.log(note);
+    continue;
+  }
   const body = {
     text: line.text,
     model_id: line.model || model,
@@ -281,6 +332,6 @@ export type VoId = keyof typeof VO;
   fs.writeFileSync(path.join(srcDir, "voiceover.gen.ts"), gen);
   const total = lines.reduce((t, l) => t + (results[l.id]?.seconds ?? 0), 0);
   const recorded = lines.filter((l) => l.file).length;
-  const made = recorded === lines.length ? "all recorded" : `voice ${voiceId}${recorded ? `, ${recorded} recorded` : ""}`;
+  const made = recorded === lines.length ? "all recorded" : `${gemini ? `Gemini voice ${geminiVoice}` : `voice ${voiceId}`}${recorded ? `, ${recorded} recorded` : ""}`;
   console.log(`\nWrote src/brands/${brand}/${video}/voiceover.gen.ts — ${lines.length} lines, ${total.toFixed(1)}s of voice, ${made}.`);
 }

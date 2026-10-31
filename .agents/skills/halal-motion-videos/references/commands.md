@@ -22,6 +22,7 @@
 | `set <brand> [video] [settings]` | Changes settings without starting anything. |
 | `styles` | Saved styles (name, id, description) for `--style`. |
 | `voice-settings [--voice-id=…] [--model=eleven_v4\|eleven_v4_turbo] [--key-stdin]` | ElevenLabs settings. The key is read from stdin only. |
+| `voice-settings [--provider=elevenlabs\|gemini] [--gemini-key-stdin] [--gemini-voice=Kore] [--gemini-model=gemini-3.8-flash-tts\|gemini-3.8-flash-lite-tts]` | Gemini voice-over instead of ElevenLabs (optional). The key is read from stdin only, one key per run. With only a Gemini key, Gemini narrates; with both, `--provider` picks (ElevenLabs by default). JSON: `provider` (who narrates now), `voiceProvider` (picked), `gemini: { hasKey, voice, model }`. |
 | `doctor` | System check (`ok: false` means something required is missing: run `npm run setup`). |
 | `where` | Prints the repo root. |
 
@@ -72,7 +73,7 @@
 | `waiting` | `true` while this video waits its turn behind another video of the same brand (they share the brand kit) |
 | `brief` | `BRIEF.md` once the Director has written it, else `null` |
 | `storyboard` | The 4 storyboard frames (hook, key feature, climax, end card), once made |
-| `settings` | The video's settings: `format`, `length`, `language`, `voiceLanguage`, `voiceover`, `voiceId`, `safeArea`, `style`, `website`, `folder` (change them with `set`; flags in SKILL.md → Settings) |
+| `settings` | The video's settings: `format`, `length`, `language`, `voiceLanguage`, `voiceover`, `voiceProvider` (`elevenlabs`, `gemini`, or null without a key), `voiceId`, `safeArea`, `style`, `website`, `folder` (change them with `set`; flags in SKILL.md → Settings) |
 | `engine` | The Director engine for this video: `claude` (default), `codex` or `antigravity` |
 | `autopilot` | `null` if never started. `status`: `running`, `blocked`, `paused`, `failed`, `done`, `stopped`. `note` says why. |
 | `claude` / `codex` / `antigravity` | `"ok"`, or how to fix that CLI (missing, too old, logged out) |

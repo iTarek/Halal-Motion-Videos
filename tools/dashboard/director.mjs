@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { canSandbox, SANDBOX_EXEC, sandboxEnv, sandboxProfile } from "./sandbox.mjs";
-import { readSettings, SETTINGS_FILE } from "../settings.mjs";
+import { readSettings as readSettingsFile, SETTINGS_FILE, voiceFits, voiceProviderOf } from "../settings.mjs";
 import { getStyle, listStyles } from "../styles.mjs";
 import { fixAudio } from "../audiofix.mjs";
 import { cliEnvironment, antigravityBin, codexBin } from "../doctor.mjs";
@@ -42,7 +42,9 @@ const ALLOWED_TOOLS = [
 
 /** onBuilt(brand, video, { blur }) → render job id: used by the autopilot to queue a render when the build ends.
  *  dashboardUrl: where a sandboxed engine's voice and shot ask to be run (tools/broker.mjs). */
-export const createDirector = ({ root, brandsDir, onBuilt, spawnProcess = spawn, dashboardUrl = `http://127.0.0.1:${process.env.PORT ?? 4000}` }) => {
+export const createDirector = ({
+  root, brandsDir, onBuilt, spawnProcess = spawn, dashboardUrl = `http://127.0.0.1:${process.env.PORT ?? 4000}`, readSettings = readSettingsFile,
+}) => {
   const stateDir = path.join(root, ".director");
   const runs = new Map(); // "<brand>/<video>" → { proc, started, step, gotEvents, stopped, ticket (sandboxed runs) }
 
@@ -134,15 +136,19 @@ export const createDirector = ({ root, brandsDir, onBuilt, spawnProcess = spawn,
 
   /** Voice-over for this video: on by default; the voice can be overridden per video. */
   const voiceOf = (s) => {
-    const el = readSettings().elevenlabs;
+    const st = readSettings();
+    const provider = voiceProviderOf(st); // ElevenLabs, or Gemini when it's picked or the only key
+    const { elevenlabs: el, gemini: gm } = st;
+    const g = provider === "gemini";
     return {
-      enabled: !!el.apiKey && s.voiceover !== false, // no key → always off
-      configured: !!el.apiKey,
-      voiceId: s.voiceId || "",
-      effectiveVoiceId: s.voiceId || el.voiceId,
-      defaultVoiceId: el.voiceId,
-      defaultVoiceName: el.voiceName,
-      model: el.model,
+      enabled: !!provider && s.voiceover !== false, // no key → always off
+      configured: !!provider,
+      provider,
+      voiceId: voiceFits(provider, s.voiceId), // this video's own voice, if it belongs to the provider in use
+      effectiveVoiceId: voiceFits(provider, s.voiceId) || (g ? gm.voice : el.voiceId),
+      defaultVoiceId: g ? gm.voice : el.voiceId,
+      defaultVoiceName: g ? gm.voice : el.voiceName,
+      model: g ? gm.model : el.model,
       videoLanguage: s.videoLanguage || DEFAULT_VIDEO_LANGUAGE,
       length: s.lengthSeconds || DEFAULT_LENGTH,
       voiceLanguage: s.voiceLanguage || DEFAULT_VOICE_LANGUAGE,
@@ -175,9 +181,25 @@ ${v.safeArea
 
   const voiceBody = (brand, video, v) => {
     if (!v.configured)
-      return `- VOICE-OVER: unavailable — no ElevenLabs API key. Make the video without narration. If the user asks for a voice-over, tell them to add their key in the dashboard's Settings (top right) first.`;
+      return `- VOICE-OVER: unavailable — no ElevenLabs (or Gemini) API key. Make the video without narration. If the user asks for a voice-over, tell them to add their key in the dashboard's Settings (top right) first.`;
     if (!v.enabled)
       return `- VOICE-OVER: OFF for this video. Don't add narration unless the user asks; they can switch it on in the Director panel.`;
+    if (v.provider === "gemini")
+      return `- VOICE-OVER: ON for this video — plan and generate narration without being asked.
+  Voice language / accent: ${v.voiceLanguage}. Write every spoken line in that language and set "language" in voiceover.json to its ISO 639-1 code.
+  Gemini text to speech (${v.model}) is set up, not ElevenLabs. Voice: ${v.effectiveVoiceId}. The API key is handled by the tool: never look for it.
+  Write for Gemini: "text" is spoken word for word, so say how each line is delivered in its "style" (e.g. "warm, unhurried, American
+  accent") and put only angle-bracket cues inline (<short pause>, <laugh>, <whispers>). Never [square-bracket] tags: \`npm run voice\`
+  refuses them. No stability or similarity.
+  Brief: add a "Voice-over" column to the story table — the exact spoken line per scene, in the voice language above.
+  Build: write src/brands/${brand}/${video}/voiceover.json, run \`npm run voice -- ${brand} ${video}\`, then time scenes to the
+  generated durations (import { VO } from "./voiceover.gen") and place each line in Soundtrack.tsx. Keep sfx/bed quieter under the voice.
+  Gemini sends no word timings, so \`npm run voice\` hears each line back (speech to text: ElevenLabs', or local Whisper, installed on
+  first use) and times the words; if a line reports none, time its scene to the line's start and VO.<id>.seconds.
+  Sync every on-screen word the voice says to VO.<id>.words (a wordAt helper, as in CLAUDE.md), never by guessing; \`npm run review\`
+  hears the finished mix back and shows the picture while each phrase is heard, so check it there.
+  If the user gives you their own recording, use it instead of generating: a line with "file" (CLAUDE.md → "Your own recording").
+  Follow the "Voice-over" section of CLAUDE.md for the file format, and its "Gemini" part for style and cues.`;
     return `- VOICE-OVER: ON for this video — plan and generate narration without being asked.
   Voice language / accent: ${v.voiceLanguage}. Write every spoken line in that language, set "language" in voiceover.json to its
   ISO 639-1 code, and steer the accent with Eleven v4 audio tags when it matters (e.g. "[American accent]" at the start of a line).
@@ -840,7 +862,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       }
       if (typeof videoLanguage === "string") s.videoLanguage = videoLanguage.trim().slice(0, 80);
       if (typeof voiceLanguage === "string") s.voiceLanguage = voiceLanguage.trim().slice(0, 80);
-      if (enabled === true && !readSettings().elevenlabs.apiKey) throw new Error("Add your ElevenLabs API key in Settings first.");
+      if (enabled === true && !voiceProviderOf(readSettings())) throw new Error("Add your ElevenLabs or Gemini API key in Settings first.");
       if (typeof enabled === "boolean") s.voiceover = enabled;
       if (typeof voiceId === "string") s.voiceId = voiceId.trim();
       save(brand, video, s);

@@ -90,7 +90,7 @@ test('the macOS sandbox keeps writes in the repo and hides the keys, the browser
       fs.rmSync(d, { recursive: true, force: true });
     }
   });
-  for (const d of ['.git', 'out', '.director/browser']) fs.mkdirSync(path.join(root, d), { recursive: true });
+  for (const d of ['.git', 'out', '.director/browser', 'tools', '.director/whisper']) fs.mkdirSync(path.join(root, d), { recursive: true });
   fs.mkdirSync(path.join(outside, 'project'));
   const settingsFile = path.join(root, '.director/settings.json');
   fs.writeFileSync(settingsFile, '{}');
@@ -101,7 +101,7 @@ test('the macOS sandbox keeps writes in the repo and hides the keys, the browser
   const ok = (cmd, p = profile) => spawnSync(SANDBOX_EXEC, ['-p', p, '/bin/sh', '-c', cmd], { cwd: root, stdio: 'ignore' }).status === 0;
   for (const cmd of ['echo x > a.txt', 'echo x > out/frame.jpg', `cat '${outside}/project/readme.txt'`]) assert.ok(ok(cmd), `allowed: ${cmd}`);
   for (const cmd of [
-    'echo x > .git/x', 'echo x > out/film.mp4', `echo x > '${outside}/x'`, `echo x > '${outside}/project/x'`,
+    'echo x > .git/x', 'echo x > out/film.mp4', 'echo x > tools/voice.mjs', 'echo x > .director/whisper/main', `echo x > '${outside}/x'`, `echo x > '${outside}/project/x'`,
     `cat '${outside}/secret.txt'`, `ls '${os.homedir()}'`, 'cat .director/settings.json', 'echo x > .director/settings.json', 'cat .director/browser/cookie',
   ]) assert.ok(!ok(cmd), `blocked: ${cmd}`);
   // exceptions that are the home folder or hold it are dropped, never widened into "all of home"

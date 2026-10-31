@@ -43,6 +43,7 @@ The Codex and Antigravity Directors launch with their own permission checks off 
 | Python 3 + numpy + scipy | sound design | yes, into `.venv` (unless system Python already has them); Debian/Ubuntu need `sudo apt install python3-venv` first |
 | Codex CLI, Claude Code CLI 2.1.280+, or Antigravity CLI (`agy`), signed in | the Director chat only | no: install one CLI and sign in |
 | ElevenLabs API key | voice-over (optional) | no: dashboard → Settings |
+| or a Gemini API key | voice-over without ElevenLabs (optional); its word timings come from local Whisper | no: dashboard → Settings. Whisper installs on first use (`npm run whisper`, about 500 MB) |
 
 `setup` never installs system-wide software; it prints the exact fix instead.
 
@@ -94,6 +95,7 @@ tools/dashboard/            the local dashboard: server.mjs, director.mjs (Claud
   <brand>/_brand.json         the brand's website and project folder
   browser/<brand>/            screenshot browser profile
   tmp/                        self-check stills and spectrograms, cleared after each Director run
+  whisper/                    local speech to text for Gemini voice-over (made on first use)
 .venv/                      Python for sound design (made by `npm run setup`, git-ignored)
 ```
 
@@ -113,7 +115,8 @@ tools/dashboard/            the local dashboard: server.mjs, director.mjs (Claud
 | `npm run shot -- <brand> [video]` | real screenshots of the live site/app from `shots.json` → `public/<brand>/…/img/shots/` |
 | `npm run appstore -- <brand> <app id or App Store URL>` | iOS apps: 1024 icon + full-size store screenshots → `public/<brand>/brand/img/store/`, the listing → `BRAND.md` |
 | `npm run sfx -- <brand> [video] [--look]` | design sounds by code: the brand's kit (no video) or one video's → `public/<brand>/…/sfx/` |
-| `npm run voice -- <brand> <video> [--only=id] [--force]` | ElevenLabs v4 voice-over from `voiceover.json` → `public/<brand>/<video>/vo/` + `voiceover.gen.ts`; a recorded line (`"file"`) is transcribed for its word timings instead |
+| `npm run voice -- <brand> <video> [--only=id] [--force]` | ElevenLabs v4 voice-over from `voiceover.json` → `public/<brand>/<video>/vo/` + `voiceover.gen.ts`, or Gemini when that's the provider; a recorded line (`"file"`) is transcribed for its word timings instead |
+| `npm run whisper` | install local Whisper now (speech to text for Gemini voice-over without ElevenLabs; otherwise the first `voice` does it) |
 | `npm run copy-asset -- <src> <public/…>` | copy files from anywhere (e.g. the product's project folder) into `public/` only |
 | `npm run typecheck` | `tsc --noEmit` |
 
@@ -155,7 +158,7 @@ Each video page has a **Director** chat. It runs Claude Code headless in this re
   - Basic file commands: `ls`, `mkdir`, `cp`, `file`, `sips` (macOS), `ffprobe`, `unzip`.
   - Everything else is denied: no git, no MP4 renders, never `.director/settings.json` or the browser profiles.
 - **Sandbox for Codex (macOS):** it brings no permission rules, so `tools/dashboard/sandbox.mjs` runs it under `sandbox-exec`.
-  - **Writes:** only inside the repo, never `.git`, `.director/settings.json`, the browser profiles or MP4s in `out/`. The product folder stays read-only.
+  - **Writes:** only inside the repo, never `.git`, `tools/`, `.director/settings.json`, the browser profiles, `.director/whisper/` or MP4s in `out/`. The product folder stays read-only. (The dashboard runs `tools/` and Whisper outside the sandbox, so the Director can't change them.)
   - **Reads:** never `.director/settings.json` or `.director/browser/`; nothing in the home folder beyond the repo, the product folder and the tools it runs.
   - **`voice` and `shot`:** they need the key or a browser profile, so the dashboard runs them for the run (`tools/broker.mjs`, with a per-run ticket): this video and its brand kit only, web addresses only.
   - **Login:** Codex keeps it in `~/.codex/auth.json`; the sandbox opens that folder, so Codex can read its own login (it needs it), but no other app's: the Keychain stays closed.
@@ -391,7 +394,7 @@ Running `npm run sfx` with no arguments rebuilds the shared fallback kit in `pub
 
 ## Voice-over (ElevenLabs Eleven v4)
 
-The dashboard's **Settings** holds the ElevenLabs API key, default voice ID (`NOpBlnGInO9m6vDvFkFC`) and model. They're stored in `.director/settings.json`. **Never read that file.** The voice tool reads the key itself.
+The dashboard's **Settings** holds the ElevenLabs API key, default voice ID (`NOpBlnGInO9m6vDvFkFC`) and model. They're stored in `.director/settings.json`. **Never read that file.** The voice tool reads the key itself. Settings can also hold a Gemini key instead (see "Gemini instead of ElevenLabs" below); ElevenLabs stays the default.
 
 Each video's Director panel has:
 
@@ -459,6 +462,25 @@ The user can give you a recorded voice-over instead of ElevenLabs:
 1. Copy it into the video's folder: `npm run copy-asset -- "<the recording>" public/<brand>/<video>/vo/`.
 2. Give it a line with `"file"` instead of `"text"` in `voiceover.json`: `{ "id": "story", "file": "vo/story-take2.m4a" }`. One recording can be one line, or cut it into a line per scene first.
 3. `npm run voice -- <brand> <video>` doesn't generate it: it transcribes it (ElevenLabs speech to text, same key), so `VO.story` gets `seconds`, `words` with timings and `text` (what was heard), like a generated line. Time the scenes to it the same way. The speaker's words are theirs: never add claims the recording doesn't make.
+
+### Gemini instead of ElevenLabs
+
+Settings can hold a Google AI Studio key for Gemini text to speech (`gemini-3.8-flash-tts`, or `…-flash-lite-tts`). Gemini narrates when it's the only key, or when it's picked. The Director's message says which provider is set up; write `voiceover.json` for that one:
+
+- **Text is spoken word for word.** No `[tags]`: `npm run voice` refuses them for Gemini, since they'd be read out.
+- **Delivery goes in `"style"`**, per line or for the whole file, e.g. `"warm, unhurried, American accent"`.
+- **Inline cues use angle brackets:** `<short pause>`, `<long pause>`, `<laugh>`, `<sigh>`, `<whispers>`. CAPITALS stress a word; an ellipsis hesitates.
+- **Voices:** a name such as `Kore`, `Puck` or `Charon` (30 in all, listed in Settings). `stability`, `similarity` and `seed` don't apply.
+
+```json
+{ "language": "en", "style": "warm, unhurried",
+  "lines": [ { "id": "intro", "text": "Every prayer <short pause> right on time.", "style": "calm, reverent" } ] }
+```
+
+- **Word timings:** Gemini sends none, so `npm run voice` hears each line back and times the script's own words to it (`VO.<id>.words`, as with ElevenLabs).
+  - **With an ElevenLabs key:** ElevenLabs speech to text.
+  - **Without one:** local Whisper, free. It installs on first use into `.director/whisper/` (about 500 MB, a few minutes, once).
+  - **If a line reports no timings:** time its scene to the line's start and `VO.<id>.seconds`.
 
 ### Eleven v4 cheat sheet
 

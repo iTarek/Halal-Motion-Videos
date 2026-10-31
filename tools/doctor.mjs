@@ -1,11 +1,13 @@
 // Health check: is everything this project needs installed? Used by `npm run doctor` (--json for agents),
-// `npm run setup` and the dashboard's Settings → System check. Node built-ins only.
+// `npm run setup` and the dashboard's Settings → System check. Node built-ins and this repo's own modules only.
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { remotionChrome } from "./chrome.mjs";
+import { readSettings, voiceProviderOf } from "./settings.mjs";
+import { whisperReady } from "./whisper.mjs";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const MIN_NODE = 22;
@@ -28,14 +30,6 @@ export const pythonBin = () => {
   return fs.existsSync(venv) ? venv : (process.platform === "win32" ? "python" : "python3");
 };
 
-const settingsHaveKey = () => {
-  if (process.env.ELEVENLABS_API_KEY) return true;
-  try {
-    return !!JSON.parse(fs.readFileSync(path.join(ROOT, ".director", "settings.json"), "utf8")).elevenlabs?.apiKey;
-  } catch {
-    return false;
-  }
-};
 
 /**
  * Is Claude Code working here? Installed, new enough, and logged in (however the user chose to set it
@@ -169,10 +163,25 @@ export const checks = () => {
     fix: "Run `npx skills add remotion-dev/skills --skill remotion-best-practices -g` (it installs for every agent it finds).",
   });
 
+  const st = readSettings(); // the keys themselves never leave this function
   add({
-    id: "elevenlabs", label: "ElevenLabs API key", required: false, ok: settingsHaveKey(), detail: settingsHaveKey() ? "saved" : "not set (optional)",
+    id: "elevenlabs", label: "ElevenLabs API key", required: false, ok: !!st.elevenlabs.apiKey, detail: st.elevenlabs.apiKey ? "saved" : "not set (optional)",
     needs: "voice-over", fix: "Add it in the dashboard → Settings (or set ELEVENLABS_API_KEY).",
   });
+
+  // Gemini voice-over: these rows only appear once someone saves a Gemini key, so nobody else's check changes
+  if (st.gemini.apiKey) {
+    add({
+      id: "gemini", label: "Gemini API key", required: false, ok: true, needs: "voice-over with Gemini", fix: "",
+      detail: `saved · voice-over by ${voiceProviderOf(st) === "gemini" ? "Gemini" : "ElevenLabs"}`,
+    });
+    // without ElevenLabs, Gemini's word timings come from local Whisper
+    if (!st.elevenlabs.apiKey) add({
+      id: "whisper", label: "Local Whisper (speech to text)", required: false, ok: whisperReady(),
+      detail: whisperReady() ? "installed" : "not installed yet (installs on first use)",
+      needs: "word timings for Gemini voice-over", fix: "Run `npm run whisper` (about 500 MB, once).",
+    });
+  }
 
   return out;
 };

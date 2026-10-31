@@ -19,6 +19,7 @@
 //                                                  --voice-language="…" --voiceover=on|off --voice-id=<id> --style=<name|id|none>
 //   render <brand> <video> [--format=vertical] [--blur] [--frames=0-89]
 //   voice-settings [--voice-id=<id>] [--model=eleven_v4|eleven_v4_turbo] [--key-stdin]   (ElevenLabs; key read from stdin)
+//                  [--provider=elevenlabs|gemini] [--gemini-key-stdin] [--gemini-voice=<name>] [--gemini-model=<id>]   (Gemini)
 //
 // --wait makes make/ask/approve/render stay open until everything is finished — rendering and audio mastering
 //   included (--timeout=<s>, default 5400). Milestones stream to stderr as they happen (also with --json, so stdout
@@ -63,7 +64,7 @@ const up = async () => {
     return false;
   }
 };
-const AGENT_API = 4; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area
+const AGENT_API = 5; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area. 5: Gemini voice-over
 const ensureServer = async () => {
   if (await up()) {
     const { agentApi } = await (await fetch(`${BASE}/api/state`)).json();
@@ -152,7 +153,7 @@ const statusOf = async (brand, video) => {
     mp4: render?.status === "done" ? render.files : [], // what the latest render made
     settings: {
       format: d.formats, length: d.voice.length, language: d.voice.videoLanguage, voiceLanguage: d.voice.voiceLanguage,
-      voiceover: d.voice.enabled, voiceId: d.voice.effectiveVoiceId, safeArea: d.voice.safeArea !== false,
+      voiceover: d.voice.enabled, voiceProvider: d.voice.provider || null, voiceId: d.voice.effectiveVoiceId, safeArea: d.voice.safeArea !== false,
       style: d.styles.find((x) => x.id === d.styleId)?.name ?? null,
       website: d.url || null, folder: d.folder || null,
     },
@@ -444,16 +445,30 @@ switch (cmd) {
     const body = {};
     if (flags["voice-id"]) body.voiceId = String(flags["voice-id"]);
     if (flags.model) body.model = String(flags.model);
-    if (flags["key-stdin"]) {
+    if (flags.provider !== undefined) {
+      if (!["elevenlabs", "gemini"].includes(flags.provider)) fail("--provider is elevenlabs or gemini.");
+      body.voiceProvider = flags.provider;
+    }
+    if (flags["gemini-voice"]) body.geminiVoice = String(flags["gemini-voice"]);
+    if (flags["gemini-model"]) body.geminiModel = String(flags["gemini-model"]);
+    if (flags["key-stdin"] && flags["gemini-key-stdin"]) fail("One key per run: --key-stdin (ElevenLabs) or --gemini-key-stdin.");
+    if (flags["key-stdin"] || flags["gemini-key-stdin"]) {
       const chunks = [];
       for await (const c of process.stdin) chunks.push(c);
-      body.apiKey = Buffer.concat(chunks).toString().trim();
-      if (!body.apiKey) fail("No key on stdin.");
+      const key = Buffer.concat(chunks).toString().trim();
+      if (!key) fail("No key on stdin.");
+      body[flags["key-stdin"] ? "apiKey" : "geminiKey"] = key;
     }
     const r = Object.keys(body).length ? await api("/api/settings", body) : await api("/api/settings");
-    const el = r.elevenlabs;
-    out(`ElevenLabs: key ${el.hasKey ? `saved (${el.keyHint})` : "not set"} · voice ${el.voiceId}${el.voiceName ? ` (${el.voiceName})` : ""} · model ${el.model}`,
-      { ok: true, hasKey: el.hasKey, voiceId: el.voiceId, voiceName: el.voiceName, model: el.model });
+    const { elevenlabs: el, gemini: gm } = r;
+    out([
+      `ElevenLabs: key ${el.hasKey ? `saved (${el.keyHint})` : "not set"} · voice ${el.voiceId}${el.voiceName ? ` (${el.voiceName})` : ""} · model ${el.model}`,
+      gm.hasKey || r.voiceProvider === "gemini" ? `Gemini: key ${gm.hasKey ? `saved (${gm.keyHint})` : "not set"} · voice ${gm.voice} · model ${gm.model}` : "",
+      gm.hasKey ? `Voice-over by: ${r.provider || "nobody (no key)"}` : "",
+    ].filter(Boolean).join("\n"), {
+      ok: true, hasKey: el.hasKey, voiceId: el.voiceId, voiceName: el.voiceName, model: el.model,
+      provider: r.provider || null, voiceProvider: r.voiceProvider, gemini: { hasKey: gm.hasKey, voice: gm.voice, model: gm.model },
+    });
     break;
   }
   case "doctor": {
