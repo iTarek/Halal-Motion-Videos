@@ -19,7 +19,8 @@
 //                                                  --voice-language="…" --voiceover=on|off --voice-id=<id> --style=<name|id|none>
 //   render <brand> <video> [--format=vertical] [--blur] [--frames=0-89]
 //   voice-settings [--voice-id=<id>] [--model=eleven_v4|eleven_v4_turbo] [--key-stdin]   (ElevenLabs; key read from stdin)
-//                  [--provider=elevenlabs|gemini] [--gemini-key-stdin] [--gemini-voice=<name>] [--gemini-model=<id>]   (Gemini)
+//                  [--provider=elevenlabs|gemini] [--gemini-key-stdin] [--gemini-voice=<name>] [--gemini-model=<id>]
+//                  (--provider picks who narrates; the Gemini key is read from stdin too, one key per run)
 //
 // --wait makes make/ask/approve/render stay open until everything is finished — rendering and audio mastering
 //   included (--timeout=<s>, default 5400). Milestones stream to stderr as they happen (also with --json, so stdout
@@ -461,11 +462,15 @@ switch (cmd) {
     }
     const r = Object.keys(body).length ? await api("/api/settings", body) : await api("/api/settings");
     const { elevenlabs: el, gemini: gm } = r;
+    // Gemini in use or picked: say so, and who really narrates (Gemini picked without its key falls back to ElevenLabs)
+    const geminiLines = gm.hasKey || r.voiceProvider === "gemini" ? [
+      `Gemini: key ${gm.hasKey ? `saved (${gm.keyHint})` : "not set"} · voice ${gm.voice} · model ${gm.model}`,
+      `Voice-over by: ${r.provider || "nobody (no key)"}`,
+    ] : [];
     out([
       `ElevenLabs: key ${el.hasKey ? `saved (${el.keyHint})` : "not set"} · voice ${el.voiceId}${el.voiceName ? ` (${el.voiceName})` : ""} · model ${el.model}`,
-      gm.hasKey || r.voiceProvider === "gemini" ? `Gemini: key ${gm.hasKey ? `saved (${gm.keyHint})` : "not set"} · voice ${gm.voice} · model ${gm.model}` : "",
-      gm.hasKey ? `Voice-over by: ${r.provider || "nobody (no key)"}` : "",
-    ].filter(Boolean).join("\n"), {
+      ...geminiLines,
+    ].join("\n"), {
       ok: true, hasKey: el.hasKey, voiceId: el.voiceId, voiceName: el.voiceName, model: el.model,
       provider: r.provider || null, voiceProvider: r.voiceProvider, gemini: { hasKey: gm.hasKey, voice: gm.voice, model: gm.model },
     });

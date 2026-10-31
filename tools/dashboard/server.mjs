@@ -346,13 +346,17 @@ const server = http.createServer(async (req, res) => {
       const b = await readBody(req);
       // the free checks first, before asking ElevenLabs or Google anything
       if (b.geminiVoice !== undefined && !voiceFits("gemini", b.geminiVoice)) return send(res, 400, { error: `No Gemini voice "${b.geminiVoice}". Voices: ${GEMINI_VOICES.join(", ")}` });
-      if (b.geminiModel !== undefined && !GEMINI_MODELS[b.geminiModel]) return send(res, 400, { error: `No Gemini model "${b.geminiModel}". Models: ${Object.keys(GEMINI_MODELS).join(", ")}` });
+      if (b.geminiModel !== undefined && !(typeof b.geminiModel === "string" && Object.hasOwn(GEMINI_MODELS, b.geminiModel))) // not "constructor"
+        return send(res, 400, { error: `No Gemini model "${b.geminiModel}". Models: ${Object.keys(GEMINI_MODELS).join(", ")}` });
       if (b.voiceProvider !== undefined && !["elevenlabs", "gemini"].includes(b.voiceProvider)) return send(res, 400, { error: "Voice-over is by elevenlabs or gemini." });
+      // a pasted key with a line break inside would come back in fetch's "invalid header value" error, key and all
+      for (const k of [b.apiKey, b.geminiKey])
+        if (typeof k === "string" && k.trim() && !/^[\x21-\x7e]{8,256}$/.test(k.trim())) return send(res, 400, { error: "That doesn't look like an API key." });
       const { elevenlabs: cur, gemini: gm } = readSettings();
       const apiKey = typeof b.apiKey === "string" && b.apiKey.trim() ? b.apiKey.trim() : b.clearKey ? "" : cur.apiKey;
       const voiceId = typeof b.voiceId === "string" && b.voiceId.trim() ? b.voiceId.trim() : cur.voiceId;
       if (!/^[A-Za-z0-9]{8,64}$/.test(voiceId)) return send(res, 400, { error: "A voice ID is letters and numbers, like NOpBlnGInO9m6vDvFkFC." });
-      const model = VOICE_MODELS[b.model] ? b.model : cur.model;
+      const model = typeof b.model === "string" && Object.hasOwn(VOICE_MODELS, b.model) ? b.model : cur.model;
       let voiceName = voiceId === cur.voiceId ? cur.voiceName : "";
       if (apiKey) {
         const check = await checkVoice(apiKey, voiceId);
@@ -383,6 +387,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && p === "/api/voice/test") {
       const b = await readBody(req);
       const st = readSettings();
+      // a typo mustn't fall through to ElevenLabs: a typed Gemini key would be sent there
+      if (b.provider != null && !["elevenlabs", "gemini"].includes(b.provider)) return send(res, 400, { error: "Voice-over is by elevenlabs or gemini." });
       const typedKey = typeof b.apiKey === "string" ? b.apiKey.trim() : "";
       if (typedKey && !/^[\x21-\x7e]{8,256}$/.test(typedKey)) return send(res, 400, { error: "That doesn't look like an API key." });
       if ((b.provider ?? voiceProviderOf(st)) === "gemini") {
@@ -390,7 +396,7 @@ const server = http.createServer(async (req, res) => {
         if (!key) return send(res, 400, { error: "Add your Gemini API key first." });
         try {
           const wav = await geminiSpeech({
-            key, model: GEMINI_MODELS[b.model] ? b.model : st.gemini.model, voice: voiceFits("gemini", b.voiceId) || st.gemini.voice,
+            key, model: typeof b.model === "string" && Object.hasOwn(GEMINI_MODELS, b.model) ? b.model : st.gemini.model, voice: voiceFits("gemini", b.voiceId) || st.gemini.voice,
             text: String(b.text || "Hi! This is the voice for your Halal Motion Videos narration.").slice(0, 500), style: "warm and friendly",
           });
           res.writeHead(200, { "Content-Type": "audio/wav", "Cache-Control": "no-store" });
@@ -408,7 +414,7 @@ const server = http.createServer(async (req, res) => {
         const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
           method: "POST",
           headers: { "xi-api-key": key, "Content-Type": "application/json" },
-          body: JSON.stringify({ text, model_id: VOICE_MODELS[b.model] ? b.model : el.model }),
+          body: JSON.stringify({ text, model_id: typeof b.model === "string" && Object.hasOwn(VOICE_MODELS, b.model) ? b.model : el.model }),
         });
         if (!r.ok) return send(res, 400, { error: `ElevenLabs ${r.status}: ${(await r.text()).slice(0, 200)}` });
         res.writeHead(200, { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" });
@@ -487,7 +493,9 @@ const server = http.createServer(async (req, res) => {
           director.setStyle(brand, video, null);
         } else if (action === "/engine") director.setEngine(brand, video, q.engine);
         else if (action === "/voiceover") {
-          if (typeof q.voiceId === "string" && q.voiceId.trim() && !/^[A-Za-z0-9]{8,64}$/.test(q.voiceId.trim()))
+          // An ElevenLabs voice ID keeps its format check. A Gemini name ("Kore") isn't one: setVoiceover checks it against the provider in use.
+          const v = typeof q.voiceId === "string" ? q.voiceId.trim() : "";
+          if (v && !voiceFits("gemini", v) && voiceProviderOf(readSettings()) !== "gemini" && !/^[A-Za-z0-9]{8,64}$/.test(v))
             return send(res, 400, { error: "A voice ID is letters and numbers, like NOpBlnGInO9m6vDvFkFC." });
           director.setVoiceover(brand, video, { enabled: q.enabled, voiceId: q.voiceId, videoLanguage: q.videoLanguage, voiceLanguage: q.voiceLanguage, length: q.length, safeArea: q.safeArea });
         }

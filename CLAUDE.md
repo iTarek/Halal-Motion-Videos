@@ -398,8 +398,8 @@ The dashboard's **Settings** holds the ElevenLabs API key, default voice ID (`NO
 
 Each video's Director panel has:
 
-- **Voice-over on/off:** locked off until an ElevenLabs key is saved, then on by default
-- **A voice ID override** for that video
+- **Voice-over on/off:** locked off until an ElevenLabs or Gemini key is saved, then on by default
+- **A voice ID override** for that video: a voice of the provider that narrates (with Gemini, a name such as `Kore`); any other is refused
 - **Two free-text fields:** video language (default "English") and voice language (default "English — American accent")
 
 When voice-over is on, plan narration in the brief and generate it in the build without being asked.

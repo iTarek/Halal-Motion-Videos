@@ -95,7 +95,8 @@ if (!lines.length) fail("voiceover.json has no lines.");
 if (script.provider !== undefined && !["elevenlabs", "gemini"].includes(script.provider)) fail(`"provider" is "elevenlabs" or "gemini".`);
 const provider = script.provider ?? voiceProviderOf(st);
 const gemini = provider === "gemini";
-if (!provider || (!gemini && !settings.apiKey)) fail("No ElevenLabs API key. Add it in the dashboard → Settings (or set ELEVENLABS_API_KEY) — or a Gemini API key.");
+if (!provider) fail("No ElevenLabs API key. Add it in the dashboard → Settings (or set ELEVENLABS_API_KEY) — or a Gemini API key.");
+if (!gemini && !settings.apiKey) fail(`voiceover.json asks for ElevenLabs ("provider"), but there's no ElevenLabs API key. Add it in the dashboard → Settings (or set ELEVENLABS_API_KEY).`);
 if (gemini && !st.gemini.apiKey) fail("No Gemini API key. Add it in the dashboard → Settings (or: npm run video -- voice-settings --gemini-key-stdin).");
 const videoPublic = path.join(ROOT, "public", brand, video);
 /** A recorded line's audio: inside public/<brand>/<video>/ only. */
@@ -118,11 +119,13 @@ for (const l of lines) {
     fail(`Line "${l.id}": [tags] are ElevenLabs' — for Gemini, say how it's spoken in "style" and use <angle-bracket> cues inline (<short pause>, <laugh>).`);
 }
 
-const voiceId = script.voice || voiceFits("elevenlabs", directorState.voiceId) || settings.voiceId;
-const model = script.model || settings.model;
-// Gemini: a voice name (another provider's saved voice falls back to the default) and a Gemini model
+// Each provider gets only its own voice and model: another provider's (left from a switch) falls back to the default
+const isGeminiModel = (m) => typeof m === "string" && Object.hasOwn(GEMINI_MODELS, m);
+const voiceId = voiceFits("elevenlabs", script.voice) || voiceFits("elevenlabs", directorState.voiceId) || settings.voiceId;
+const elevenModel = (m) => (m && !isGeminiModel(m) ? m : script.model && !isGeminiModel(script.model) ? script.model : settings.model);
+// Gemini: a voice name and a Gemini model
 const geminiVoice = voiceFits("gemini", script.voice) || voiceFits("gemini", directorState.voiceId) || st.gemini.voice;
-const geminiModel = (m) => (GEMINI_MODELS[m] ? m : GEMINI_MODELS[script.model] ? script.model : st.gemini.model);
+const geminiModel = (m) => (isGeminiModel(m) ? m : isGeminiModel(script.model) ? script.model : st.gemini.model);
 const clamp = (v, d) => (typeof v === "number" && v >= 0 && v <= 1 ? v : d);
 
 // ---- ElevenLabs calls
@@ -260,12 +263,22 @@ for (const [i, line] of lines.entries()) {
     const hash = crypto.createHash("sha1").update(JSON.stringify({ provider, ...g, language })).digest("hex");
     const file = path.join(outDir, `${line.id}.mp3`);
     const cached = cache[line.id];
-    let result = !flags.force && (only ? !only.has(line.id) : cached?.hash === hash) && fs.existsSync(file) && cached ? cached.result : null;
+    const reused = !flags.force && (only ? !only.has(line.id) : cached?.hash === hash) && fs.existsSync(file) && cached;
+    let result = reused ? cached.result : null;
     if (result) process.stdout.write(`= ${line.id} (unchanged, ${result.seconds}s)`);
     else {
       process.stdout.write(`… ${line.id}: generating with ${g.model} (${g.voice}) … `);
-      const wav = await geminiSpeech({ key: st.gemini.apiKey, ...g });
-      execFileSync("ffmpeg", ["-v", "error", "-y", "-i", "pipe:0", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "192k", file], { input: wav });
+      // Encoded beside it and moved into place, so a failed encode never leaves half an MP3 (or clobbers the last good one)
+      const part = path.join(outDir, `${line.id}.part.mp3`);
+      try {
+        const wav = await geminiSpeech({ key: st.gemini.apiKey, ...g });
+        execFileSync("ffmpeg", ["-v", "error", "-y", "-i", "pipe:0", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "192k", part], { input: wav, stdio: ["pipe", "ignore", "pipe"] });
+        fs.renameSync(part, file);
+      } catch (e) {
+        fs.rmSync(part, { force: true });
+        const why = e.code === "ENOENT" && e.syscall?.startsWith("spawn") ? "ffmpeg isn't installed (npm run doctor)" : e.stderr?.length ? `ffmpeg couldn't encode it: ${String(e.stderr).trim().slice(0, 300)}` : e.message;
+        fail(`\nLine "${line.id}": ${why}`); // the lines made before it are already in the cache: a new run won't pay for them again
+      }
       result = { src: `vo/${line.id}.mp3`, seconds: Math.round(durationOf(file) * 1000) / 1000, words: [] };
       process.stdout.write(`${result.seconds}s`);
     }
@@ -275,20 +288,24 @@ for (const [i, line] of lines.entries()) {
     if (!result.words.length) {
       let why = "nothing heard";
       try {
-        result = { ...result, words: alignWords(line.text, (await transcribe(file, { language })).words) };
+        const heard = (await transcribe(file, { language })).words;
+        result = { ...result, words: alignWords(line.text, heard) };
+        if (heard.length) why = `heard ${heard.length} words, but couldn't line them up with the script`;
       } catch (e) {
         why = e.message;
       }
       note = result.words.length ? `, ${result.words.length} words timed` : ` — no word timings (${why}): time the scene to the line's start and seconds`;
     }
     results[line.id] = result;
-    cache[line.id] = { hash, result };
+    // a line reused under --only keeps the hash it was made with, so a changed line is still made on the next full run
+    cache[line.id] = { hash: reused ? cached.hash : hash, result };
+    fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2)); // paid audio is kept even if a later line fails
     console.log(note);
     continue;
   }
   const body = {
     text: line.text,
-    model_id: line.model || model,
+    model_id: elevenModel(line.model),
     ...(line.language || script.language ? { language_code: line.language || script.language } : {}),
     voice_settings: {
       stability: clamp(line.stability, clamp(script.stability, 0.5)),

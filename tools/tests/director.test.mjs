@@ -8,7 +8,11 @@ import { PassThrough } from 'node:stream';
 import { createDirector } from '../dashboard/director.mjs';
 import { canSandbox, SANDBOX_EXEC } from '../dashboard/sandbox.mjs';
 
-function fixture(t, engine, failSpawn, readSettings) {
+// No keys unless a test passes its own settings: the real .director/settings.json holds the user's keys
+const noKeys=()=>({elevenlabs:{apiKey:'',voiceId:'NOpBlnGInO9m6vDvFkFC',voiceName:'',model:'eleven_v4'},
+  gemini:{apiKey:'',voice:'Sadachbia',model:'gemini-3.8-flash-tts'},voiceProvider:'elevenlabs'});
+
+function fixture(t, engine, failSpawn, readSettings = noKeys) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hmv-director-'));
   t.after(() => {
     assert.ok(path.resolve(root).startsWith(path.resolve(os.tmpdir()) + path.sep));
@@ -22,7 +26,7 @@ function fixture(t, engine, failSpawn, readSettings) {
     const p=new EventEmitter(); p.stdin=new PassThrough();p.stdout=new PassThrough();p.stderr=new PassThrough();p.kill=()=>{};
     calls.push({bin,args,options,p});return p;
   };
-  const director=createDirector({root,brandsDir:path.join(root,'src/brands'),onBuilt:()=>{},spawnProcess,...(readSettings?{readSettings}:{})});
+  const director=createDirector({root,brandsDir:path.join(root,'src/brands'),onBuilt:()=>{},spawnProcess,readSettings});
   if (engine) director.setEngine('demo','video01',engine);
   return {director,calls,root};
 }
@@ -239,4 +243,38 @@ test('With an ElevenLabs key the voice-over prompt is as before; with Gemini the
   assert.match(gmPrompt,/Never \[square-bracket\] tags/);
   assert.doesNotMatch(gmPrompt,/Eleven v4 audio tags/);
   gm.calls[0].p.emit('close',0);
+});
+
+test('Without a key the voice-over is off, says why, and cannot be switched on',t=>{
+  const {director,calls}=fixture(t);
+  const v=director.state('demo','video01').voice;
+  assert.equal(v.configured,false);assert.equal(v.enabled,false);assert.equal(v.provider,'');
+  assert.throws(()=>director.setVoiceover('demo','video01',{enabled:true}),/ElevenLabs or Gemini API key/);
+  director.send('demo','video01','Hello');
+  assert.match(calls[0].args.join(' '),/VOICE-OVER: unavailable — no ElevenLabs \(or Gemini\) API key/);
+  calls[0].p.emit('close',0);
+});
+
+test('A video saves only a voice its provider speaks, and keeps the other provider’s voice through a switch',t=>{
+  const settings=(voiceProvider)=>({elevenlabs:{apiKey:'el',voiceId:'NOpBlnGInO9m6vDvFkFC',voiceName:'Rachel',model:'eleven_v4'},
+    gemini:{apiKey:'gm',voice:'Sadachbia',model:'gemini-3.8-flash-tts'},voiceProvider});
+  let provider='gemini';
+  const {director,calls}=fixture(t,undefined,false,()=>settings(provider));
+  director.setVoiceover('demo','video01',{voiceId:' kore '});
+  let v=director.state('demo','video01').voice;
+  assert.equal(v.voiceId,'Kore');assert.equal(v.effectiveVoiceId,'Kore');
+  assert.throws(()=>director.setVoiceover('demo','video01',{voiceId:'NOpBlnGInO9m6vDvFkFC'}),/isn't a Gemini voice/);
+  assert.equal(director.state('demo','video01').voice.voiceId,'Kore');
+  director.send('demo','video01','Hello');
+  assert.match(calls[0].args.join(' '),/Voice: Kore\. The API key/);
+  calls[0].p.emit('close',0);
+  provider='elevenlabs';
+  v=director.state('demo','video01').voice;
+  assert.equal(v.voiceId,'');assert.equal(v.effectiveVoiceId,'NOpBlnGInO9m6vDvFkFC');
+  assert.throws(()=>director.setVoiceover('demo','video01',{voiceId:'Sadachbia'}),/is a Gemini voice/);
+  provider='gemini';
+  assert.equal(director.state('demo','video01').voice.voiceId,'Kore');
+  director.setVoiceover('demo','video01',{voiceId:''});
+  v=director.state('demo','video01').voice;
+  assert.equal(v.voiceId,'');assert.equal(v.effectiveVoiceId,'Sadachbia');
 });

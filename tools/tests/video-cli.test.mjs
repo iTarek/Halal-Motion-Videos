@@ -122,3 +122,57 @@ test('an agent sets up Gemini voice-over and sees who narrates in status',async 
   const st=await run(['status','demo','video01']);
   assert.equal(st.code,0,st.err);assert.equal(JSON.parse(st.out).settings.voiceProvider,'gemini');
 });
+
+// Gemini picked but its key not saved: ElevenLabs still narrates, and the text output must say so.
+test('voice-settings says who really narrates when Gemini is picked without its key',async t=>{
+  const server=http.createServer((req,res)=>{
+    const data=new URL(req.url,'http://localhost').pathname==='/api/state'?{agentApi:AGENT_API,brands:[],jobs:[]}
+      :{elevenlabs:{hasKey:true,keyHint:'…abcd',voiceId:'NOpBlnGInO9m6vDvFkFC',voiceName:'',model:'eleven_v4'},
+        gemini:{hasKey:false,keyHint:'',voice:'Sadachbia',model:'gemini-3.8-flash-tts'},voiceProvider:'gemini',provider:'elevenlabs'};
+    res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const proc=spawn(process.execPath,[fileURLToPath(new URL('../video.mjs',import.meta.url)),'voice-settings'],{env:{...process.env,PORT:String(server.address().port)},windowsHide:true});
+  let out='';proc.stdout.setEncoding('utf8');proc.stdout.on('data',x=>out+=x);
+  assert.equal(await new Promise(resolve=>proc.on('close',resolve)),0);
+  assert.match(out,/^Gemini: key not set/m);assert.match(out,/^Voice-over by: elevenlabs$/m);
+});
+
+// The real dashboard server, run from a copy of tools/ in a temp folder: its own settings file, so no real key is read
+// and nothing reaches ElevenLabs or Google (every case here stops before any remote check).
+test('the dashboard takes a Gemini voice per video, and refuses bad models, keys and providers before asking anyone',async t=>{
+  const {mkdtempSync,cpSync,symlinkSync,mkdirSync,writeFileSync,rmSync}=await import('node:fs');
+  const {tmpdir}=await import('node:os');const {join}=await import('node:path');const net=await import('node:net');
+  const repo=fileURLToPath(new URL('../../',import.meta.url));
+  const root=mkdtempSync(join(tmpdir(),'hmv-server-'));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  cpSync(join(repo,'tools'),join(root,'tools'),{recursive:true,filter:src=>!src.includes('__pycache__')});
+  symlinkSync(join(repo,'node_modules'),join(root,'node_modules'),'junction');
+  mkdirSync(join(root,'src','brands','demo','video01'),{recursive:true});writeFileSync(join(root,'src','brands','demo','video01','index.ts'),'');
+  const settings=(s)=>{mkdirSync(join(root,'.director'),{recursive:true});writeFileSync(join(root,'.director','settings.json'),JSON.stringify(s));};
+  settings({gemini:{apiKey:'test-gemini-key'}}); // Gemini narrates
+  const port=await new Promise(resolve=>{const s=net.createServer().listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});
+  const proc=spawn(process.execPath,[join(root,'tools','dashboard','server.mjs')],{env:{...process.env,PORT:String(port),ELEVENLABS_API_KEY:''},windowsHide:true});
+  t.after(()=>proc.kill());
+  let log='';proc.stdout.setEncoding('utf8');proc.stderr.setEncoding('utf8');proc.stderr.on('data',x=>log+=x);
+  await new Promise((resolve,reject)=>{proc.stdout.on('data',x=>{log+=x;if(log.includes('dashboard →')) resolve();});proc.on('close',()=>reject(new Error(log)));});
+  const post=async(p,body)=>{const r=await fetch(`http://127.0.0.1:${port}${p}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:r.status,text:await r.text()};};
+  const voice=(voiceId)=>post('/api/director/voiceover',{brand:'demo',video:'video01',voiceId});
+  const saved=()=>JSON.parse(readFileSync(join(root,'.director','demo','video01.json'),'utf8')).voiceId;
+  // Gemini in use: a 4-letter name passes, in its own case; an ElevenLabs ID doesn't
+  let r=await voice('kore');assert.equal(r.status,200,r.text);assert.equal(saved(),'Kore');
+  r=await voice('NOpBlnGInO9m6vDvFkFC');assert.equal(r.status,409);assert.match(r.text,/isn't a Gemini voice/);
+  // ElevenLabs in use: the ID format check still holds, and a Gemini name is refused
+  settings({elevenlabs:{apiKey:'test-elevenlabs-key'}});
+  r=await voice('bad id!');assert.equal(r.status,400);assert.match(r.text,/letters and numbers/);
+  r=await voice('Kore');assert.equal(r.status,409);assert.match(r.text,/is a Gemini voice/);
+  r=await voice('NOpBlnGInO9m6vDvFkFC');assert.equal(r.status,200,r.text);assert.equal(saved(),'NOpBlnGInO9m6vDvFkFC');
+  // Settings: not a model, and not a key (one with a line break would come back in fetch's header error)
+  r=await post('/api/settings',{geminiModel:'constructor'});assert.equal(r.status,400);assert.match(r.text,/No Gemini model/);
+  r=await post('/api/settings',{model:'eleven_v4',apiKey:'sk_test\nsecret-part'});assert.equal(r.status,400);assert.doesNotMatch(r.text,/secret-part/);
+  r=await post('/api/settings',{geminiKey:'AIza test key'});assert.equal(r.status,400);assert.match(r.text,/doesn't look like an API key/);
+  // Voice test: a provider typo never sends a typed key to the other provider
+  r=await post('/api/voice/test',{provider:'Gemini',apiKey:'AIza-typed-key'});assert.equal(r.status,400);assert.match(r.text,/elevenlabs or gemini/);
+  assert.deepEqual(JSON.parse(readFileSync(join(root,'.director','settings.json'),'utf8')),{elevenlabs:{apiKey:'test-elevenlabs-key'}}); // nothing written
+});

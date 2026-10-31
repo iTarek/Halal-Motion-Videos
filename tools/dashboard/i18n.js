@@ -106,7 +106,7 @@
     'Video':'الفيديو','Format':'الأبعاد','Both':'كلاهما','Length':'المدة','s':'ث','Target length in seconds':'المدة المطلوبة بالثواني',
     'Output format — updates the video right away':'أبعاد المخرجات — تُحدّث الفيديو مباشرة','Language':'اللغة','Voice':'الصوت','English':'الإنجليزية','English — American accent':'الإنجليزية — لهجة أمريكية',
     'Language of all on-screen text':'لغة النصوص الظاهرة في الفيديو','Language and accent of the voice-over':'لغة التعليق الصوتي ولهجته','Voice-over':'التعليق الصوتي',
-    'Needs an ElevenLabs API key':'يتطلب مفتاح ElevenLabs','On — the Director narrates this video':'مفعّل — يضيف المخرج تعليقًا صوتيًا للفيديو','Off':'متوقف','Off — needs an ElevenLabs key':'متوقف — يتطلب مفتاح ElevenLabs',
+    'On — the Director narrates this video':'مفعّل — يضيف المخرج تعليقًا صوتيًا للفيديو','Off':'متوقف',
     'Add your key in':'أضف مفتاحك في','to turn it on.':'لتفعيله.','Voice ID':'معرّف الصوت','empty = default':'فارغ = الافتراضي',
     'Voice ID for this video — leave empty to use the default from Settings':'معرّف صوت هذا الفيديو — اتركه فارغًا لاستخدام الصوت الافتراضي من الإعدادات',
     'Hear this voice':'استمع إلى هذا الصوت','custom voice':'صوت مخصص','using default':'استخدام الصوت الافتراضي',
@@ -132,6 +132,9 @@
     'Needs an ElevenLabs or Gemini API key':'يتطلب مفتاح ElevenLabs أو Gemini','Off — needs an ElevenLabs or Gemini key':'متوقف — يتطلب مفتاح ElevenLabs أو Gemini',
     'Gemini voice for this video — leave empty to use the default from Settings':'صوت Gemini لهذا الفيديو — اتركه فارغًا لاستخدام الصوت الافتراضي من الإعدادات',
     '✓ Key works':'✓ المفتاح يعمل','✓ Key works · narrates your videos':'✓ المفتاح يعمل · يعلّق على فيديوهاتك',
+    'Gemini 3.8 Flash TTS (best quality)':'Gemini 3.8 Flash TTS (أفضل جودة)','Gemini 3.8 Flash-Lite TTS (fast)':'Gemini 3.8 Flash-Lite TTS (سريع)',
+    'Checking with Google…':'جارٍ التحقق لدى Google…','Checking with ElevenLabs and Google…':'جارٍ التحقق لدى ElevenLabs وGoogle…','Saving…':'جارٍ الحفظ…',
+    'Add your Gemini API key first.':'أضف مفتاح Gemini أولًا.','Add your ElevenLabs or Gemini API key in Settings first.':'أضف مفتاح ElevenLabs أو Gemini من الإعدادات أولًا.',
     'Remotion skill (remotion-best-practices)':'مهارة Remotion ‏(remotion-best-practices)',"the Director's Remotion know-how":'خبرة المخرج في Remotion',
     'The Director can read it and copy assets out — never changes it.':'يقرأ المخرج المجلد وينسخ مواده دون تعديله.',
     'Tip: in Finder, select the folder and press ⌥⌘C to copy its path.':'تلميح: في Finder، حدّد المجلد واضغط ⁦⌥⌘C⁩ لنسخ مساره.', // ⁦…⁩ keeps the shortcut left-to-right
@@ -164,6 +167,9 @@
     [/^Created (.+)$/,(_,x)=>`تم إنشاء ${x}`],[/^Deleted (.+) — it's in the Trash$/,(_,x)=>`حُذف ${x} — موجود في سلة المحذوفات`],[/^Deleted (.+)$/,(_,x)=>`حُذف ${x}`],
     [/^Saved \((.+)\) — paste a new key to replace it$/,(_,x)=>`محفوظ (${x}) — الصق مفتاحًا جديدًا لاستبداله`],
     [/^✓ (?:Key works|Saved) · default voice: (.+)$/,(_,x)=>`✓ تم التحقق والحفظ · الصوت الافتراضي: ${x}`],
+    [/^(custom voice|using default)( · .+)$/,(_,x,y)=>ar[x]+y], // the voice row's note: "using default · Kore · Gemini Flash"
+    [/^"(.+)" isn't a Gemini voice\. Voices: (.+)\.$/,(_,x,y)=>`«${x}» ليس من أصوات Gemini. الأصوات: ${y}.`],
+    [/^"(.+)" is a Gemini voice, but ElevenLabs narrates: use an ElevenLabs voice ID\.$/,(_,x)=>`«${x}» من أصوات Gemini، لكن التعليق الصوتي عبر ElevenLabs: استخدم معرّف صوت من ElevenLabs.`],
     [/^Format: (.+) — Preview and Render updated$/,(_,x)=>`الأبعاد: ${x} — تم تحديث المعاينة والتصدير`],
     [/^Open (.+) in Studio$/,(_,x)=>`فتح ${ar[x] || x} في الاستوديو`],
     [/^took (.+)$/,(_,x)=>`استغرق ${x}`],

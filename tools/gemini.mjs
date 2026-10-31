@@ -9,7 +9,12 @@ const errorOf = (status, body) => {
   if (status === 403) return new Error("This Gemini API key isn't allowed to do that (403): check it in Google AI Studio.");
   if (status === 404) return new Error("Gemini doesn't know that model (404).");
   if (status === 429) return new Error("Gemini rate limit or quota reached: try again later, or check your Google AI Studio plan.");
-  return new Error(`Gemini ${status}: ${body.slice(0, 300)}`);
+  // Google's errors are JSON ({ error: { message } }): show the message, not the JSON around it
+  let said;
+  try {
+    said = JSON.parse(body).error.message;
+  } catch {}
+  return new Error(`Gemini ${status}: ${(typeof said === "string" && said ? said : body).slice(0, 300)}`);
 };
 
 const isWav = (b) => b.length > 12 && b.toString("latin1", 0, 4) === "RIFF" && b.toString("latin1", 8, 12) === "WAVE";
@@ -42,9 +47,13 @@ export const geminiSpeech = async ({ key, text, style, voice, model }) => {
       generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { voice } } },
     }),
     signal: AbortSignal.timeout(5 * 60 * 1000),
+  }).catch((e) => {
+    throw new Error(`Couldn't reach Gemini (${e.message}).`); // not a bare "fetch failed" or timeout in the dashboard
   });
   if (!r.ok) throw errorOf(r.status, await r.text());
-  const j = await r.json();
+  const j = await r.json().catch((e) => {
+    throw new Error(e instanceof SyntaxError ? "Gemini sent a reply that isn't JSON: try again." : `Couldn't reach Gemini (${e.message}).`);
+  });
   const part = j.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
   if (!part) {
     const why = j.promptFeedback?.blockReason ?? j.candidates?.[0]?.finishReason;

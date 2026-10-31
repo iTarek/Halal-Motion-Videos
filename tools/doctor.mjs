@@ -30,7 +30,6 @@ export const pythonBin = () => {
   return fs.existsSync(venv) ? venv : (process.platform === "win32" ? "python" : "python3");
 };
 
-
 /**
  * Is Claude Code working here? Installed, new enough, and logged in (however the user chose to set it
  * up). Uses `claude auth status` — no tokens spent. Never returns the email or org.
@@ -176,11 +175,14 @@ export const checks = () => {
       detail: `saved · voice-over by ${voiceProviderOf(st) === "gemini" ? "Gemini" : "ElevenLabs"}`,
     });
     // without ElevenLabs, Gemini's word timings come from local Whisper
-    if (!st.elevenlabs.apiKey) add({
-      id: "whisper", label: "Local Whisper (speech to text)", required: false, ok: whisperReady(),
-      detail: whisperReady() ? "installed" : "not installed yet (installs on first use)",
-      needs: "word timings for Gemini voice-over", fix: "Run `npm run whisper` (about 500 MB, once).",
-    });
+    if (!st.elevenlabs.apiKey) {
+      const whisper = whisperReady();
+      add({
+        id: "whisper", label: "Local Whisper (speech to text)", required: false, ok: whisper,
+        detail: whisper ? "installed" : "not installed yet (installs on first use)",
+        needs: "word timings for Gemini voice-over", fix: "Run `npm run whisper` (about 500 MB, once).",
+      });
+    }
   }
 
   return out;

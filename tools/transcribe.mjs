@@ -20,7 +20,7 @@ export const transcribe = async (file, { language, install = true } = {}) => {
   const st = readSettings();
   const key = st.elevenlabs.apiKey;
   if (!key && st.gemini.apiKey) return whisperHear(file, { language, install });
-  if (!key) throw new Error("Speech to text needs an ElevenLabs API key: add it in the dashboard's Settings.");
+  if (!key) throw new Error("Speech to text needs an ElevenLabs API key, or a Gemini one (then local Whisper hears it): add one in the dashboard's Settings.");
   const form = new FormData();
   form.append("model_id", STT_MODEL);
   form.append("timestamps_granularity", "word");
@@ -51,13 +51,14 @@ const MAX_CELLS = 4e6; // letters written × letters heard: about two minutes of
  * silence) costs only itself. Tags (<…>, […]) aren't spoken, so they're dropped. [] when nothing lines up.
  */
 export const alignWords = (script, heard) => {
-  const letters = (s) => [...s.normalize("NFKD").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "")]; // no diacritics or punctuation
+  // no diacritics, punctuation or tatweel (ـ, a letter to Unicode, but only stretches the line)
+  const letters = (s) => [...s.normalize("NFKD").toLowerCase().replace(/[^\p{L}\p{N}]|\u0640/gu, "")];
   const words = String(script).replace(/<[^>]*>|\[[^\]]*\]/g, " ").split(/\s+/).filter(Boolean);
   const S = words.flatMap((w, i) => letters(w).map((ch) => ({ ch, word: i })));
-  // every heard letter with when it's said: its word's span, shared evenly
-  const H = heard.flatMap((w) => {
-    const ls = letters(w.text), step = (w.end - w.start) / (ls.length || 1);
-    return ls.map((ch, k) => ({ ch, from: w.start + step * k, to: w.start + step * (k + 1) }));
+  // every heard letter with when it's said (its word's span, shared evenly) and which heard word it's in
+  const H = heard.flatMap((w, word) => {
+    const ls = letters(w.text), step = Math.max(0, w.end - w.start) / (ls.length || 1);
+    return ls.map((ch, k) => ({ ch, word, from: w.start + step * k, to: w.start + step * (k + 1) }));
   });
   const n = S.length, m = H.length, W = m + 1;
   if (!n || !m || (n + 1) * W > MAX_CELLS) return [];
@@ -77,7 +78,11 @@ export const alignWords = (script, heard) => {
   }
   let last = H[0].from; // a word nothing lines up with (or no letters, like "—") sits where the one before it ended
   return words.map((text, w) => {
-    const hits = S.flatMap((l, i) => (l.word === w && match[i] >= 0 ? [match[i]] : []));
+    const mine = S.flatMap((l, i) => (l.word === w && match[i] >= 0 ? [i] : []));
+    // a letter heard as written places the word; a misheard one counts only inside the heard words those are in (or when
+    // none was heard as written): otherwise a letter missed next to "Thank you." pairs with it and stretches the word there
+    const exact = mine.filter((i) => S[i].ch === H[match[i]].ch).map((i) => match[i]);
+    const hits = mine.map((i) => match[i]).filter((j) => !exact.length || (H[j].word >= H[exact[0]].word && H[j].word <= H[exact.at(-1)].word));
     const start = hits.length ? H[hits[0]].from : last;
     const end = hits.length ? H[hits.at(-1)].to : start;
     last = end;

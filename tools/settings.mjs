@@ -17,12 +17,12 @@ export const GEMINI_VOICES = [
   "Algieba", "Despina", "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar", "Alnilam", "Schedar", "Gacrux", "Pulcherrima",
   "Achird", "Zubenelgenubi", "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat",
 ];
-export const DEFAULT_GEMINI_VOICE = "Sadachbia";
+const DEFAULT_GEMINI_VOICE = "Sadachbia";
 
 export const readSettings = () => {
   let s = {};
   try {
-    s = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"));
+    s = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")) ?? {}; // a file holding just null reads as empty
   } catch {}
   const el = s.elevenlabs ?? {};
   const gm = s.gemini ?? {};
@@ -32,13 +32,13 @@ export const readSettings = () => {
       apiKey: process.env.ELEVENLABS_API_KEY || el.apiKey || "",
       voiceId: el.voiceId || DEFAULT_VOICE_ID,
       voiceName: el.voiceName || "",
-      model: VOICE_MODELS[el.model] ? el.model : "eleven_v4",
+      model: Object.hasOwn(VOICE_MODELS, el.model ?? "") ? el.model : "eleven_v4",
     },
     // Saved in Settings only: GEMINI_API_KEY is set by many other tools, and mustn't switch anyone's voice-over on.
     gemini: {
-      apiKey: gm.apiKey || "",
+      apiKey: typeof gm.apiKey === "string" ? gm.apiKey : "", // a hand-edited number would break the key hint
       voice: GEMINI_VOICES.includes(gm.voice) ? gm.voice : DEFAULT_GEMINI_VOICE,
-      model: GEMINI_MODELS[gm.model] ? gm.model : "gemini-3.8-flash-tts",
+      model: Object.hasOwn(GEMINI_MODELS, gm.model ?? "") ? gm.model : "gemini-3.8-flash-tts", // not "constructor"
     },
     voiceProvider: s.voiceProvider === "gemini" ? "gemini" : "elevenlabs", // picked in Settings; ElevenLabs by default
   };
@@ -64,12 +64,13 @@ export const voiceFits = (provider, voice) => {
 export const writeSettings = (patch) => {
   const cur = (() => {
     try {
-      return JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"));
+      return JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")) ?? {};
     } catch {
       return {};
     }
   })();
   const next = { ...cur, ...patch, elevenlabs: { ...(cur.elevenlabs ?? {}), ...(patch.elevenlabs ?? {}) } };
+  // Gemini only once someone uses it, so a settings file without it stays as it was
   if (cur.gemini || patch.gemini) next.gemini = { ...(cur.gemini ?? {}), ...(patch.gemini ?? {}) };
   fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(next, null, 2), { mode: 0o600 });

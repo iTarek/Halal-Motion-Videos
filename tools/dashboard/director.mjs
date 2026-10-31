@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { canSandbox, SANDBOX_EXEC, sandboxEnv, sandboxProfile } from "./sandbox.mjs";
-import { readSettings as readSettingsFile, SETTINGS_FILE, voiceFits, voiceProviderOf } from "../settings.mjs";
+import { GEMINI_VOICES, readSettings as readSettingsFile, SETTINGS_FILE, voiceFits, voiceProviderOf } from "../settings.mjs";
 import { getStyle, listStyles } from "../styles.mjs";
 import { fixAudio } from "../audiofix.mjs";
 import { cliEnvironment, antigravityBin, codexBin } from "../doctor.mjs";
@@ -864,7 +864,18 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       if (typeof voiceLanguage === "string") s.voiceLanguage = voiceLanguage.trim().slice(0, 80);
       if (enabled === true && !voiceProviderOf(readSettings())) throw new Error("Add your ElevenLabs or Gemini API key in Settings first.");
       if (typeof enabled === "boolean") s.voiceover = enabled;
-      if (typeof voiceId === "string") s.voiceId = voiceId.trim();
+      if (typeof voiceId === "string") {
+        // Only a voice the provider in use can speak: another provider's would be saved, then silently ignored.
+        // A Gemini name is stored in its own case ("kore" → "Kore"), as the page shows it.
+        const v = voiceId.trim();
+        const provider = v && voiceProviderOf(readSettings());
+        const fit = provider ? voiceFits(provider, v) : v;
+        if (v && !fit)
+          throw new Error(provider === "gemini"
+            ? `"${v}" isn't a Gemini voice. Voices: ${GEMINI_VOICES.join(", ")}.`
+            : `"${v}" is a Gemini voice, but ElevenLabs narrates: use an ElevenLabs voice ID.`);
+        s.voiceId = fit;
+      }
       save(brand, video, s);
     },
     setBrandSettings(brand, patch) {

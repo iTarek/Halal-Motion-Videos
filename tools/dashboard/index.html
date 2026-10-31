@@ -440,7 +440,7 @@
   [dir="rtl"] #langSave { margin-left:0; margin-inline-start:auto; }
   input, textarea { text-align:start; }
   #prompt, .msg, .doc { unicode-bidi:plaintext; }
-  #urlInput, #folderInput, #elKey, #elVoice, #voVoice, #newBrand, #newVideo, #confirmInput, #stillFrames, code, pre, .log, .out .meta b, .file .nm { direction:ltr; unicode-bidi:isolate; }
+  #urlInput, #folderInput, #elKey, #gmKey, #elVoice, #voVoice, #newBrand, #newVideo, #confirmInput, #stillFrames, code, pre, .log, .out .meta b, .file .nm { direction:ltr; unicode-bidi:isolate; }
   @media(max-width:1180px) { [dir="rtl"] aside { border-right:0; } }
   @media(max-width:720px) { [dir="rtl"] nav { border-left:0; } }
 </style>
@@ -1267,20 +1267,15 @@ async function openSettings() {
   applyTheme(currentTheme());
   await loadSettings();
   loadDoctor();
-  const el = settings.elevenlabs;
-  $("#elKey").value = "";
-  $("#elKey").placeholder = el.hasKey ? `Saved (${el.keyHint}) — paste a new key to replace it` : "sk_…";
-  $("#elKeyHint").textContent = el.hasKey ? "" : "Get it at elevenlabs.io → Developers → API keys.";
-  $("#elVoice").value = el.voiceId;
-  $("#elModel").innerHTML = Object.entries(el.models).map(([k, l]) => `<option value="${k}" ${k === el.model ? "selected" : ""}>${esc(l)}</option>`).join("");
-  $("#elOk").hidden = !(el.hasKey && el.voiceName);
-  $("#elOk").textContent = el.voiceName ? `✓ Key works · default voice: ${el.voiceName}` : "";
+  fillElevenLabs(false);
   fillGemini();
   $("#settingsErr").textContent = "";
   $("#settingsDialog").showModal();
 }
 $("#settingsBtn").onclick = openSettings;
 $("#settingsCancel").onclick = () => $("#settingsDialog").close();
+// A key typed but not saved doesn't stay in the closed dialog (Close or Esc); the next open starts from what's saved.
+$("#settingsDialog").addEventListener("close", () => { $("#elKey").value = $("#gmKey").value = ""; });
 // Each key's test plays the voice and model picked below it, with the key in the box: a pasted key is tested before it's saved.
 $("#elTest").onclick = (e) => playVoice($("#elVoice").value.trim(), e.currentTarget, "elevenlabs", { apiKey: $("#elKey").value.trim(), model: $("#elModel").value });
 $("#gmTest").onclick = (e) => playVoice($("#gmVoice").value, e.currentTarget, "gemini", { apiKey: $("#gmKey").value.trim(), model: $("#gmModel").value });
@@ -1290,13 +1285,24 @@ function showTests() {
   $("#gmTestRow").hidden = !(settings.gemini.hasKey || $("#gmKey").value.trim());
 }
 $("#elKey").oninput = $("#gmKey").oninput = showTests;
+/** The ElevenLabs part of Settings, from what the server holds: on open, and again after a save. */
+function fillElevenLabs(saved) {
+  const el = settings.elevenlabs;
+  $("#elKey").value = "";
+  $("#elKey").placeholder = el.hasKey ? `Saved (${el.keyHint}) — paste a new key to replace it` : "sk_…";
+  $("#elKeyHint").textContent = el.hasKey ? "" : "Get it at elevenlabs.io → Developers → API keys.";
+  $("#elVoice").value = el.voiceId;
+  $("#elModel").innerHTML = Object.entries(el.models).map(([k, l]) => `<option value="${k}" ${k === el.model ? "selected" : ""}>${esc(l)}</option>`).join("");
+  $("#elOk").hidden = !(el.hasKey && el.voiceName);
+  $("#elOk").textContent = !el.voiceName ? "" : saved ? `✓ Saved · default voice: ${el.voiceName}` : `✓ Key works · default voice: ${el.voiceName}`;
+}
 /** The Gemini part of Settings, and the engine box: it only shows once both keys are saved (with one key, that one narrates). */
 function fillGemini() {
   const gm = settings.gemini;
   $("#gmKey").value = "";
   $("#gmKey").placeholder = gm.hasKey ? `Saved (${gm.keyHint}) — paste a new key to replace it` : "AIza…";
   $("#gmKeyHint").textContent = gm.hasKey ? "" : "Get it at aistudio.google.com → Get API key.";
-  $("#gmVoice").innerHTML = gm.voices.map((v) => `<option ${v === gm.voice ? "selected" : ""}>${esc(v)}</option>`).join("");
+  $("#gmVoice").innerHTML = gm.voices.map((v) => `<option value="${esc(v)}" ${v === gm.voice ? "selected" : ""}>${esc(v)}</option>`).join("");
   $("#gmModel").innerHTML = Object.entries(gm.models).map(([k, l]) => `<option value="${k}" ${k === gm.model ? "selected" : ""}>${esc(l)}</option>`).join("");
   $("#gmPick").hidden = !(gm.hasKey && settings.elevenlabs.hasKey);
   $("#voProvider").value = settings.voiceProvider;
@@ -1306,7 +1312,10 @@ function fillGemini() {
 }
 $("#settingsForm").onsubmit = async (e) => {
   e.preventDefault();
-  $("#settingsErr").textContent = "Checking with ElevenLabs…";
+  // Say who the save asks: the server checks with ElevenLabs whenever it has a key, with Google only for a new Gemini key or model.
+  const askEl = settings.elevenlabs.hasKey || !!$("#elKey").value.trim();
+  const askGm = !!$("#gmKey").value.trim() || (settings.gemini.hasKey && $("#gmModel").value !== settings.gemini.model);
+  $("#settingsErr").textContent = askEl && askGm ? "Checking with ElevenLabs and Google…" : askEl ? "Checking with ElevenLabs…" : askGm ? "Checking with Google…" : "Saving…";
   try {
     settings = await api("/api/settings", {
       apiKey: $("#elKey").value.trim(), voiceId: $("#elVoice").value.trim(), model: $("#elModel").value,
@@ -1314,11 +1323,8 @@ $("#settingsForm").onsubmit = async (e) => {
       ...($("#gmPick").hidden ? {} : { voiceProvider: $("#voProvider").value }),
     });
     $("#settingsErr").textContent = "";
-    $("#elKey").value = "";
-    $("#elKey").placeholder = `Saved (${settings.elevenlabs.keyHint}) — paste a new key to replace it`;
-    $("#elOk").hidden = !settings.elevenlabs.voiceName;
-    $("#elOk").textContent = `✓ Saved · default voice: ${settings.elevenlabs.voiceName}`;
     $("#settingsDot").hidden = settings.elevenlabs.hasKey || settings.gemini.hasKey;
+    fillElevenLabs(true);
     fillGemini();
     if ($("#voRow")) $("#voRow").dataset.key = "";
     toast("Settings saved"); refresh();
