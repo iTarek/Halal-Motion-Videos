@@ -529,7 +529,7 @@
       <h4><svg class="i"><use href="#i-mic"/></svg>ElevenLabs voice-over</h4>
       <div class="sub">The Director uses this to narrate videos with Eleven v4 — emotions, pacing and non-verbal cues included.</div>
       <label for="elKey">API key</label>
-      <div class="keyrow"><input id="elKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk_…" /></div>
+      <div class="keyrow"><input id="elKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk_…" /><button type="button" class="ghost danger" id="elKeyRemove" hidden>Remove</button></div>
       <div class="muted-note" id="elKeyHint" style="margin-top:4px"></div>
       <div id="elTestRow" style="margin-top:10px"><button type="button" id="elTest"><svg class="i"><use href="#i-volume"/></svg>Test ElevenLabs voice</button></div>
       <div class="ok-line" id="elOk" hidden></div>
@@ -542,7 +542,7 @@
       <h4><svg class="i"><use href="#i-mic"/></svg>Gemini voice-over (optional)</h4>
       <div class="sub">Narrate with a Google AI Studio key instead of ElevenLabs: emotions and pauses included. Word timings then come from speech to text on this device (Whisper, about 500 MB, installed the first time it's needed).</div>
       <label for="gmKey">API key</label>
-      <div class="keyrow"><input id="gmKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…" /></div>
+      <div class="keyrow"><input id="gmKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…" /><button type="button" class="ghost danger" id="gmKeyRemove" hidden>Remove</button></div>
       <div class="muted-note" id="gmKeyHint" style="margin-top:4px"></div>
       <div id="gmTestRow" style="margin-top:10px"><button type="button" id="gmTest"><svg class="i"><use href="#i-volume"/></svg>Test Gemini voice</button></div>
       <div class="ok-line" id="gmOk" hidden></div>
@@ -1267,7 +1267,7 @@ async function openSettings() {
   applyTheme(currentTheme());
   await loadSettings();
   loadDoctor();
-  fillElevenLabs(false);
+  fillElevenLabs();
   fillGemini();
   $("#settingsErr").textContent = "";
   $("#settingsDialog").showModal();
@@ -1286,21 +1286,23 @@ function showTests() {
 }
 $("#elKey").oninput = $("#gmKey").oninput = showTests;
 /** The ElevenLabs part of Settings, from what the server holds: on open, and again after a save. */
-function fillElevenLabs(saved) {
+function fillElevenLabs() {
   const el = settings.elevenlabs;
   $("#elKey").value = "";
   $("#elKey").placeholder = el.hasKey ? `Saved (${el.keyHint}) — paste a new key to replace it` : "sk_…";
+  $("#elKeyRemove").hidden = !el.hasKey;
   $("#elKeyHint").textContent = el.hasKey ? "" : "Get it at elevenlabs.io → Developers → API keys.";
   $("#elVoice").value = el.voiceId;
   $("#elModel").innerHTML = Object.entries(el.models).map(([k, l]) => `<option value="${k}" ${k === el.model ? "selected" : ""}>${esc(l)}</option>`).join("");
   $("#elOk").hidden = !(el.hasKey && el.voiceName);
-  $("#elOk").textContent = !el.voiceName ? "" : saved ? `✓ Saved · default voice: ${el.voiceName}` : `✓ Key works · default voice: ${el.voiceName}`;
+  $("#elOk").textContent = el.voiceName ? `✓ Saved · default voice: ${el.voiceName}` : ""; // not "works": it's only checked when it changes
 }
 /** The Gemini part of Settings, and the engine box: it only shows once both keys are saved (with one key, that one narrates). */
 function fillGemini() {
   const gm = settings.gemini;
   $("#gmKey").value = "";
   $("#gmKey").placeholder = gm.hasKey ? `Saved (${gm.keyHint}) — paste a new key to replace it` : "AIza…";
+  $("#gmKeyRemove").hidden = !gm.hasKey;
   $("#gmKeyHint").textContent = gm.hasKey ? "" : "Get it at aistudio.google.com → Get API key.";
   $("#gmVoice").innerHTML = gm.voices.map((v) => `<option value="${esc(v)}" ${v === gm.voice ? "selected" : ""}>${esc(v)}</option>`).join("");
   $("#gmModel").innerHTML = Object.entries(gm.models).map(([k, l]) => `<option value="${k}" ${k === gm.model ? "selected" : ""}>${esc(l)}</option>`).join("");
@@ -1308,12 +1310,12 @@ function fillGemini() {
   $("#voProvider").value = settings.voiceProvider;
   showTests(); // runs after every open and save, once both key boxes are reset
   $("#gmOk").hidden = !gm.hasKey;
-  $("#gmOk").textContent = gm.hasKey ? `✓ Key works${settings.provider === "gemini" ? " · narrates your videos" : ""}` : "";
+  $("#gmOk").textContent = gm.hasKey ? `✓ Saved${settings.provider === "gemini" ? " · narrates your videos" : ""}` : "";
 }
 $("#settingsForm").onsubmit = async (e) => {
   e.preventDefault();
-  // Say who the save asks: the server checks with ElevenLabs whenever it has a key, with Google only for a new Gemini key or model.
-  const askEl = settings.elevenlabs.hasKey || !!$("#elKey").value.trim();
+  // Say who the save asks: the server checks only what changed, an ElevenLabs key or voice, a Gemini key or model.
+  const askEl = !!$("#elKey").value.trim() || (settings.elevenlabs.hasKey && $("#elVoice").value.trim() !== settings.elevenlabs.voiceId);
   const askGm = !!$("#gmKey").value.trim() || (settings.gemini.hasKey && $("#gmModel").value !== settings.gemini.model);
   $("#settingsErr").textContent = askEl && askGm ? "Checking with ElevenLabs and Google…" : askEl ? "Checking with ElevenLabs…" : askGm ? "Checking with Google…" : "Saving…";
   try {
@@ -1322,14 +1324,28 @@ $("#settingsForm").onsubmit = async (e) => {
       geminiKey: $("#gmKey").value.trim(), geminiVoice: $("#gmVoice").value, geminiModel: $("#gmModel").value,
       ...($("#gmPick").hidden ? {} : { voiceProvider: $("#voProvider").value }),
     });
-    $("#settingsErr").textContent = "";
-    $("#settingsDot").hidden = settings.elevenlabs.hasKey || settings.gemini.hasKey;
-    fillElevenLabs(true);
-    fillGemini();
-    if ($("#voRow")) $("#voRow").dataset.key = "";
-    toast("Settings saved"); refresh();
+    settingsChanged("Settings saved");
   } catch (err) { $("#settingsErr").textContent = err.message; }
 };
+function settingsChanged(message) {
+  $("#settingsErr").textContent = "";
+  $("#settingsDot").hidden = settings.elevenlabs.hasKey || settings.gemini.hasKey;
+  fillElevenLabs();
+  fillGemini();
+  if ($("#voRow")) $("#voRow").dataset.key = "";
+  toast(message); refresh();
+}
+for (const [button, question, body] of [
+  ["#elKeyRemove", "Remove the saved ElevenLabs key?", { clearKey: true }],
+  ["#gmKeyRemove", "Remove the saved Gemini key?", { clearGeminiKey: true }],
+])
+  $(button).onclick = async () => {
+    if (!confirmLocalized(question)) return;
+    try {
+      settings = await api("/api/settings", body);
+      settingsChanged("Key removed");
+    } catch (err) { $("#settingsErr").textContent = err.message; }
+  };
 loadSettings();
 
 // ---- delete a video or a whole brand (moved to the system Trash)

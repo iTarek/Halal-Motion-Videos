@@ -30,7 +30,11 @@ export const transcribe = async (file, { language, install = true } = {}) => {
   const r = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
     method: "POST", headers: { "xi-api-key": key }, body: form, signal: AbortSignal.timeout(TIMEOUT_MS),
   });
-  if (r.status === 401) throw new Error("ElevenLabs rejected the API key (Settings).");
+  if (r.status === 401) {
+    // an old key that stopped working mustn't stop someone who narrates with Gemini
+    if (st.gemini.apiKey) return whisperHear(file, { language, install });
+    throw new Error("ElevenLabs rejected the API key (Settings).");
+  }
   if (!r.ok) throw new Error(`ElevenLabs speech to text failed (${r.status}): ${(await r.text()).slice(0, 300)}`);
   const j = await r.json();
   return {

@@ -22,8 +22,8 @@
 | `new <brand> [video]` | A new brand (with `video01`) or the next video in a brand. `make` does this for you. |
 | `set <brand> [video] [settings]` | Changes settings without starting anything. |
 | `styles` | Saved styles (name, id, description) for `--style`. |
-| `voice-settings [--voice-id=…] [--model=eleven_v4\|eleven_v4_turbo] [--key-stdin]` | ElevenLabs settings. The key is read from stdin only. |
-| `voice-settings [--provider=elevenlabs\|gemini] [--gemini-key-stdin] [--gemini-voice=Kore] [--gemini-model=gemini-3.8-flash-tts\|gemini-3.8-flash-lite-tts]` | Gemini voice-over instead of ElevenLabs (optional). The key is read from stdin only, one key per run. With only a Gemini key, Gemini narrates; with both, `--provider` picks (ElevenLabs by default). JSON: `provider` (who narrates now), `voiceProvider` (picked), `gemini: { hasKey, voice, model }`. |
+| `voice-settings [--voice-id=…] [--model=eleven_v4\|eleven_v4_turbo] [--key-stdin] [--clear-key]` | ElevenLabs settings. The key is read from stdin only. A key is checked when it or the voice changes. `--clear-key` removes a saved key, for one that's stopped working. |
+| `voice-settings [--provider=elevenlabs\|gemini] [--gemini-key-stdin] [--clear-gemini-key] [--gemini-voice=Kore] [--gemini-model=gemini-3.8-flash-tts\|gemini-3.8-flash-lite-tts]` | Gemini voice-over instead of ElevenLabs (optional). The key is read from stdin only, one key per run. With only a Gemini key, Gemini narrates; with both, `--provider` picks (ElevenLabs by default). JSON: `provider` (who narrates now), `voiceProvider` (picked), `gemini: { hasKey, voice, model }`. |
 | `doctor` | System check (`ok: false` means something required is missing: run `npm run setup`). |
 | `where` | Prints the repo root. |
 

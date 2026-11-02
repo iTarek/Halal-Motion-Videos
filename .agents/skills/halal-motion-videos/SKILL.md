@@ -137,6 +137,8 @@ Pass these to `make`, or change them with `scripts/video set <brand> [video] …
 **Or Gemini (optional, for a human without ElevenLabs):** a Google AI Studio key, piped in the same way:
 `printf %s "$GEMINI_API_KEY" | scripts/video voice-settings --gemini-key-stdin` (`--gemini-voice=Kore`, and `--provider=gemini` if an ElevenLabs key is saved too).
 
+**A key that stopped working:** it blocks nothing else, and `scripts/video voice-settings --clear-key` (or `--clear-gemini-key`) removes it.
+
 - Word timings then come from local speech to text (Whisper).
 - It installs on the first voice-over: about 500 MB, a few minutes, once.
 

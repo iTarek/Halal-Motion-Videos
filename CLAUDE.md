@@ -404,7 +404,7 @@ The dashboard's **Settings** holds the ElevenLabs API key, default voice ID (`NO
 
 Each video's Director panel has:
 
-- **Voice-over on/off:** locked off until an ElevenLabs or Gemini key is saved, then on by default
+- **Voice-over on/off:** locked off until an ElevenLabs or Gemini key is saved, then on by default. Settings checks a key only when it or its voice changes, so a key that stops working blocks nothing else, and each key has a **Remove** button (`npm run video -- voice-settings --clear-key`, `--clear-gemini-key`)
 - **A voice ID override** for that video: a voice of the provider that narrates (with Gemini, a name such as `Kore`); any other is refused
 - **Two free-text fields:** video language (default "English") and voice language (default "English — American accent")
 
@@ -486,7 +486,7 @@ Settings can hold a Google AI Studio key for Gemini text to speech (`gemini-3.8-
 ```
 
 - **Word timings:** Gemini sends none, so `npm run voice` hears each line back and times the script's own words to it (`VO.<id>.words`, as with ElevenLabs).
-  - **With an ElevenLabs key:** ElevenLabs speech to text.
+  - **With an ElevenLabs key:** ElevenLabs speech to text. If it rejects the key, local Whisper takes over.
   - **Without one:** local Whisper, free. It installs on first use into `.director/whisper/` (about 500 MB, a few minutes, once).
   - **If a line reports no timings:** time its scene to the line's start and `VO.<id>.seconds`.
 

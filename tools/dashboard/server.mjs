@@ -353,13 +353,16 @@ const server = http.createServer(async (req, res) => {
       // a pasted key with a line break inside would come back in fetch's "invalid header value" error, key and all
       for (const k of [b.apiKey, b.geminiKey])
         if (typeof k === "string" && k.trim() && !/^[\x21-\x7e]{8,256}$/.test(k.trim())) return send(res, 400, { error: "That doesn't look like an API key." });
+      // an environment key comes back on the next read, so removing it here would only look done
+      if (b.clearKey && process.env.ELEVENLABS_API_KEY) return send(res, 400, { error: "This key comes from ELEVENLABS_API_KEY in your environment: remove it there." });
       const { elevenlabs: cur, gemini: gm } = readSettings();
       const apiKey = typeof b.apiKey === "string" && b.apiKey.trim() ? b.apiKey.trim() : b.clearKey ? "" : cur.apiKey;
       const voiceId = typeof b.voiceId === "string" && b.voiceId.trim() ? b.voiceId.trim() : cur.voiceId;
       if (!/^[A-Za-z0-9]{8,64}$/.test(voiceId)) return send(res, 400, { error: "A voice ID is letters and numbers, like NOpBlnGInO9m6vDvFkFC." });
       const model = typeof b.model === "string" && Object.hasOwn(VOICE_MODELS, b.model) ? b.model : cur.model;
       let voiceName = voiceId === cur.voiceId ? cur.voiceName : "";
-      if (apiKey) {
+      // Only when it changes, like Gemini below: a saved key that stopped working mustn't block saving anything else
+      if (apiKey && (apiKey !== cur.apiKey || voiceId !== cur.voiceId)) {
         const check = await checkVoice(apiKey, voiceId);
         if (!check.ok) return send(res, 400, { error: check.error });
         voiceName = check.name;
