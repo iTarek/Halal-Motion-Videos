@@ -115,6 +115,7 @@ const run = (wav, out, language) =>
     const json = `${out}.json`;
     const child = spawn(EXE, [
       "-f", wav, "--output-file", out, "--output-json", "-ojf", "--max-len", "1", "--dtw", MODEL, "-m", MODEL_FILE, "-l", language,
+      "--max-context", "0", // not fed its own last words: that's how it loops, one phrase over and over, and loses real speech
     ], { cwd: CPP, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     let log = "";
     const watch = (d) => {

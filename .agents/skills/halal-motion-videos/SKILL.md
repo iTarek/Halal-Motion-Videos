@@ -102,7 +102,7 @@ scripts/video make <brand> next "<about>" --format=vertical --render --wait --js
 `--stop-at=brief` or `--stop-at=storyboard` makes the autopilot pause there instead of approving.
 
 - **Brief:** read `brief` (the BRIEF.md path in `status`). It holds the story by seconds and the voice-over lines.
-- **Storyboard:** look at the 4 JPGs in `storyboard` (hook, key feature, climax, end card).
+- **Storyboard:** look at the 4 JPGs in `storyboard` (hook, key feature, climax, end card). `moves` in `status` names the palette of moves the Director chose for it.
 - **To continue:** `make <brand> <video>` again.
 - **To change something:** `ask <brand> <video> "<changes>"`, wait for it, check again, then `make`.
 
@@ -128,7 +128,7 @@ Pass these to `make`, or change them with `scripts/video set <brand> [video] …
 | `--voice-language` | e.g. `"Arabic — Egyptian accent"` | English — American accent |
 | `--voice-id` | a voice of the provider that narrates: an ElevenLabs voice ID, or with Gemini a voice name like `Kore` (any other is refused) | the saved default |
 | `--safe-area` | `on` / `off`. On keeps key text out of the edges TikTok, Reels and Shorts cover (top 12%, bottom 22%, right 12% on 9:16; 5% elsewhere). Turn it off for videos nothing is laid over, like App Store previews or a website hero | `on` |
-| `--style` | a style name from `scripts/video styles`, or `none` | none |
+| `--style` | a style name from `scripts/video styles` (21 are built in), or `none`, which lets the Director's palette of moves suggest one | none |
 | `--effort` | Claude's thinking: `medium`, `high`, `xhigh` | `high` |
 
 **ElevenLabs key (voice-over):** pipe it in, never put it on the command line:
@@ -166,4 +166,4 @@ More commands and every JSON field: [references/commands.md](references/commands
 
 The autopilot needs one signed-in CLI: Codex (`codex`), Claude Code (`claude`) or Antigravity (`agy`). Without it, build by hand following `CLAUDE.md` in the repo root, the full manual.
 
-- **Tools:** `npm run new`, `shot` (screenshots), `sfx` (sound), `voice`, `stills`, `review` (self-critique sheets), `typecheck`, `render`.
+- **Tools:** `npm run new`, `moves` (the video's palette of moves), `shot` (screenshots), `sfx` (sound), `voice`, `stills`, `review` (self-critique sheets), `typecheck`, `render`.

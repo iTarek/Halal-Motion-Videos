@@ -86,6 +86,7 @@ npm start          # → http://localhost:4000
 | `npm run appstore -- <brand> <app id>` | an iOS app's icon, store screenshots and listing from the App Store |
 | `npm run sfx -- <brand> [video] [--look]` | design sounds from `sfx.json` |
 | `npm run voice -- <brand> <video>` | voice-over from `voiceover.json` (ElevenLabs, or Gemini) |
+| `npm run moves -- <brand> <video>` | the video's palette of moves, unlike the brand's other videos |
 | `npm run doctor` | system check |
 | `npm run video -- <command>` | everything from a terminal, for AI agents and scripts (see below) |
 

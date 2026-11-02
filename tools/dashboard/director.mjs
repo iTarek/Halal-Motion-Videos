@@ -35,7 +35,7 @@ export const DEFAULT_VOICE_LANGUAGE = "English — American accent";
 // Tools Claude may use without asking. Everything else is denied in headless mode.
 const ALLOWED_TOOLS = [
   "Read", "Glob", "Grep", "Edit", "Write", "MultiEdit", "NotebookEdit", "TodoWrite", "WebFetch", "WebSearch", "Skill",
-  "Bash(npm run typecheck)", "Bash(npm run stills:*)", "Bash(npm run copy-asset:*)", "Bash(npm run voice:*)", "Bash(npm run sfx:*)", "Bash(npm run shot:*)", "Bash(npm run appstore:*)", "Bash(npm run review:*)", "Bash(npm install:*)", "Bash(npx tsc:*)",
+  "Bash(npm run typecheck)", "Bash(npm run stills:*)", "Bash(npm run copy-asset:*)", "Bash(npm run voice:*)", "Bash(npm run sfx:*)", "Bash(npm run moves:*)", "Bash(npm run shot:*)", "Bash(npm run appstore:*)", "Bash(npm run review:*)", "Bash(npm install:*)", "Bash(npx tsc:*)",
   "Bash(curl:*)", "Bash(unzip:*)",
   "Bash(ls:*)", "Bash(mkdir:*)", "Bash(cp:*)", "Bash(file:*)", "Bash(sips:*)", "Bash(ffprobe:*)",
 ];
@@ -165,7 +165,7 @@ ${v.safeArea
     : "- SAFE AREA: OFF (the user set this): no app lays its UI over this video, so the frame is yours edge to edge (just keep text off the very edge)."}`;
     const style = getStyle(s.styleId);
     const styleLine = style
-      ? `\n- VIDEO STYLE "${style.name}" (the user picked this): ${style.text}\n  Apply it to motion, pacing, typography, transitions and sound — within the brand kit's colours and fonts.`
+      ? `\n- VIDEO STYLE "${style.name}" (the user picked this): ${style.text}\n  Apply it to motion, pacing, typography, transitions and sound — within the brand kit's colours and fonts, unless it says its own palette is part of the look. It's a language, not a template: 2–3 of its signature moments are enough, and it may mix with a second style.`
       : "";
     const sound = `- SOUND DESIGN: you are the sound designer too. Invent sounds that fit this video's style and motion — never settle for stock.
   Build them by code (see "Sound design" in CLAUDE.md): layer built-in sounds, shape them with fx (filters, pitch, echo, reverb, drive,
@@ -287,6 +287,10 @@ PHASE 1 of 3: BRIEF (not approved yet).
 ${quality}
 
 PHASE 2 of 3: STORYBOARD (the user approved BRIEF.md; they'll approve the look next).
+- Choose this video's moves: \`npm run moves -- ${brand} ${video} --cues=<the moments the brief has: number,list,price,cta,contrast,emphasis,reveal,tech,hit,captions>\`.
+  It writes moves.json: 3 core moves to build the whole video around, accents for its special moments and, if the user picked no
+  style, a suggested one (use it). It avoids what this brand's other videos just used, so don't swap them for familiar ones. It's
+  a base, not a limit, BRAND.md wins over any move, and none of them goes on Quran or other sacred text. Say the palette in one line when you stop.
 - Capture the real product first (screenshots — see CLAUDE.md), then build the LOOK: theme, backdrop, and the scenes around
   4 key moments — the hook (first 2 s), the key feature, the climax, the end card. Other scenes can stay rough for now.
 - Render exactly those 4 frames (all formats of this video) into the storyboard folder:
@@ -301,18 +305,24 @@ ${quality}
 PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep that look).
 - Build the whole video to match the brief, the storyboard and the user's notes: copy.ts, timeline.ts, scenes/, Film.tsx,
   sound design, voice-over, Soundtrack.tsx. If the user changes the story itself, update BRIEF.md too.
+- Keep to the palette in moves.json: its core moves carry the whole video, and its accents land on their moments. If there's
+  none yet, choose it first (\`npm run moves -- ${brand} ${video} --cues=…\`), unless the video is already built: one finished
+  before palettes keeps its own moves, so never rebuild it around one for a change the user didn't ask for.
 - Sound: cues land on each sound's loudest moment — pass \`peak\` from sfx.gen.ts (SFX / SHARED_SFX) so \`at\` is the hit frame.
 - index.ts: \`cuts: timeline.cuts\` (review checks every scene change), and \`poster\`: the frame for the thumbnail, the
   strongest settled moment (text fully in, nothing mid-move). A render bakes it in as frame 0, which platforms show.
+  Make it readable in a profile grid, which shrinks it to about 12%: on a 1080 px wide frame, a title of 5 words at most and
+  at least 170 px in Arabic (140 in Latin script), other text at least 110 px, a logo at least 200 px, inside the middle square.
 - Share caption: write src/brands/${brand}/${video}/SHARE.md — 1–3 sentences, postable as-is, in the video's language,
   only the product's own claims, nothing like "excited to share".
 - Verify: \`npm run typecheck\` must pass.
 - CRITIQUE LOOP — be a harsh motion director, not a proud author:
   \`npm run review -- ${brand} ${video}\` makes contact sheets (every 0.5 s), phone-size sheets${safeArea ? " (unsafe edges in red)" : ""},
   12-frame strips around every scene change (add --strip=<s> for fast moves), wave.png (the soundtrack, scene changes
-  marked) and, with a voice-over, voice sheets plus a "Heard:" list (the mix heard back by speech to text), in
+  marked), grid sheets (the poster at profile-grid size) and, with a voice-over, voice sheets plus a "Heard:" list (the
+  mix heard back by speech to text; anything under "Check these" may be its mistake, or a line lost in the mix), in
   ${tmpDir(brand, video)}/review/. Read every sheet and score 1–10: hook, readability (phone size, and ~0.3 s
-  per word on screen), motion quality, variety (something new every 2–4 s), composition (no muddy crossfades${safeArea ? ", nothing in the red" : ""}),
+  per word on screen, and the poster's title on the grid sheet), motion quality, variety (something new every 2–4 s), composition (no muddy crossfades${safeArea ? ", nothing in the red" : ""}),
   data accuracy, sound sync (wave.png: every hit on its moment; voice sheets: the picture says what the voice says, when),
   clarity (would a stranger know what it is, who it's for, how to get it?). Don't claim a fix you haven't re-run and looked at.
   Fix the 3 biggest problems, re-run, and repeat until every score is 8+ (at most 4 rounds). Temp files are deleted after this run.
@@ -335,6 +345,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       case "Bash": {
         const c = String(input.command ?? "");
         if (c.includes("npm run stills")) return "Checking frames (stills)";
+        if (c.includes("npm run moves")) return "Choosing moves";
         if (c.includes("typecheck") || c.includes("tsc")) return "Typechecking";
         if (c.startsWith("npm install")) return `Installing ${c.replace("npm install", "").trim()}`;
         return `Running ${c.slice(0, 80)}`;

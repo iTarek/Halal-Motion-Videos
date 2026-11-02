@@ -7,6 +7,15 @@ import { fileURLToPath } from "node:url";
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const SETTINGS_FILE = path.join(ROOT, ".director", "settings.json");
 
+/** What a JSON file holds, or null when it's missing or can't be read. */
+export const readJson = (file) => {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+};
+
 export const DEFAULT_VOICE_ID = "NOpBlnGInO9m6vDvFkFC";
 export const VOICE_MODELS = { eleven_v4: "Eleven v4 (best quality)", eleven_v4_turbo: "Eleven v4 Turbo (fast)" };
 

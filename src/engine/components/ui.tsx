@@ -1,4 +1,5 @@
-import React from "react";
+import { useAudioData } from "@remotion/media-utils";
+import React, { useMemo } from "react";
 import { Img, useCurrentFrame, useVideoConfig } from "remotion";
 import { rgba } from "../color";
 import { clamp01, ease, lerp, noise, prog, SPRING, springAt, type SpringFeel } from "../anim";
@@ -158,33 +159,29 @@ export const Card: React.FC<{ style?: React.CSSProperties; radius?: number; chil
   );
 };
 
-/** Voice line: bars breathing with a live amplitude (0–1). */
-export const Waveform: React.FC<{
+const WaveBars: React.FC<{
   width: number;
   height: number;
-  bars?: number;
-  amp: number;
+  bars: number;
   color?: string;
-  seed?: number;
-}> = ({ width, height, bars = 34, amp, color, seed = 1 }) => {
-  const f = useCurrentFrame();
+  /** For bar i: `size` sets its height and `glow` its opacity, both 0–1. `center` is 1 in the middle, less at the ends. */
+  bar: (i: number, center: number) => { size: number; glow: number };
+}> = ({ width, height, bars, color, bar }) => {
   const { colors } = useTheme();
   const barW = (width / bars) * 0.5;
   return (
     <div style={{ width, height, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       {Array.from({ length: bars }).map((_, i) => {
-        const center = 1 - Math.abs(i / (bars - 1) - 0.5) * 1.3;
-        const n = Math.abs(noise(f * 0.22 + i * 0.73, seed + i * 0.01));
-        const h = Math.max(barW, height * (0.1 + 0.9 * amp * center * (0.35 + 0.65 * n)));
+        const { size, glow } = bar(i, 1 - Math.abs(i / (bars - 1) - 0.5) * 1.3);
         return (
           <span
             key={i}
             style={{
               width: barW,
-              height: h,
+              height: Math.max(barW, height * (0.1 + 0.9 * size)),
               borderRadius: barW,
               background: color ?? colors.accent,
-              opacity: 0.35 + 0.65 * amp * center,
+              opacity: 0.35 + 0.65 * glow,
             }}
           />
         );
@@ -192,6 +189,71 @@ export const Waveform: React.FC<{
     </div>
   );
 };
+
+/**
+ * How loud a sound is, frame by frame, so motion can follow the real voice. Returns level(frame): 0 (silence) to 1 (its
+ * loudest moment). `at` is the frame the sound starts on, counted like useCurrentFrame(); the render waits for the file.
+ */
+export const useAudioLevel = (src: string, at = 0) => {
+  const { fps } = useVideoConfig();
+  const audio = useAudioData(src);
+  const levels = useMemo(() => {
+    if (!audio) return [];
+    const channels = audio.channelWaveforms; // all of them: a recording can have its voice on one side only
+    const length = channels[0].length;
+    const per = Math.max(1, Math.round(audio.sampleRate / fps));
+    const rms = Array.from({ length: Math.ceil(length / per) }, (_, i) => {
+      const end = Math.min(length, (i + 1) * per);
+      let sum = 0;
+      for (const samples of channels) for (let s = i * per; s < end; s++) sum += samples[s] * samples[s];
+      return Math.sqrt(sum / ((end - i * per) * channels.length));
+    });
+    const loudest = rms.reduce((a, b) => Math.max(a, b), 0) || 1;
+    return rms.map((v) => v / loudest);
+  }, [audio, fps]);
+  return (frame: number) => levels[Math.round(frame - at)] ?? 0;
+};
+
+const LiveWave: React.FC<{ width: number; height: number; bars: number; amp: number; color?: string; src: string; at: number }> = ({ src, at, amp, ...rest }) => {
+  const f = useCurrentFrame();
+  const level = useAudioLevel(src, at);
+  return (
+    <WaveBars
+      {...rest}
+      bar={(i, center) => {
+        // each bar hears the sound a little later the further it is from the middle, so the voice ripples outward
+        const size = amp * center * Math.sqrt(level(f - Math.abs(i - (rest.bars - 1) / 2) * 0.8));
+        return { size, glow: size };
+      }}
+    />
+  );
+};
+
+const IdleWave: React.FC<{ width: number; height: number; bars: number; amp: number; color?: string; seed: number }> = ({ amp, seed, ...rest }) => {
+  const f = useCurrentFrame();
+  return (
+    <WaveBars
+      {...rest}
+      bar={(i, center) => ({ size: amp * center * (0.35 + 0.65 * Math.abs(noise(f * 0.22 + i * 0.73, seed + i * 0.01))), glow: amp * center })}
+    />
+  );
+};
+
+/**
+ * Audio bars. Give it `src` (and `at`, the frame that sound starts on) and they follow the real audio; a voice on screen
+ * should always use this. Without `src` they only imitate sound: for a UI that isn't tied to anything you can hear.
+ */
+export const Waveform: React.FC<{
+  width: number;
+  height: number;
+  bars?: number;
+  amp?: number;
+  color?: string;
+  seed?: number;
+  src?: string;
+  at?: number;
+}> = ({ bars = 34, amp = 1, seed = 1, src, at = 0, ...rest }) =>
+  src ? <LiveWave {...rest} bars={bars} amp={amp} src={src} at={at} /> : <IdleWave {...rest} bars={bars} amp={amp} seed={seed} />;
 
 /** Pulsing "live" dot in the positive colour. */
 export const LiveDot: React.FC<{ size: number }> = ({ size }) => {

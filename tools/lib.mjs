@@ -1,6 +1,7 @@
 // Shared helpers for the render/stills tools.
 import { bundle } from "@remotion/bundler";
 import { getCompositions } from "@remotion/renderer";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,9 +31,21 @@ export const parseArgs = (argv) => {
   return { pos, flags };
 };
 
+/** Deletes a folder when this process ends, stopped or not. */
+export const removeOnExit = (dir) => {
+  process.once("exit", () => {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch {} // still in use on Windows: the system clears its temp folder in the end
+  });
+  // a stopped render ends on a signal, which skips "exit" unless it's handled
+  for (const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143]]) process.once(signal, () => process.exit(code));
+};
+
 /** Bundles once and returns the compositions matching brand / video / format (each optional). */
 export const findCompositions = async ({ brand, video, format }) => {
   const serveUrl = await bundle({ entryPoint: path.join(ROOT, "src", "index.ts") });
+  removeOnExit(serveUrl); // about 500 MB in the temp folder, and every run makes a new one
   const browser = browserExecutable();
   const all = await getCompositions(serveUrl, browser ? { browserExecutable: browser } : {});
   const meta = (c) => c.props ?? c.defaultProps ?? {};

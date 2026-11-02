@@ -24,7 +24,7 @@ npm start
 
 التثبيت الرسمي لـAntigravity: https://www.antigravity.google/docs/cli/install/
 
-يستخدم الربط تشغيل Antigravity الآلي الرسمي ويتبع صلاحياته المحفوظة. إن رفض تشغيل أوامر المشروع، افتح جلسة `agy` وحدد سماحًا لأوامر الأداة المطلوبة من `/permissions`، مثل `npm run typecheck` و`npm run stills` و`npm run review` و`npm run shot` و`npm run sfx` و`npm run voice`. لا تغيّر الأداة إعدادات حساب Antigravity أو مفاتيحه. مرجع الصلاحيات: https://www.antigravity.google/docs/cli/headless/
+يستخدم الربط تشغيل Antigravity الآلي الرسمي ويتبع صلاحياته المحفوظة. إن رفض تشغيل أوامر المشروع، افتح جلسة `agy` وحدد سماحًا لأوامر الأداة المطلوبة من `/permissions`، مثل `npm run typecheck` و`npm run stills` و`npm run review` و`npm run shot` و`npm run sfx` و`npm run voice` و`npm run moves`. لا تغيّر الأداة إعدادات حساب Antigravity أو مفاتيحه. مرجع الصلاحيات: https://www.antigravity.google/docs/cli/headless/
 
 ## أول تجربة
 

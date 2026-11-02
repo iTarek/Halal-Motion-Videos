@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
+import fs, { readFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 // what this CLI expects of the dashboard: stand-in servers answer with it, so a bump never breaks them
 const AGENT_API=Number(readFileSync(new URL('../video.mjs',import.meta.url),'utf8').match(/^const AGENT_API = (\d+);/m)[1]);
@@ -28,6 +30,30 @@ for (const engine of ['codex','antigravity','claude']) test(`make selects ${engi
   let out='',err='';proc.stdout.setEncoding('utf8');proc.stderr.setEncoding('utf8');proc.stdout.on('data',x=>out+=x);proc.stderr.on('data',x=>err+=x);
   const code=await new Promise(resolve=>proc.on('close',resolve));
   assert.equal(code,0,err+out);assert.equal(started,true);assert.equal(JSON.parse(out).engine,engine);
+});
+
+// A palette is a file: `moves` works with no dashboard, and doesn't start one. On a temp copy, so no real video is touched.
+test('an agent chooses and reads a palette through the CLI, with no server',t=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'hmv-cli-moves-'));
+  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const tools=fileURLToPath(new URL('..',import.meta.url));
+  fs.mkdirSync(path.join(root,'tools'));
+  for(const f of ['video.mjs','moves.mjs','styles.mjs','settings.mjs']) fs.copyFileSync(path.join(tools,f),path.join(root,'tools',f));
+  fs.mkdirSync(path.join(root,'src','brands','demo','video01'),{recursive:true});
+  fs.writeFileSync(path.join(root,'src','brands','demo','video01','index.ts'),'');
+  // a port nothing listens on: reaching for a server here would start one, and fail
+  const run=(...args)=>spawnSync(process.execPath,[path.join(root,'tools','video.mjs'),'moves',...args],{encoding:'utf8',windowsHide:true,timeout:10000,env:{...process.env,PORT:'1'}});
+  const made=run('demo','video01','--cues=number','--json');
+  assert.equal(made.status,0,made.stderr);
+  const plan=JSON.parse(made.stdout);
+  assert.equal(plan.ok,true);
+  assert.equal(plan.file,path.join(fs.realpathSync(root),'src','brands','demo','video01','moves.json'));
+  assert.deepEqual(plan.accents.map(m=>m.cue),['number']);
+  assert.deepEqual(JSON.parse(run('demo','video01','--json').stdout).core,plan.core); // shown again, unchanged
+  assert.match(run('demo','video01').stdout,/Core: build the whole video/);
+  assert.ok(JSON.parse(run('--list','--json').stdout).moves.length>50);
+  assert.match(run().stderr,/Usage/); // no brand, no --list
+  assert.ok(!fs.existsSync(path.join(root,'.director','dashboard.log')),'it started a server');
 });
 
 // The Safe area switch, from an agent: `set --safe-area=on|off` reaches the dashboard and shows in status.settings.
@@ -67,7 +93,7 @@ test('status hands an agent the MP4s, the caption and the cover images',async t=
     const url=new URL(req.url,'http://localhost');
     const stills=[{name:'demo-video01-vertical-poster.jpg',rel:'stills/demo-video01-vertical-poster.jpg'},{name:'vertical-030.jpg',rel:'stills/vertical-030.jpg'}];
     const data=url.pathname==='/api/state'
-      ? {agentApi:AGENT_API,brands:[{brand:'demo',videos:[{video:'video01',share:'Caption.',outputs:{videos:[{name:'demo-video01-vertical.mp4',rel:'demo-video01-vertical.mp4'}],stills}}]}],
+      ? {agentApi:AGENT_API,brands:[{brand:'demo',videos:[{video:'video01',share:'Caption.',moves:{family:'punch',style:{id:'paper-cut',name:'Paper cut',suggested:true},core:[{id:'riseUp',name:'Mask rise'}],accents:[{id:'counter',name:'Rolling counter'}]},outputs:{videos:[{name:'demo-video01-vertical.mp4',rel:'demo-video01-vertical.mp4'}],stills}}]}],
          jobs:[{id:1,brand:'demo',video:'video01',label:'Render vertical',status:'done',progress:100,log:['saved out/demo/video01/demo-video01-vertical.mp4']}]}
       : {engine:'claude',claude:{ok:true},phase:'build',messages:[],storyboard:[],styles:[],voice:{length:10},autopilot:null};
     res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));
@@ -81,6 +107,8 @@ test('status hands an agent the MP4s, the caption and the cover images',async t=
   };
   const st=JSON.parse(await run('--json'));
   assert.match(st.share,/src[\\/]brands[\\/]demo[\\/]video01[\\/]SHARE\.md$/);
+  assert.match(st.moves.file,/src[\\/]brands[\\/]demo[\\/]video01[\\/]moves\.json$/);
+  assert.deepEqual([st.moves.family,st.moves.style,st.moves.core,st.moves.accents],['punch','Paper cut',['Mask rise'],['Rolling counter']]);
   assert.equal(st.posters.length,1);assert.match(st.posters[0],/demo-video01-vertical-poster\.jpg$/);
   assert.match(st.mp4[0],/demo-video01-vertical\.mp4$/);
   const text=(await run()).trim().split('\n');

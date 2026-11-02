@@ -43,17 +43,19 @@ export const transcribe = async (file, { language, install = true } = {}) => {
 };
 
 const MAX_CELLS = 4e6; // letters written × letters heard: about two minutes of speech in one line, far beyond a scene
+const TAGS = /<[^>]*>|\[[^\]]*\]/g; // <short pause>, [warm]: directions, not spoken
+// no diacritics, punctuation or tatweel (ـ, a letter to Unicode, but only stretches the line)
+const letters = (s) => [...s.normalize("NFKD").toLowerCase().replace(/[^\p{L}\p{N}]|\u0640/gu, "")];
 
 /**
  * Times the words of a known script from what speech to text heard. The words stay as written, so word i is the script's
  * word i (as with ElevenLabs' own timings). Their times come from matching the written letters to the heard ones in
  * order (edit distance): a misheard word still lines up, and a word heard but never written (Whisper's "Thank you." on
  * silence) costs only itself. Tags (<…>, […]) aren't spoken, so they're dropped. [] when nothing lines up.
+ * found: whether anything lined up with the word. Its length can't say: Whisper can give a word it heard no length at all.
  */
-export const alignWords = (script, heard) => {
-  // no diacritics, punctuation or tatweel (ـ, a letter to Unicode, but only stretches the line)
-  const letters = (s) => [...s.normalize("NFKD").toLowerCase().replace(/[^\p{L}\p{N}]|\u0640/gu, "")];
-  const words = String(script).replace(/<[^>]*>|\[[^\]]*\]/g, " ").split(/\s+/).filter(Boolean);
+const lineUp = (script, heard) => {
+  const words = String(script).replace(TAGS, " ").split(/\s+/).filter(Boolean);
   const S = words.flatMap((w, i) => letters(w).map((ch) => ({ ch, word: i })));
   // every heard letter with when it's said (its word's span, shared evenly) and which heard word it's in
   const H = heard.flatMap((w, word) => {
@@ -86,8 +88,74 @@ export const alignWords = (script, heard) => {
     const start = hits.length ? H[hits[0]].from : last;
     const end = hits.length ? H[hits.at(-1)].to : start;
     last = end;
-    return { text, start: r3(start), end: r3(end) };
+    return { text, start: r3(start), end: r3(end), found: hits.length > 0 };
   });
+};
+export const alignWords = (script, heard) => lineUp(script, heard).map(({ found, ...word }) => word);
+
+// What speech to text makes up on silence or music (Whisper, mostly): sign-offs it learned from video subtitles.
+const PHANTOMS = [
+  "اشترك في القناة", "اشتركوا في القناة", "نانسي قنقر", "شكرا للمشاهدة", "شكرا على المشاهدة",
+  "thanks for watching", "thank you for watching", "subscribe to my channel", "subtitles by", "amara.org",
+];
+const wordKey = (w) => letters(w).join("");
+const LOOP_WORD = 4, LOOP_PHRASE = 3, LOOP_MAX_WORDS = 8, MISSING_WORDS = 3;
+
+/**
+ * Where speech to text is probably wrong, or the voice isn't there. `script` is what should be said, when it's known.
+ * [{ kind, start, end, text, times? }], in time order:
+ *   repeat  — one word 4+ times or one phrase 3+ times in a row (Whisper's loop), unless the script says it that way
+ *   phantom — a sign-off it invents on silence or music, unless the script says it
+ *   missing — 3+ written words in a row nothing lines up with: left out of the mix, or drowned by it
+ */
+export const heardProblems = (words, script = "") => {
+  const said = words.map((w) => wordKey(w.text));
+  const written = String(script).replace(TAGS, " ").split(/\s+/).map(wordKey).filter(Boolean);
+  const inScript = (phrase) => ` ${written.join(" ")} `.includes(` ${phrase.join(" ")} `);
+  const out = [];
+  for (let i = 0; i < said.length; ) {
+    let best = null;
+    for (let n = 1; n <= LOOP_MAX_WORDS && said[i] && i + n <= said.length; n++) {
+      const phrase = said.slice(i, i + n);
+      let times = 1;
+      while (phrase.every((w, k) => said[i + n * times + k] === w)) times++;
+      if (times >= (n === 1 ? LOOP_WORD : LOOP_PHRASE) && (!best || n * times > best.n * best.times)) best = { n, times };
+    }
+    if (!best || inScript(said.slice(i, i + best.n * best.times))) {
+      i++;
+      continue;
+    }
+    const last = i + best.n * best.times - 1;
+    out.push({ kind: "repeat", start: words[i].start, end: words[last].end, times: best.times, text: words.slice(i, i + best.n).map((w) => w.text).join(" ") });
+    i = last + 1;
+  }
+  for (const phantom of PHANTOMS) {
+    const keys = phantom.split(" ").map(wordKey);
+    if (inScript(keys)) continue;
+    for (let i = 0; i + keys.length <= said.length; i++)
+      if (keys.every((k, j) => said[i + j] === k))
+        out.push({ kind: "phantom", start: words[i].start, end: words[i + keys.length - 1].end, text: words.slice(i, i + keys.length).map((w) => w.text).join(" ") });
+  }
+  let run = [];
+  const closeRun = () => {
+    if (run.length >= MISSING_WORDS) out.push({ kind: "missing", start: run[0].start, end: run[0].start, text: run.map((w) => w.text).join(" ") });
+    run = [];
+  };
+  for (const w of written.length ? lineUp(script, words) : []) {
+    if (w.found) closeRun();
+    else if (wordKey(w.text)) run.push(w); // a mark with no letters ("—") doesn't end a run
+  }
+  closeRun();
+  return out.sort((a, b) => a.start - b.start);
+};
+
+/** One heardProblems item, in words for the Director. take: it was heard from one voice line on its own, not the mix. */
+export const problemLine = (p, { take = false } = {}) => {
+  const at = `${p.start.toFixed(1)} s`;
+  if (p.kind === "repeat") return `${at}  "${p.text}" ${p.times} times in a row: speech to text probably made this up. Check before changing the video for it.`;
+  if (p.kind === "phantom") return `${at}  "${p.text}": speech to text often invents this on silence or music. Check before changing the video for it.`;
+  if (take) return `${at}  "${p.text}" wasn't heard: this take may have skipped it, or speech to text missed it.`;
+  return `${at}  "${p.text}" wasn't heard: is the line in Soundtrack.tsx, or is the sound drowning it?`;
 };
 
 /** Words → phrases a viewer hears as one: split after a sentence end, or at a pause longer than `gap` seconds. */

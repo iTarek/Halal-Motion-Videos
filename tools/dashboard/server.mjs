@@ -29,7 +29,7 @@ const engineReadyNow = (id) => {
   if (engineCache.value) engineCache.value[id] = status;
   return status;
 };
-import { checkVoice, DEFAULT_VOICE_ID, GEMINI_MODELS, GEMINI_VOICES, readSettings, VOICE_MODELS, voiceFits, voiceProviderOf, writeSettings } from "../settings.mjs";
+import { checkVoice, DEFAULT_VOICE_ID, GEMINI_MODELS, GEMINI_VOICES, readJson, readSettings, VOICE_MODELS, voiceFits, voiceProviderOf, writeSettings } from "../settings.mjs";
 import { checkGemini, geminiSpeech } from "../gemini.mjs";
 
 import { fileURLToPath } from "node:url";
@@ -42,7 +42,7 @@ const PORT = Number(process.env.PORT ?? 4000);
 const STUDIO_PORT = Number(process.env.STUDIO_PORT ?? 3000);
 const NAME = /^[a-z][a-z0-9-]*$/;
 let creating = Promise.resolve(); // POST /api/new runs one at a time
-const AGENT_API = 5; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters; 4: safeArea; 5: Gemini voice-over)
+const AGENT_API = 6; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters; 4: safeArea; 5: Gemini voice-over; 6: moves)
 // The autopilot queues a render when a build ends (renderJob is defined below; called later, at run time).
 const director = createDirector({ root: ROOT, brandsDir: BRANDS, dashboardUrl: `http://127.0.0.1:${PORT}`, onBuilt: (brand, video, opts) => renderJob({ brand, video, ...opts }).id });
 
@@ -112,6 +112,7 @@ const listVideos = () =>
               formats: formatsOf(vd),
               doc: readIf(path.join(vd, "README.md")) ?? readIf(path.join(vd, "BRIEF.md")),
               share: readIf(path.join(vd, "SHARE.md")), // the ready-to-post caption, written in the build step
+              moves: readJson(path.join(vd, "moves.json")), // the video's palette of moves (tools/moves.mjs)
               outputs: outputsOf(brand, video),
             };
           }),

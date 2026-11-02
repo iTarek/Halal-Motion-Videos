@@ -10,6 +10,8 @@
 //   voice-<format>-N.png    with a voice-over: the mix is heard back by speech to text, and this is the picture during
 //                           each spoken phrase, labelled with what's said — does the picture show it when it's said?
 //                           The phrases are also under wave.png and printed as "Heard:" with their real times.
+//   grid-<format>.png       the poster frame at the size people meet it: Instagram's profile grid shrinks a 1080 px cover
+//                           to about 130 px, YouTube's suggested list to 218 px. Can you still read the title?
 //
 // Usage: npm run review -- <brand> <video> [--format=vertical] [--strip=12.5,31] [--safe-area=on|off] [--out=<dir>]
 //   Default output: .director/tmp/<brand>-<video>/review/ (the Director clears it after each run).
@@ -20,7 +22,8 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { browserExecutable, CONCURRENCY, findCompositions, parseArgs, ROOT } from "./lib.mjs";
 import { CHROME_ARGS, findChrome } from "./chrome.mjs";
-import { phrasesOf, transcribe } from "./transcribe.mjs";
+import { readJson } from "./settings.mjs";
+import { heardProblems, phrasesOf, problemLine, transcribe } from "./transcribe.mjs";
 
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [brand, video] = pos;
@@ -29,13 +32,6 @@ if (!brand || !video) {
   process.exit(1);
 }
 const format = typeof flags.format === "string" ? flags.format : undefined;
-const readJson = (file) => {
-  try {
-    return JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch {
-    return null;
-  }
-};
 // The video's own settings (dashboard → Video settings, or `npm run video -- set …`). The Safe area switch is on unless
 // switched off; --safe-area=on|off overrides it for this run.
 const saved = readJson(path.join(ROOT, ".director", brand, `${video}.json`)) ?? {};
@@ -43,7 +39,7 @@ const safeArea = flags["safe-area"] === undefined ? saved.safeArea !== false : f
 const strips = typeof flags.strip === "string" ? flags.strip.split(",").map(Number).filter((n) => n >= 0) : [];
 const outDir = path.resolve(ROOT, typeof flags.out === "string" ? flags.out : path.join(".director", "tmp", `${brand}-${video}`, "review"));
 // Clear the last run's sheets, and only those: --out can name a folder that holds other files.
-const OURS = /^((contact|phone|strip|voice)-.+\.png|wave\.png|soundtrack\.wav|frames-.+)$/;
+const OURS = /^((contact|phone|strip|voice|grid)-.+\.png|wave\.png|soundtrack\.wav|frames-.+)$/;
 fs.mkdirSync(outDir, { recursive: true });
 for (const n of fs.readdirSync(outDir)) if (OURS.test(n)) fs.rmSync(path.join(outDir, n), { recursive: true, force: true });
 
@@ -100,6 +96,30 @@ const sheet = (items, { cols, cellW, cellH, title, zone, labelLines = 1 }, out) 
       : `line-height:${labelH}px`}}
   </style></head><body><div class="t">${esc(title)}</div><div class="g">${items
     .map((it) => `<div class="c"><div class="f"><img src="${esc(pathToFileURL(it.file).href)}">${tint}</div><div>${esc(it.label)}</div></div>`)
+    .join("")}</div></body></html>`;
+  return shoot(html, W, H, out);
+};
+
+/** Where a poster is really seen, at the size it's seen there. Each crops to its own shape around the middle. */
+const posterTiles = (width, height) => {
+  const tall = height / width;
+  if (tall > 1.7) return [{ w: 130, h: 173, label: "Instagram profile grid (3:4)" }, { w: 130, h: 231, label: "Reels tab (9:16)" }];
+  if (tall < 0.7) return [{ w: 218, h: Math.round(218 * tall), label: "YouTube suggested list" }];
+  return [{ w: 130, h: Math.round(130 * Math.min(tall, 4 / 3)), label: "Instagram profile grid" }];
+};
+
+/** The poster frame on its tiles, real size. */
+const gridSheet = (file, tiles, title, out) => {
+  const pad = 16, gap = 24, titleH = 40, labelH = 44;
+  const W = Math.max(1000, pad * 2 + tiles.reduce((sum, t) => sum + t.w + gap, -gap)); // wide enough for the title on one line
+  const H = pad * 2 + titleH + Math.max(...tiles.map((t) => t.h)) + labelH;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>${PAGE_CSS}
+    .t{padding:${pad}px ${pad}px 0;height:${titleH}px;font-size:18px;font-weight:bold}
+    .r{display:flex;gap:${gap}px;padding:0 ${pad}px;align-items:flex-start}
+    .r img{display:block;object-fit:cover}
+    .r div div{color:#e0a860;font-size:12px;padding-top:6px}
+  </style></head><body><div class="t">${esc(title)}</div><div class="r">${tiles
+    .map((t) => `<div style="width:${t.w}px"><img src="${esc(pathToFileURL(file).href)}" style="width:${t.w}px;height:${t.h}px"><div>${esc(t.label)}</div></div>`)
     .join("")}</div></body></html>`;
   return shoot(html, W, H, out);
 };
@@ -166,10 +186,11 @@ const secs = (frame, fps) => `${(frame / fps).toFixed(1)} s`;
 
 const { serveUrl, compositions } = await findCompositions({ brand, video, format });
 const made = [];
+let posterNote = "";
 
 // The soundtrack first: the same in every format, so rendered once. With a voice-over it's heard back by speech to
 // text, so the sheets show where each phrase really lands (not where the timeline meant it to).
-let wave = null, phrases = [], heardNote = "";
+let wave = null, phrases = [], heardNote = "", heardWrong = [];
 if (compositions.length) {
   const { composition: comp } = compositions[0];
   const wav = path.join(outDir, "soundtrack.wav");
@@ -182,7 +203,10 @@ if (compositions.length) {
   const script = saved.voiceover === false ? null : readJson(path.join(ROOT, "src", "brands", brand, video, "voiceover.json"));
   if (script) {
     try {
-      phrases = phrasesOf((await transcribe(wav, { language: script.language })).words);
+      const heard = (await transcribe(wav, { language: script.language })).words;
+      phrases = phrasesOf(heard);
+      // a recorded line has no text to compare with; only the words that should be in the mix count as missing
+      heardWrong = heardProblems(heard, (script.lines ?? []).map((l) => l.text ?? "").join(" "));
       if (!phrases.length) heardNote = "speech to text heard no words: is the voice-over in the mix, and loud enough?";
     } catch (e) {
       heardNote = `couldn't hear the voice-over back (${e.message})`;
@@ -212,7 +236,11 @@ for (const { composition: comp, format: f } of compositions) {
   const stripOf = (at) => Array.from({ length: 12 }, (_, i) => at - 5 + i).filter((x) => x >= 0 && x < total);
   // the middle of each spoken phrase
   const voiceAt = phrases.map((p) => Math.min(total - 1, Math.round(((p.start + p.end) / 2) * fps)));
-  const frames = [...new Set([...sampled, ...centres.flatMap((c) => stripOf(c.at)), ...voiceAt])].sort((a, b) => a - b);
+  const poster = comp.props.poster;
+  const hasPoster = Number.isInteger(poster) && poster >= 0 && poster < total;
+  if (poster !== undefined && !hasPoster) posterNote = `poster frame ${poster} isn't in the film (0–${total - 1}): fix it in index.ts.`;
+  else if (poster === undefined) posterNote = "no poster yet: set `poster` in index.ts, then review shows it at profile-grid size.";
+  const frames = [...new Set([...sampled, ...centres.flatMap((c) => stripOf(c.at)), ...voiceAt, ...(hasPoster ? [poster] : [])])].sort((a, b) => a - b);
 
   const frameDir = path.join(outDir, `frames-${f}`);
   fs.mkdirSync(frameDir, { recursive: true });
@@ -260,6 +288,10 @@ for (const { composition: comp, format: f } of compositions) {
         title: `${comp.id} — voice ${i + 1}/${all.length}: the picture while each phrase is heard. Does it show what's said?` },
       path.join(outDir, `voice-${f}-${i + 1}.png`)));
   });
+
+  if (hasPoster)
+    made.push(gridSheet(fileOf(poster), posterTiles(width, height), `${comp.id} — poster (${secs(poster, fps)}) at the size people meet it: can you still read the title?`,
+      path.join(outDir, `grid-${f}.png`)));
 }
 if (wave) made.push(wave.out);
 
@@ -268,11 +300,17 @@ for (const m of made) console.log(`  ${m.startsWith(ROOT + path.sep) ? path.rela
 if (phrases.length) {
   console.log("\nHeard (speech to text of the mix: where each phrase really lands):");
   for (const p of phrases) console.log(`  ${p.start.toFixed(1).padStart(5)}–${p.end.toFixed(1).padEnd(5)} s  ${p.text}`);
+  if (heardWrong.length) {
+    console.log("\nCheck these (the hearing itself can be wrong):");
+    for (const p of heardWrong) console.log(`  ⚠ ${problemLine(p)}`);
+  }
 } else if (heardNote) console.log(`\nVoice-over: ${heardNote}`);
+if (posterNote) console.log(`\nPoster: ${posterNote}`);
 console.log(`
 Now be a harsh motion director, not a proud author. Read every sheet, then score each 1–10:
   • hook — does the first 2 s grab you?
-  • readability — can you read every word on the phone sheets, and does each line stay up ~0.3 s per word?
+  • readability — can you read every word on the phone sheets, and does each line stay up ~0.3 s per word? On the grid
+    sheet, can you still read the poster's title?
   • motion quality — springs and eased moves, nothing robotic or floaty (check strips around fast moves)
   • variety — something new every 2–4 s; no two scenes with the same layout
   • composition — clear focal point, nothing clipped, overlapping or crowded; no muddy double exposure in the scene-change

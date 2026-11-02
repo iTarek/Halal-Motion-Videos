@@ -99,6 +99,7 @@
     'Renders and stills you start appear here with live progress.':'تظهر هنا مهام تصدير الفيديوهات والصور مع متابعة تقدمها.',
     'Starting Studio…':'جارٍ تشغيل الاستوديو…',"Studio didn't start — try `npm run studio` in a terminal.":'لم يبدأ الاستوديو. جرّب npm run studio في الطرفية.',
     'Style':'الأسلوب','Saved styles work on any video, any brand':'يمكن تطبيق الأساليب المحفوظة على أي فيديو أو علامة','Choose':'اختيار','— No style (new) —':'— دون أسلوب (جديد) —',
+    'Choosing moves':'اختيار الحركات',
     'Name':'الاسم','Description':'الوصف','e.g. Calm & cinematic':'مثلًا: هادئ وسينمائي',
     'Describe the look and feel: motion, pacing, transitions, typography, mood, sound…':'صف المظهر: الحركة والإيقاع والانتقالات والخطوط والأجواء والصوت…',
     'Save with the same name to update it · a new name makes a new style · the Director uses it from your next message':'احفظ بالاسم نفسه لتحديث الأسلوب، أو باسم جديد لإنشاء أسلوب آخر. يستخدمه المخرج من رسالتك التالية.',

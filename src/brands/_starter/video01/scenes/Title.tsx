@@ -1,20 +1,18 @@
 import React from "react";
 import { AbsoluteFill } from "remotion";
-import { Headline, Kicker, SceneFrame, useLayout } from "../../../../engine";
+import { Headline, SceneFrame } from "../../../../engine";
 import { COPY } from "../copy";
 import { SCENES } from "../timeline";
 
 const T = COPY.title;
 
-/** Cold open: kicker, then the headline word by word, payoff line in the accent colour. */
+/** Cold open and poster: only the headline, word by word, payoff line in the accent colour. Smaller text wouldn't read in a profile grid. */
 export const Title: React.FC = () => {
-  const { p } = useLayout();
   return (
     <SceneFrame dur={SCENES.title.dur} enter="none" exit="push" drift={0.035}>
-      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", gap: p(36, 30) }}>
-        <Kicker at={4} text={T.kicker} size={p(36, 32)} align="center" />
-        {/* 120 px on 9:16 keeps the longest line clear of the right 12% that TikTok, Reels and Shorts cover */}
-        <Headline lines={[{ words: T.l1 }, { words: T.l2, accent: true }]} size={p(120, 140)} start={10} align="center" />
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
+        {/* 140 px reads in a profile grid; on 9:16 a line must stay under about 10 letters to clear the right 12% TikTok, Reels and Shorts cover */}
+        <Headline lines={[{ words: T.l1 }, { words: T.l2, accent: true }]} size={140} start={10} align="center" />
       </AbsoluteFill>
     </SceneFrame>
   );

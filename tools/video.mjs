@@ -14,6 +14,9 @@
 //   approve <brand> <video>                 approve the brief (→ storyboard) or the storyboard (→ build) by hand
 //   stop <brand> <video>                    stop Claude and the autopilot
 //   list · new <brand> [video] · styles · outputs <brand> <video> · doctor · where
+//   moves <brand> <video> [--again] [--cues=number,list,…] [--family=calm|punch|editorial|onetake] [--rtl|--ltr]
+//                                           the video's palette of moves: shows it, or chooses one (--again: a new one)
+//   moves --list                            every move in the bank
 //   set <brand> [video] [settings]          brand: --url= --folder=
 //                                           video: --length=<s> --format=vertical|horizontal|both (or 9:16, 16:9) --language="…"
 //                                                  --voice-language="…" --voiceover=on|off --voice-id=<id> --style=<name|id|none>
@@ -65,7 +68,7 @@ const up = async () => {
     return false;
   }
 };
-const AGENT_API = 5; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area. 5: Gemini voice-over
+const AGENT_API = 6; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area. 5: Gemini voice-over. 6: moves
 const ensureServer = async () => {
   if (await up()) {
     const { agentApi } = await (await fetch(`${BASE}/api/state`)).json();
@@ -146,6 +149,10 @@ const statusOf = async (brand, video) => {
     lastReply: lastReply(d),
     brief: d.briefExists ? path.join(ROOT, "src", "brands", brand, video, "BRIEF.md") : null,
     share: v?.share ? path.join(ROOT, "src", "brands", brand, video, "SHARE.md") : null, // the post caption
+    // the palette of moves it's built on: 3 core moves plus accents, chosen unlike the brand's other videos
+    moves: v?.moves
+      ? { file: path.join(ROOT, "src", "brands", brand, video, "moves.json"), family: v.moves.family, style: v.moves.style?.name ?? null, core: (v.moves.core ?? []).map((m) => m.name), accents: (v.moves.accents ?? []).map((m) => m.name) }
+      : null,
     storyboard: d.storyboard.map((f) => path.join(ROOT, "out", brand, video, "storyboard", f.name)),
     render,
     outputs: (v?.outputs.videos ?? []).map((o) => path.join(ROOT, "out", brand, video, o.rel)),
@@ -168,6 +175,7 @@ const printStatus = (st, code = 0) =>
       st.autopilot?.note ? `  ${st.autopilot.note}` : "",
       st.lastReply ? `\nDirector:\n${st.lastReply}\n` : "",
       st.brief ? `Brief: ${st.brief}` : "",
+      st.moves ? `Moves (${st.moves.family}): ${st.moves.core.join(", ")} · ${st.moves.file}` : "",
       st.storyboard.length ? `Storyboard frames:\n${st.storyboard.map((f) => `  ${f}`).join("\n")}` : "",
       st.render ? `Render: job ${st.render.job} · ${st.render.status} · ${st.render.progress}%` : "",
       st.outputs.length ? `Outputs:\n${st.outputs.map((f) => `  ${f}`).join("\n")}` : "",
@@ -312,6 +320,13 @@ if (cmd === "where") {
   out(ROOT, { ok: true, root: ROOT });
   process.exit(0);
 }
+// A palette is a file and the bank a list: no server to start, and none too old to stop it.
+if (cmd === "moves") {
+  const args = flags.list ? [] : Object.values(needVideo());
+  const r = spawnSync(process.execPath, [path.join(ROOT, "tools", "moves.mjs"), ...args, ...argv.filter((a) => a.startsWith("--"))], { stdio: "inherit", windowsHide: true });
+  process.exit(r.status ?? 1);
+}
+
 await ensureServer();
 
 switch (cmd) {
@@ -483,5 +498,5 @@ switch (cmd) {
     break;
   }
   default:
-    fail("Commands: make · status · ask · approve · stop · fetch-assets · list · new · set · styles · render · outputs · voice-settings · doctor · where\n(see the top of tools/video.mjs)");
+    fail("Commands: make · status · ask · approve · stop · fetch-assets · list · new · set · styles · moves · render · outputs · voice-settings · doctor · where\n(see the top of tools/video.mjs)");
 }

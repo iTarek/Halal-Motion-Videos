@@ -5,7 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const VIDEO_PERMISSION_RULES = [
-  ...['typecheck', 'stills', 'review', 'shot', 'sfx', 'voice', 'copy-asset', 'appstore']
+  ...['typecheck', 'stills', 'review', 'shot', 'sfx', 'voice', 'moves', 'copy-asset', 'appstore']
     .map(script => `command(npm run ${script})`),
   'command(regex:node --version)',
 ];

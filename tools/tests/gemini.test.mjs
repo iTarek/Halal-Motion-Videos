@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { voiceFits, voiceProviderOf } from '../settings.mjs';
 import { checkGemini, geminiSpeech } from '../gemini.mjs';
-import { alignWords } from '../transcribe.mjs';
+import { alignWords, heardProblems, problemLine } from '../transcribe.mjs';
 
 const settings = (el, gm, voiceProvider = 'elevenlabs') => ({ elevenlabs: { apiKey: el }, gemini: { apiKey: gm }, voiceProvider });
 
@@ -261,4 +261,46 @@ globalThis.fetch = async (url, init = {}) => {
   assert.match(r.stderr, /asks for ElevenLabs/);
   assert.doesNotMatch(r.stderr, /Gemini/);
   assert.equal(r.calls.length, 0);
+});
+
+test('what speech to text makes up, or never heard, is pointed out', () => {
+  const w = (text, start, end) => ({ text, start, end });
+  const said = (text, from = 0) => text.split(' ').map((t, i) => w(t, from + i, from + i + 0.9));
+  const kinds = (words, script) => heardProblems(words, script).map(({ kind, text, times, start }) => ({ kind, text, times, start }));
+  // Whisper's loop: one phrase three times, one word four times
+  assert.deepEqual(kinds(said('اشترك معنا اشترك معنا اشترك معنا')), [{ kind: 'repeat', text: 'اشترك معنا', times: 3, start: 0 }]);
+  assert.deepEqual(kinds(said('go go go go')), [{ kind: 'repeat', text: 'go', times: 4, start: 0 }]);
+  // not a loop: too few, or the script says it that way
+  assert.deepEqual(kinds(said('go go go')), []);
+  assert.deepEqual(kinds(said('الله الله الله الله'), 'الله الله الله الله'), []);
+  assert.deepEqual(kinds(said('Hello world hello there')), []);
+  // one sign-off, one report, even when it contains a shorter one
+  assert.deepEqual(kinds(said('ترجمة نانسي قنقر')).map((p) => p.text), ['نانسي قنقر']);
+  // the sign-offs it invents, with marks and case ignored, unless the script says them
+  assert.deepEqual(kinds(said('Thanks for watching!', 5)), [{ kind: 'phantom', text: 'Thanks for watching!', times: undefined, start: 5 }]);
+  assert.deepEqual(kinds(said('شكراً للمشاهدة')), [{ kind: 'phantom', text: 'شكراً للمشاهدة', times: undefined, start: 0 }]);
+  assert.deepEqual(kinds(said('Thanks for watching'), 'Thanks for watching'), []);
+});
+
+test('script words nothing lines up with are reported, three or more in a row', () => {
+  const w = (text, start, end) => ({ text, start, end });
+  const script = '<short pause> Every prayer on time and the qibla always found. [warm] Open it today';
+  const heard = 'Every prayer on time Open it today'.split(' ').map((t, i) => w(t, i, i + 0.9));
+  // its neighbours may pair with stray letters, so it's the heart of the gap that's named
+  const missing = heardProblems(heard, script);
+  assert.deepEqual(missing.map((p) => p.kind), ['missing']);
+  assert.match(missing[0].text, /qibla always found/);
+  // a word heard with no length (Whisper can do that) was still heard
+  assert.deepEqual(heardProblems('Every prayer on time always'.split(' ').map((t, i) => w(t, i, i)), 'Every prayer on time always'), []);
+  // one word lost is ordinary mishearing; all of it heard is nothing to report
+  assert.deepEqual(heardProblems('Every prayer time'.split(' ').map((t, i) => w(t, i, i + 0.9)), 'Every prayer on time'), []);
+  assert.deepEqual(heardProblems(heard, 'Every prayer on time Open it today'), []);
+  assert.deepEqual(heardProblems([], ''), []);
+  // each kind reads as a sentence the Director can act on
+  assert.match(problemLine({ kind: 'missing', start: 3, end: 3, text: 'and the qibla' }), /3\.0 s .*wasn't heard/);
+  assert.match(problemLine({ kind: 'repeat', start: 1, end: 9, text: 'go', times: 4 }), /4 times/);
+  // one take on its own has no mix to blame
+  const take = problemLine({ kind: 'missing', start: 3, end: 3, text: 'and the qibla' }, { take: true });
+  assert.match(take, /this take may have skipped it/);
+  assert.doesNotMatch(take, /Soundtrack/);
 });

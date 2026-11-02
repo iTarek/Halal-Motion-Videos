@@ -36,7 +36,7 @@ import { execFileSync } from "node:child_process";
 import { GEMINI_MODELS, readSettings, ROOT, voiceFits, voiceProviderOf } from "./settings.mjs";
 import { viaDashboard } from "./broker.mjs";
 import { geminiSpeech } from "./gemini.mjs";
-import { alignWords, transcribe } from "./transcribe.mjs";
+import { alignWords, heardProblems, problemLine, transcribe } from "./transcribe.mjs";
 
 await viaDashboard("voice"); // inside the Director's sandbox the key is hidden: the dashboard runs it
 
@@ -255,6 +255,7 @@ for (const [i, line] of lines.entries()) {
     results[line.id] = { src: path.relative(videoPublic, take).split(path.sep).join("/"), seconds, words: heard.words, text: heard.text };
     cache[line.id] = { hash, result: results[line.id] };
     console.log(`${seconds}s, ${heard.words.length} words timed: "${heard.text.slice(0, 80)}${heard.text.length > 80 ? "…" : ""}"`);
+    for (const p of heardProblems(heard.words)) console.log(`  ⚠ ${problemLine(p, { take: true })}`);
     continue;
   }
   if (gemini) {
@@ -284,13 +285,14 @@ for (const [i, line] of lines.entries()) {
     }
     // No timings come with Gemini's audio: hear it back and time the script's own words to it. A line whose hearing
     // failed keeps its audio (no new take next run); only the hearing is tried again.
-    let note = "";
+    let note = "", problems = [];
     if (!result.words.length) {
       let why = "nothing heard";
       try {
         const heard = (await transcribe(file, { language })).words;
         result = { ...result, words: alignWords(line.text, heard) };
         if (heard.length) why = `heard ${heard.length} words, but couldn't line them up with the script`;
+        problems = heardProblems(heard, line.text);
       } catch (e) {
         why = e.message;
       }
@@ -301,6 +303,7 @@ for (const [i, line] of lines.entries()) {
     cache[line.id] = { hash: reused ? cached.hash : hash, result };
     fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2)); // paid audio is kept even if a later line fails
     console.log(note);
+    for (const p of problems) console.log(`  ⚠ ${problemLine(p, { take: true })} (word timings may be off: --only=${line.id} --force makes a new take)`);
     continue;
   }
   const body = {

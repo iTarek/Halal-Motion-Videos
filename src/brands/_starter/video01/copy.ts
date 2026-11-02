@@ -3,8 +3,7 @@
 
 export const COPY = {
   title: {
-    kicker: "Introducing",
-    l1: ["Your", "product,"],
+    l1: ["Your", "app,"], // short lines: this is the poster's title, big enough to read in a profile grid
     l2: ["in", "motion."],
   },
   feature: {
