@@ -1,7 +1,8 @@
 import React from "react";
 import { Img, useCurrentFrame, useVideoConfig } from "remotion";
 import { rgba } from "../color";
-import { ease, lerp, noise, prog, SPRING, springAt, type SpringFeel } from "../anim";
+import { clamp01, ease, lerp, noise, prog, SPRING, springAt, type SpringFeel } from "../anim";
+import { isolateNumbers, wordsOf } from "../text";
 import { useTheme } from "../theme";
 
 /** One whole word arriving: rise + unblur + fade. Never splits Arabic letters. */
@@ -62,7 +63,7 @@ export const Headline: React.FC<{
             const at = start + i++ * stagger;
             return (
               <React.Fragment key={wi}>
-                <Reveal at={at}>{w}</Reveal>
+                <Reveal at={at}>{direction === "rtl" ? isolateNumbers(w) : w}</Reveal>
                 {wi < line.words.length - 1 ? " " : null}
               </React.Fragment>
             );
@@ -120,7 +121,7 @@ export const Kicker: React.FC<{
             {num}
           </span>
         )}
-        <span>{text}</span>
+        <span>{rtl ? isolateNumbers(text) : text}</span>
         <span
           style={{
             width: lerp(0, size * 2.4, prog(f, at + 6, 20)),
@@ -301,13 +302,25 @@ export const MaskRise: React.FC<{
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
   const { direction } = useTheme();
-  const words = Array.isArray(text) ? text : text.split(/\s+/).filter(Boolean);
+  const fix = (s: string) => (direction === "rtl" ? isolateNumbers(s) : s);
+  const words = Array.isArray(text) ? text.map(fix) : wordsOf(fix(text));
   return (
     <span style={{ display: "inline-flex", flexWrap: "wrap", columnGap: "0.28em", direction, ...style }}>
       {words.map((w, i) => {
         const t = springAt(f, at + i * stagger, fps, feel);
+        // Only the bottom edge masks, and it drops away as the word lands: Arabic marks and tails reach past the line.
+        const edge = lerp(0, 2, clamp01((t - 0.75) / 0.25));
         return (
-          <span key={i} style={{ display: "inline-block", overflow: "hidden", padding: "0.12em 0", margin: "-0.12em 0" }}>
+          <span
+            key={i}
+            style={{
+              display: "inline-block",
+              clipPath: `inset(-2em -2em ${-edge}em -2em)`,
+              visibility: t <= 0 ? "hidden" : undefined, // tall marks would show above the edge before the word starts
+              padding: "0.12em 0",
+              margin: "-0.12em 0",
+            }}
+          >
             <span style={{ display: "inline-block", transform: `translateY(${(1 - t) * 115}%)` }}>{w}</span>
           </span>
         );

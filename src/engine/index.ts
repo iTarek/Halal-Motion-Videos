@@ -9,6 +9,7 @@ export * from "./theme";
 export * from "./assets";
 export * from "./fonts";
 export * from "./timeline";
+export * from "./text";
 export * from "./register";
 export * from "./components/ui";
 export * from "./components/Icon";

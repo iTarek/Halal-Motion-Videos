@@ -529,7 +529,7 @@ In the dashboard this is: **New brand** (or `+`) → fill Materials → pick Sty
 - **Layout:** `useLayout()` → `W`, `H`, `portrait`, `p(vertical, horizontal)`
 - **Scene shell:** `SceneFrame` (depth entry, push/drop exit), `SceneTrack` (sequences + light `Sweep` at cuts)
 - **Surfaces:** `Backdrop`, `Finish` (grain + vignette)
-- **Text:** `MaskRise` (words rise from behind a mask on a spring), `Headline` (word-by-word, accent payoff line), `Kicker`, `Reveal`, `ExampleBadge`
+- **Text:** `MaskRise` (words rise from behind a mask on a spring), `Headline` (word-by-word, accent payoff line), `Kicker`, `Reveal`, `ExampleBadge`, `isolateNumbers` (in an RTL video, a range like `25–30` shows as `30–25` without it; `MaskRise`, `Headline` and `Kicker` already apply it, so wrap any other on-screen text that has a range)
 - **UI:** `Card`, `Phone` (screenshot in an iPhone shell), `Waveform`, `LiveDot`, `Icon` (lucide)
 - **Sound:** `SoundCues` (cues with `peak`), `AudioBed`, `shared("sfx/…")`, `SHARED_SFX`
 - **Formats:** `VERTICAL`, `HORIZONTAL`, `SQUARE`, `PORTRAIT`
