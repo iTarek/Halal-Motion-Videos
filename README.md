@@ -80,7 +80,7 @@ npm start          # → http://localhost:4000
 | `npm start` | the dashboard |
 | `npm run new -- <brand> [video]` | new brand, or the next video in a brand |
 | `npm run studio` | Remotion Studio |
-| `npm run render -- <brand> [video] [format] [--frames=a-b] [--blur]` | render MP4s (audio mastered to -16 LUFS; `--blur` adds motion blur) |
+| `npm run render -- <brand> [video] [format] [--frames=a-b] [--blur] [--concurrency=N]` | render MP4s (audio mastered to -16 LUFS; `--blur` adds motion blur; `--concurrency` sets the Chrome tabs, by default what the free memory allows) |
 | `npm run review -- <brand> <video>` | review sheets for checking a video |
 | `npm run shot -- <brand> [video]` | real screenshots from `shots.json` |
 | `npm run shot -- <brand> --site` | a whole site with no recipe: screenshots on a phone and a desktop, and `site.json` with what it says |

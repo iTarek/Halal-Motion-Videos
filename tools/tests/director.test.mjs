@@ -12,7 +12,7 @@ import { canSandbox, SANDBOX_EXEC } from '../dashboard/sandbox.mjs';
 const noKeys=()=>({elevenlabs:{apiKey:'',voiceId:'NOpBlnGInO9m6vDvFkFC',voiceName:'',model:'eleven_v4'},
   gemini:{apiKey:'',voice:'Sadachbia',model:'gemini-3.8-flash-tts'},voiceProvider:'elevenlabs'});
 
-function fixture(t, engine, failSpawn, readSettings = noKeys) {
+function fixture(t, engine, failSpawn, readSettings = noKeys, onBuilt = () => {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hmv-director-'));
   t.after(() => {
     assert.ok(path.resolve(root).startsWith(path.resolve(os.tmpdir()) + path.sep));
@@ -26,7 +26,7 @@ function fixture(t, engine, failSpawn, readSettings = noKeys) {
     const p=new EventEmitter(); p.stdin=new PassThrough();p.stdout=new PassThrough();p.stderr=new PassThrough();p.kill=()=>{};
     calls.push({bin,args,options,p});return p;
   };
-  const director=createDirector({root,brandsDir:path.join(root,'src/brands'),onBuilt:()=>{},spawnProcess,readSettings});
+  const director=createDirector({root,brandsDir:path.join(root,'src/brands'),onBuilt,spawnProcess,readSettings});
   if (engine) director.setEngine('demo','video01',engine);
   return {director,calls,root};
 }
@@ -39,6 +39,17 @@ test('Without a picked engine the Director runs Claude with its guardrails, neve
   assert.equal(calls[0].bin,process.env.CLAUDE_BIN||'claude');
   assert.ok(calls[0].args.includes('--allowedTools') && calls[0].args.includes('--disallowedTools'));
   calls[0].p.emit('close',0);
+});
+
+test('The autopilot asks its render for the Chrome tabs it was given, and status shows them',t=>{
+  const built=[];
+  const {director,root}=fixture(t,undefined,false,noKeys,(...args)=>{built.push(args);return 7;});
+  fs.mkdirSync(path.join(root,'.director/demo'),{recursive:true});
+  fs.writeFileSync(path.join(root,'.director/demo/video01.json'),JSON.stringify({phase:'build',messages:[{role:'user',text:'Make it'},{role:'meta',text:''}]})); // a build that just finished
+  director.autopilot('demo','video01',{render:true,concurrency:2});
+  assert.deepEqual(built,[['demo','video01',{blur:false,concurrency:2}]]);
+  const {autopilot}=director.state('demo','video01');
+  assert.equal(autopilot.status,'done');assert.equal(autopilot.concurrency,2);assert.equal(autopilot.renderJob,7);
 });
 
 test('The brief step reads website text, so nothing it reads gets to install code; later steps may',t=>{

@@ -2,17 +2,10 @@
 import { bundle } from "@remotion/bundler";
 import { getCompositions } from "@remotion/renderer";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { remotionChrome } from "./chrome.mjs";
-
-/**
- * Frames rendered in parallel: up to 8, never more than this machine's cores (Remotion refuses more — e.g. a 4-core
- * Linux server). availableParallelism() also respects CPU limits set for containers.
- */
-export const CONCURRENCY = Math.max(1, Math.min(8, os.availableParallelism()));
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -40,6 +33,16 @@ export const removeOnExit = (dir) => {
   });
   // a stopped render ends on a signal, which skips "exit" unless it's handled
   for (const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143]]) process.once(signal, () => process.exit(code));
+};
+
+/**
+ * Ends a tool that rendered. After a crash Remotion starts a new Chrome, but at the end closes only the first one: the new
+ * one would keep this process open for good, and with it a dashboard job and the queue behind it. Exiting takes it along.
+ */
+export const quit = async (code) => {
+  if (code !== undefined) process.exitCode = code;
+  await Promise.all([process.stdout, process.stderr].map((s) => new Promise((done) => s.write("", done)))); // pipes on Windows are async
+  process.exit();
 };
 
 /** Bundles once and returns the compositions matching brand / video / format (each optional). */

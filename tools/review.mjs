@@ -20,8 +20,8 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { browserExecutable, CONCURRENCY, findCompositions, parseArgs, ROOT } from "./lib.mjs";
-import { CHROME_ARGS, findChrome } from "./chrome.mjs";
+import { browserExecutable, findCompositions, parseArgs, quit, ROOT } from "./lib.mjs";
+import { CHROME_ARGS, findChrome, renderBudget } from "./chrome.mjs";
 import { readJson } from "./settings.mjs";
 import { heardProblems, phrasesOf, problemLine, transcribe } from "./transcribe.mjs";
 
@@ -49,6 +49,7 @@ if (!chrome) {
   process.exit(1);
 }
 const browser = browserExecutable(); // Remotion's, for the frames
+const budget = renderBudget();
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
@@ -197,7 +198,7 @@ if (compositions.length) {
   process.stdout.write(`${comp.id}: rendering the soundtrack… `);
   await renderMedia({
     serveUrl, composition: comp, inputProps: comp.props, codec: "wav", outputLocation: wav, overwrite: true,
-    concurrency: Math.min(4, CONCURRENCY), ...(browser ? { browserExecutable: browser } : {}),
+    concurrency: Math.min(4, budget.tabs), offthreadVideoCacheSizeInBytes: budget.videoCache, ...(browser ? { browserExecutable: browser } : {}),
   });
   // a voiceover.json left over from before the Voice-over switch went off isn't in the mix: nothing to hear
   const script = saved.voiceover === false ? null : readJson(path.join(ROOT, "src", "brands", brand, video, "voiceover.json"));
@@ -248,7 +249,7 @@ for (const { composition: comp, format: f } of compositions) {
   // One browser for all frames (a renderStill per frame would launch Chrome every time).
   await renderFrames({
     serveUrl, composition: comp, inputProps: comp.props, frames, outputDir: frameDir,
-    imageFormat: "jpeg", jpegQuality: 85, scale, concurrency: Math.min(4, CONCURRENCY),
+    imageFormat: "jpeg", jpegQuality: 85, scale, concurrency: Math.min(4, budget.tabs), offthreadVideoCacheSizeInBytes: budget.videoCache,
     imageSequencePattern: "f-[frame].[ext]", onStart: () => {}, onFrameUpdate: () => {},
     ...(browser ? { browserExecutable: browser } : {}),
   });
@@ -323,3 +324,4 @@ Now be a harsh motion director, not a proud author. Read every sheet, then score
   • clarity — after one viewing, would a stranger know what it is, who it's for and how to get it?
 List the 3 biggest problems with timestamps. Fix them, then re-run (add --strip=<s> around fast moves).
 Repeat until every score is 8 or more.`);
+await quit();

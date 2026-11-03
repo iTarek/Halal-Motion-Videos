@@ -41,7 +41,7 @@ const ALLOWED_TOOLS = [
   "Bash(ls:*)", "Bash(mkdir:*)", "Bash(cp:*)", "Bash(file:*)", "Bash(sips:*)", "Bash(ffprobe:*)",
 ];
 
-/** onBuilt(brand, video, { blur }) → render job id: used by the autopilot to queue a render when the build ends.
+/** onBuilt(brand, video, { blur, concurrency }) → render job id: used by the autopilot to queue a render when the build ends.
  *  dashboardUrl: where a sandboxed engine's voice and shot ask to be run (tools/broker.mjs). */
 export const createDirector = ({
   root, brandsDir, onBuilt, spawnProcess = spawn, dashboardUrl = `http://127.0.0.1:${process.env.PORT ?? 4000}`, readSettings = readSettingsFile,
@@ -722,7 +722,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
   // ---- autopilot: an agent (or script) drives the whole video with no one at the page.
   // It approves the brief and the storyboard itself, then optionally queues a render.
   // In memory only: after a dashboard restart, start it again (it picks up where the video is).
-  const autos = new Map(); // "<brand>/<video>" → { status, stopAt, render, effort, prompt, retries, note, renderJob }
+  const autos = new Map(); // "<brand>/<video>" → { status, stopAt, render, concurrency, effort, prompt, retries, note, renderJob }
   const RETRY = {
     brief: "Continue: finish BRIEF.md and show the story list.",
     storyboard: "Continue: finish the storyboard — the 4 key frames.",
@@ -767,7 +767,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
         return approve(brand, video, a.effort);
       }
       // build finished cleanly
-      if (a.render && onBuilt) a.renderJob = onBuilt(brand, video, { blur: a.render === "blur" });
+      if (a.render && onBuilt) a.renderJob = onBuilt(brand, video, { blur: a.render === "blur", concurrency: a.concurrency });
       setAuto(a, "done", a.renderJob ? `Built. Render queued (job ${a.renderJob}).` : "Built. Review it in Studio or render it.");
     } catch (e) {
       setAuto(a, "failed", e.message);
@@ -806,7 +806,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
         briefExists: briefWritten(brand, video),
         storyboard: storyboardOf(brand, video),
         autopilot: autos.has(`${brand}/${video}`)
-          ? (({ status, stopAt, render, note, renderJob, started, updated }) => ({ status, stopAt, render, note, renderJob, started, updated }))(autos.get(`${brand}/${video}`))
+          ? (({ status, stopAt, render, concurrency, note, renderJob, started, updated }) => ({ status, stopAt, render, concurrency, note, renderJob, started, updated }))(autos.get(`${brand}/${video}`))
           : null,
       };
     },
@@ -817,10 +817,10 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       if (a?.status === "blocked") setAuto(a, "running", "");
     },
     approve,
-    /** Starts (or resumes) the autopilot. prompt: optional first/extra message; stopAt: "brief" | "storyboard"; render: false | true | "blur". */
-    autopilot(brand, video, { prompt, stopAt, render, effort } = {}) {
+    /** Starts (or resumes) the autopilot. prompt: optional first/extra message; stopAt: "brief" | "storyboard"; render: false | true | "blur"; concurrency: its Chrome tabs. */
+    autopilot(brand, video, { prompt, stopAt, render, concurrency, effort } = {}) {
       if (stopAt && !["brief", "storyboard"].includes(stopAt)) throw new Error('stopAt is "brief" or "storyboard".');
-      const a = { status: "running", stopAt: stopAt || null, render: render || false, effort, prompt: String(prompt ?? "").trim() || null, retries: 0, note: "", renderJob: null, started: Date.now(), updated: Date.now() };
+      const a = { status: "running", stopAt: stopAt || null, render: render || false, concurrency: concurrency ?? null, effort, prompt: String(prompt ?? "").trim() || null, retries: 0, note: "", renderJob: null, started: Date.now(), updated: Date.now() };
       autos.set(`${brand}/${video}`, a);
       advance(brand, video); // if the Director is mid-run, it continues when that run ends
       return a;

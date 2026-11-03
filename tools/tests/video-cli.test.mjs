@@ -4,6 +4,7 @@ import http from 'node:http';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import fs, { readFileSync } from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -202,25 +203,28 @@ test('voice-settings says who really narrates when Gemini is picked without its 
 
 // The real dashboard server, run from a copy of tools/ in a temp folder: its own settings file, so no real key is read
 // and nothing reaches ElevenLabs or Google (every case here stops before any remote check).
-test('the dashboard takes a Gemini voice per video, and refuses bad models, keys and providers before asking anyone',async t=>{
-  const {mkdtempSync,cpSync,symlinkSync,mkdirSync,writeFileSync,rmSync}=await import('node:fs');
-  const {tmpdir}=await import('node:os');const {join}=await import('node:path');const net=await import('node:net');
+const realDashboard=async t=>{
   const repo=fileURLToPath(new URL('../../',import.meta.url));
-  const root=mkdtempSync(join(tmpdir(),'hmv-server-'));
-  t.after(()=>rmSync(root,{recursive:true,force:true}));
-  cpSync(join(repo,'tools'),join(root,'tools'),{recursive:true,filter:src=>!src.includes('__pycache__')});
-  symlinkSync(join(repo,'node_modules'),join(root,'node_modules'),'junction');
-  mkdirSync(join(root,'src','brands','demo','video01'),{recursive:true});writeFileSync(join(root,'src','brands','demo','video01','index.ts'),'');
-  const settings=(s)=>{mkdirSync(join(root,'.director'),{recursive:true});writeFileSync(join(root,'.director','settings.json'),JSON.stringify(s));};
-  settings({gemini:{apiKey:'test-gemini-key'}}); // Gemini narrates
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'hmv-server-'));
+  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  fs.cpSync(path.join(repo,'tools'),path.join(root,'tools'),{recursive:true,filter:src=>!src.includes('__pycache__')});
+  fs.symlinkSync(path.join(repo,'node_modules'),path.join(root,'node_modules'),'junction');
+  fs.mkdirSync(path.join(root,'src','brands','demo','video01'),{recursive:true});fs.writeFileSync(path.join(root,'src','brands','demo','video01','index.ts'),'');
   const port=await new Promise(resolve=>{const s=net.createServer().listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});
-  const proc=spawn(process.execPath,[join(root,'tools','dashboard','server.mjs')],{env:{...process.env,PORT:String(port),ELEVENLABS_API_KEY:''},windowsHide:true});
+  const proc=spawn(process.execPath,[path.join(root,'tools','dashboard','server.mjs')],{env:{...process.env,PORT:String(port),ELEVENLABS_API_KEY:''},windowsHide:true});
   t.after(()=>proc.kill());
   let log='';proc.stdout.setEncoding('utf8');proc.stderr.setEncoding('utf8');proc.stderr.on('data',x=>log+=x);
   await new Promise((resolve,reject)=>{proc.stdout.on('data',x=>{log+=x;if(log.includes('dashboard →')) resolve();});proc.on('close',()=>reject(new Error(log)));});
   const post=async(p,body)=>{const r=await fetch(`http://127.0.0.1:${port}${p}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:r.status,text:await r.text()};};
+  return {root,post};
+};
+
+test('the dashboard takes a Gemini voice per video, and refuses bad models, keys and providers before asking anyone',async t=>{
+  const {root,post}=await realDashboard(t);
+  const settings=(s)=>{fs.mkdirSync(path.join(root,'.director'),{recursive:true});fs.writeFileSync(path.join(root,'.director','settings.json'),JSON.stringify(s));};
+  settings({gemini:{apiKey:'test-gemini-key'}}); // Gemini narrates
   const voice=(voiceId)=>post('/api/director/voiceover',{brand:'demo',video:'video01',voiceId});
-  const saved=()=>JSON.parse(readFileSync(join(root,'.director','demo','video01.json'),'utf8')).voiceId;
+  const saved=()=>JSON.parse(readFileSync(path.join(root,'.director','demo','video01.json'),'utf8')).voiceId;
   // Gemini in use: a 4-letter name passes, in its own case; an ElevenLabs ID doesn't
   let r=await voice('kore');assert.equal(r.status,200,r.text);assert.equal(saved(),'Kore');
   r=await voice('NOpBlnGInO9m6vDvFkFC');assert.equal(r.status,409);assert.match(r.text,/isn't a Gemini voice/);
@@ -235,5 +239,62 @@ test('the dashboard takes a Gemini voice per video, and refuses bad models, keys
   r=await post('/api/settings',{geminiKey:'AIza test key'});assert.equal(r.status,400);assert.match(r.text,/doesn't look like an API key/);
   // Voice test: a provider typo never sends a typed key to the other provider
   r=await post('/api/voice/test',{provider:'Gemini',apiKey:'AIza-typed-key'});assert.equal(r.status,400);assert.match(r.text,/elevenlabs or gemini/);
-  assert.deepEqual(JSON.parse(readFileSync(join(root,'.director','settings.json'),'utf8')),{elevenlabs:{apiKey:'test-elevenlabs-key'}}); // nothing written
+  assert.deepEqual(JSON.parse(readFileSync(path.join(root,'.director','settings.json'),'utf8')),{elevenlabs:{apiKey:'test-elevenlabs-key'}}); // nothing written
+});
+
+// Chrome tabs, from an agent: `--concurrency` reaches the server from `render` and `make --render`, and a bad one never does.
+test('an agent sets the Chrome tabs of a render, and is told how many to try after a crash',async t=>{
+  const sent=[];let log=[];
+  const server=http.createServer(async(req,res)=>{
+    let raw='';for await(const c of req) raw+=c;
+    const url=new URL(req.url,'http://localhost');
+    if(url.pathname==='/api/render'||url.pathname==='/api/director/autopilot') sent.push({path:url.pathname,...JSON.parse(raw)});
+    const data=url.pathname==='/api/state'
+      ? {agentApi:AGENT_API,brands:[{brand:'demo',videos:[{video:'video01',outputs:{videos:[],stills:[]}}]}],jobs:log.length?[{id:3,brand:'demo',video:'video01',label:'Render demo/video01',status:'failed',progress:40,log}]:[]}
+      : {ok:true,id:3,engine:'claude',claude:{ok:true},phase:'build',running:false,messages:[],storyboard:[],styles:[],voice:{length:10},autopilot:null};
+    res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const cli=async(...args)=>{
+    const proc=spawn(process.execPath,[fileURLToPath(new URL('../video.mjs',import.meta.url)),...args,'--json'],{env:{...process.env,PORT:String(server.address().port)},windowsHide:true});
+    let out='';proc.stdout.setEncoding('utf8');proc.stdout.on('data',x=>out+=x);
+    const code=await new Promise(resolve=>proc.on('close',resolve));
+    return {code,json:JSON.parse(out)};
+  };
+  let r=await cli('render','demo','video01','--concurrency=2');assert.equal(r.code,0);
+  assert.equal(sent.at(-1).path,'/api/render');assert.equal(sent.at(-1).concurrency,2);
+  r=await cli('render','demo','video01');assert.equal(r.code,0);assert.equal('concurrency' in sent.at(-1),false); // left to the free memory
+  r=await cli('make','demo','video01','--render','--concurrency=3');assert.equal(r.code,0);
+  assert.equal(sent.at(-1).path,'/api/director/autopilot');assert.equal(sent.at(-1).concurrency,3);assert.equal(sent.at(-1).render,true);
+  const before=sent.length;
+  for(const bad of [['render','demo','video01','--concurrency=0'],['render','demo','video01','--concurrency=lots'],['render','demo','video01','--concurrency'],['make','demo','video01','--render','--concurrency=1.5']]){
+    r=await cli(...bad);assert.equal(r.code,1,bad.join(' '));assert.match(r.json.error,/whole number of Chrome tabs/);
+  }
+  r=await cli('make','demo','video01','--concurrency=2');assert.equal(r.code,1);assert.match(r.json.error,/use it with --render/);
+  assert.equal(sent.length,before,'a bad number reached the server');
+  // a crash: status's next names the number the render's own message gave
+  log=['demo-video01-vertical: 40%','The render crashed (Target closed), most likely out of memory with 8 tabs.','Close other apps, or render with fewer tabs:','npm run render -- demo video01 --concurrency=4'];
+  r=await cli('status','demo','video01');assert.match(r.json.next,/`render` again with --concurrency=4/);assert.equal(r.json.render.log.at(-1),log.at(-1));
+  r=await cli('render','demo','video01','--wait');assert.equal(r.code,1);assert.match(r.json.next,/--concurrency=4/); // the --wait result says it too
+  // any other failure: no made-up number
+  log=['Error: poster frame 900 is not in the film'];
+  r=await cli('status','demo','video01');assert.match(r.json.next,/see render\.log/);assert.doesNotMatch(r.json.next,/--concurrency/);
+});
+
+// The number reaches the render job's command line and its label, and a bad one is refused.
+test('the dashboard hands the Chrome tabs to the render job, and refuses a bad number',async t=>{
+  const {root,post:postTo}=await realDashboard(t);
+  const post=(p,body)=>postTo(p,{brand:'demo',video:'video01',...body});
+  const seen=path.join(root,'render-args.json');
+  fs.writeFileSync(path.join(root,'tools','render.mjs'),`import fs from 'node:fs';fs.writeFileSync(${JSON.stringify(seen)},JSON.stringify(process.argv.slice(2)));`); // stands in for a render
+  for(const concurrency of [0,-1,1.5,'2']){
+    for(const route of ['/api/render','/api/director/autopilot']){
+      const r=await post(route,{concurrency});assert.equal(r.status,400,`${route} ${concurrency}`);assert.match(r.text,/whole number of Chrome tabs/);
+    }
+  }
+  assert.equal(fs.existsSync(seen),false);
+  const r=await post('/api/render',{concurrency:2});assert.equal(r.status,200,r.text);assert.match(JSON.parse(r.text).label,/tabs 2/);
+  for(let i=0;i<100&&!(fs.existsSync(seen)&&fs.statSync(seen).size);i++) await new Promise(resolve=>setTimeout(resolve,100));
+  assert.deepEqual(JSON.parse(fs.readFileSync(seen,'utf8')),['demo','video01','--concurrency=2']);
 });

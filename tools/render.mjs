@@ -1,15 +1,17 @@
 // Renders a brand's videos to out/<brand>/<video>/<brand>-<video>-<format>.mp4 and masters the audio. A video with a
 // `poster` frame (its index.ts) also gets it as frame 0 — the thumbnail platforms show — and as stills/<name>-poster.jpg.
-// Usage: npm run render -- <brand> [video] [format] [--frames=0-89] [--blur[=8]]
+// Usage: npm run render -- <brand> [video] [format] [--frames=0-89] [--blur[=8]] [--concurrency=N]
 //   npm run render -- my-app                    every my-app video, every format
 //   npm run render -- my-app video01 vertical   one file
 //   npm run render -- my-app video01 --frames=0-89   first 3 s only (quick check)
 //   npm run render -- my-app video01 --blur     "film look": motion blur from 8 sub-frames per frame (~8× slower)
+//   npm run render -- my-app video01 --concurrency=2   Chrome tabs at once (default: what the free memory allows)
 import { renderMedia } from "@remotion/renderer";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { browserExecutable, CONCURRENCY, findCompositions, outDir, parseArgs, ROOT } from "./lib.mjs";
+import { crashAdvice, renderBudget } from "./chrome.mjs";
+import { browserExecutable, findCompositions, outDir, parseArgs, quit, ROOT } from "./lib.mjs";
 import { describe, fixAudio } from "./audiofix.mjs";
 import { masterAudio } from "./master.mjs";
 import { bakePoster } from "./poster.mjs";
@@ -17,7 +19,7 @@ import { bakePoster } from "./poster.mjs";
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [brand, video, format] = pos;
 if (!brand) {
-  console.error("Usage: npm run render -- <brand> [video] [format] [--frames=a-b] [--blur[=8]]");
+  console.error("Usage: npm run render -- <brand> [video] [format] [--frames=a-b] [--blur[=8]] [--concurrency=N]");
   process.exit(1);
 }
 const frameRange = typeof flags.frames === "string" ? flags.frames.split("-").map(Number) : undefined;
@@ -25,6 +27,11 @@ if (frameRange && !(frameRange.length <= 2 && frameRange.every((n) => Number.isI
   console.error(`--frames=${flags.frames}: use first-last frame, e.g. --frames=0-89 (or one frame, --frames=45).`);
   process.exit(1);
 }
+if (flags.concurrency !== undefined && !/^[1-9]\d*$/.test(flags.concurrency)) {
+  console.error(`--concurrency=${flags.concurrency}: use a whole number of Chrome tabs, 1 or more, e.g. --concurrency=2.`);
+  process.exit(1);
+}
+const concurrency = flags.concurrency && Number(flags.concurrency);
 // Motion blur: the film is rendered `blur` times, each shifted by a fraction of a frame (180° shutter), and ffmpeg
 // averages them. 8 is smooth; 4 is faster but can leave ghost copies on fast moves.
 const blur = flags.blur ? Math.max(2, Math.min(16, Number(flags.blur === true ? 8 : flags.blur) || 8)) : 0;
@@ -59,9 +66,11 @@ for (const { composition, brand: b, video: v, format: f } of compositions) {
     if (pct !== last) console.log(`${label}: ${(last = pct)}%`);
   };
   const browser = browserExecutable();
+  const { tabs, videoCache } = renderBudget({ concurrency }); // per film: what's free changes as a long batch goes on
+  console.log(`${composition.id}: ${tabs} Chrome tab${tabs > 1 ? "s" : ""}`);
   const common = {
     serveUrl, composition, crf: 16, pixelFormat: "yuv420p", colorSpace: "bt709", imageFormat: "jpeg", jpegQuality: 95,
-    concurrency: CONCURRENCY, overwrite: true,
+    concurrency: tabs, offthreadVideoCacheSizeInBytes: videoCache, overwrite: true,
     ...(browser ? { browserExecutable: browser } : {}),
     frameRange: frameRange && frameRange.length === 2 ? [frameRange[0], frameRange[1]] : frameRange?.[0],
   };
@@ -81,7 +90,7 @@ for (const { composition, brand: b, video: v, format: f } of compositions) {
       }
       const audio = path.join(tmp, "audio.wav");
       await renderMedia({ serveUrl, composition, codec: "wav", outputLocation: audio, inputProps: composition.props,
-        overwrite: true, concurrency: CONCURRENCY, frameRange: common.frameRange, ...(browser ? { browserExecutable: browser } : {}) });
+        overwrite: true, concurrency: tabs, offthreadVideoCacheSizeInBytes: videoCache, frameRange: common.frameRange, ...(browser ? { browserExecutable: browser } : {}) });
       console.log(`${composition.id}: blending ${blur} passes…`);
       execFileSync("ffmpeg", [
         "-hide_banner", "-loglevel", "error", "-y",
@@ -101,6 +110,12 @@ for (const { composition, brand: b, video: v, format: f } of compositions) {
     // hidden, half-written files would stay in out/ for good
     fs.rmSync(output, { force: true });
     fs.rmSync(tmp, { recursive: true, force: true });
+    const advice = crashAdvice(e, tabs, process.argv.slice(2));
+    if (advice) {
+      console.error(advice);
+      await quit(1);
+    }
     throw e;
   }
 }
+await quit();

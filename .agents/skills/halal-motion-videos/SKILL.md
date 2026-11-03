@@ -163,6 +163,7 @@ More commands and every JSON field: [references/commands.md](references/commands
 - **No git:** never `git commit` or `git push`. The human commits.
 - **Real claims only:** don't ask the Director to invent features, numbers or reviews. Illustrative data gets an "Example data" label automatically.
 - **Renders are slow and large:** render once the video is done, not after every change.
+- **A render that crashes:** it takes as many Chrome tabs as the free memory allows, and retries a crashed frame once. If it still fails, `status` says in `next` how many tabs to try: `scripts/video render <brand> <video> --concurrency=2`. For the autopilot's render: `make … --render --concurrency=2`.
 - **Deleting:** never delete brands, videos or outputs unless the human asks.
 - **Parallel videos:** different brands run at the same time. Two videos of the same brand take turns, one step each (`status` shows `waiting: true`); that's normal.
 

@@ -90,7 +90,7 @@
     'Logo, screenshots, fonts, sounds — sorted into img/, fonts/, sfx/ automatically':'شعار وصور وخطوط وأصوات — تُرتّب تلقائيًا في img/ وfonts/ وsfx/',
     'Upload failed':'فشل رفع الملفات','Download':'تنزيل','Preview':'المعاينة','opens in Studio':'تفتح في الاستوديو','Render':'التصدير','All':'الكل',
     'vertical':'عمودي','horizontal':'أفقي','square':'مربع','portrait':'طولي','Quick check · first 3 s':'فحص سريع · أول ٣ ثوانٍ',
-    'Film look · motion blur':'مظهر سينمائي · ضبابية الحركة','(~8× slower)':'(أبطأ بنحو ٨ مرات)',
+    'Film look · motion blur':'مظهر سينمائي · ضبابية الحركة','film look':'مظهر سينمائي','all formats':'جميع الأبعاد','(~8× slower)':'(أبطأ بنحو ٨ مرات)',
     'Blends 8 sub-frames per frame so fast moves blur like a real camera. Rendering takes about 8× longer.':'يدمج ثماني لقطات فرعية لكل إطار لمحاكاة ضبابية الحركة. يستغرق التصدير نحو ثمانية أضعاف الوقت.',
     'Render MP4':'تصدير MP4','Stills':'صور ثابتة','Make stills':'إنشاء صور ثابتة','Stills: 0, 60, 120':'إطارات الصور: 0, 60, 120',
     'Outputs':'المخرجات','Nothing rendered yet — renders and stills show up here.':'لا توجد مخرجات بعد. تظهر الفيديوهات والصور الثابتة هنا.',
@@ -151,6 +151,7 @@
   const patterns = [
     [/^Codex cannot write to its local data folder\. Close the dashboard server and launch Start\.bat from Windows under your normal user account, then retry\. Diagnostic details:\n([\s\S]*)$/,(_,details)=>`لا يستطيع Codex الكتابة في مجلد بياناته المحلي. أغلق خادم الأداة وشغّل Start.bat من ويندوز بحسابك المعتاد، ثم أعد المحاولة. تفاصيل التشخيص:\n${details}`],
     [/^(\d+)s · (.+)$/,(_,x,y)=>`${x} ث · ${y}`],
+    [/^Render (\S+)( · .+)$/,(_,video,parts)=>`تصدير ${video}`+parts.split(' · ').map(x=>ar[x]??x.replace(/^frames /,'الإطارات ').replace(/^tabs /,'تبويبات Chrome: ')).join(' · ')], // a job's label (server.mjs → renderJob)
     [/^Built\. Render queued \(job (\d+)\)\.$/,(_,x)=>`اكتمل البناء. أُضيف التصدير إلى قائمة الانتظار (المهمة ${x}).`],
     [/^The selected Director engine \((.+)\) is not ready\. Install it and log in, or choose another engine\.$/,(_,x)=>`المحرك المختار (${x}) غير جاهز. ثبّته وسجّل الدخول أو اختر محركًا آخر.`],
     [/^Couldn't resume the previous Codex session — send your message again to start fresh\.$/,()=>`تعذر استئناف جلسة Codex السابقة. أرسل رسالتك مجددًا لبدء جلسة جديدة.`],

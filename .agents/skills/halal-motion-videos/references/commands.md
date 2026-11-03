@@ -9,13 +9,13 @@
 
 | Command | Does |
 | --- | --- |
-| `make <brand> <video\|next> ["<about>"] [settings] [--stop-at=brief\|storyboard] [--render[=blur]] [--app-id=…] [--effort=…]` | Starts the autopilot: brief, then storyboard, then build, then render. It approves each step itself and returns at once. Creates the brand/video if missing. Run it again to resume after `failed`, `paused` or `stopped`, or to render a built video (`make b v --render`). `--app-id` runs `fetch-assets` first. |
+| `make <brand> <video\|next> ["<about>"] [settings] [--stop-at=brief\|storyboard] [--render[=blur]] [--concurrency=N] [--app-id=…] [--effort=…]` | Starts the autopilot: brief, then storyboard, then build, then render. It approves each step itself and returns at once. Creates the brand/video if missing. Run it again to resume after `failed`, `paused` or `stopped`, or to render a built video (`make b v --render`). `--app-id` runs `fetch-assets` first. `--concurrency` goes with `--render`, as on `render`. |
 | `fetch-assets <brand> <App Store id or URL> [--country=sa] [--no-ipad]` | For iOS apps (no website needed). Asks Apple's public lookup API, then downloads the 1024×1024 icon and the full-size iPhone/iPad store screenshots to `public/<brand>/brand/img/store/`. Writes the listing into the brand's BRAND.md: name, seller, link, and the app's own description and release notes. Sets the brand's website to the App Store page if none is set. Creates the brand if missing. Re-run to refresh. If the app isn't in the US store, it tries other stores, or pass `--country`. |
 | `status <brand> <video>` | Where the video is and what to do next (fields below). |
 | `ask <brand> <video> "<message>"` | Sends a message to the Director: answer its question, or ask for changes. Un-blocks a `blocked` autopilot. |
 | `approve <brand> <video>` | Approves by hand: the brief (then Claude builds the storyboard) or the storyboard (then Claude builds the video). Refused when there's nothing to approve. |
 | `stop <brand> <video>` | Stops Claude and the autopilot. |
-| `render <brand> <video> [--format=vertical\|horizontal] [--blur] [--frames=0-89]` | Queues an MP4 render. Default is all formats; audio is mastered to -16 LUFS. `--blur` is the film look, about 8× slower. |
+| `render <brand> <video> [--format=vertical\|horizontal] [--blur] [--frames=0-89] [--concurrency=N]` | Queues an MP4 render. Default is all formats; audio is mastered to -16 LUFS. `--blur` is the film look, about 8× slower. `--concurrency` sets the Chrome tabs at once; by default the render takes what the free memory allows. |
 | `outputs <brand> <video>` | Rendered MP4s and stills, newest first. |
 | `fetch-site <brand> [--url=https://…]` | Screenshots of the product's website (top of the page and all of it, phone and desktop) into `public/<brand>/brand/img/shots/`, and what it says into `src/brands/<brand>/brand/site.json`: title, description, headings, text, buttons, colours, fonts, icons. The address defaults to the brand's saved website; `--fresh` uses a clean browser instead of the brand's saved one, with its logins. The brand must exist (`new <brand>`). The Director does this itself when there's a website, so use it to look first. With `--json`: `{ ok, shots, site }`, or `{ ok: false, error }`. Needs no server. |
 | `moves <brand> <video> [--again] [--cues=…] [--family=…] [--rtl] [--ltr]` | The video's palette of moves: 3 core moves plus accents, chosen unlike the brand's other videos. The Director chooses it in the storyboard step; this shows it, or chooses one before then. `--again` chooses a new one (before the storyboard, or the Director won't build on it). `--cues=number,list,price,cta,contrast,emphasis,reveal,tech,hit,captions` asks for accents for those moments. `--family=calm\|punch\|editorial\|onetake` sets the feel. `--rtl` / `--ltr` overrides what it reads from the video's language (`--rtl` lets the Arabic-script moves in). `moves --list` prints the whole bank. With `--json`, a palette is `{ ok, file, family, style, core, accents, always }` and the bank `{ ok, moves }`; a move has `how`, what to do, and a suggested `style` its `text`. Needs no dashboard server. |
@@ -49,7 +49,7 @@
   "running": true,
   "activity": "Checking frames (stills)",
   "waiting": false,
-  "autopilot": { "status": "running", "stopAt": null, "render": true, "note": "", "renderJob": null, "started": 1760000000000, "updated": 1760000000000 },
+  "autopilot": { "status": "running", "stopAt": null, "render": true, "concurrency": null, "note": "", "renderJob": null, "started": 1760000000000, "updated": 1760000000000 },
   "engine": "claude",
   "claude": "ok",
   "codex": "ok",
@@ -80,10 +80,10 @@
 | `storyboard` | The 4 storyboard frames (hook, key feature, climax, end card), once made |
 | `settings` | The video's settings: `format`, `length`, `language`, `voiceLanguage`, `voiceover`, `voiceProvider` (`elevenlabs`, `gemini`, or null without a key), `voiceId`, `safeArea`, `style`, `website`, `folder` (change them with `set`; flags in SKILL.md → Settings) |
 | `engine` | The Director engine for this video: `claude` (default), `codex` or `antigravity` |
-| `autopilot` | `null` if never started. `status`: `running`, `blocked`, `paused`, `failed`, `done`, `stopped`. `note` says why. |
+| `autopilot` | `null` if never started. `status`: `running`, `blocked`, `paused`, `failed`, `done`, `stopped`. `note` says why. `concurrency` is the Chrome tabs asked for its render, or `null`. |
 | `claude` / `codex` / `antigravity` | `"ok"`, or how to fix that CLI (missing, too old, logged out) |
 | `lastReply` | The Director's latest message (its question when `blocked`, its error when `failed`) |
-| `render` | The latest render job for this video: `queued`, `running`, `done`, `failed`, `cancelled`, with `progress` 0–100. `log` holds the last lines when it failed. |
+| `render` | The latest render job for this video: `queued`, `running`, `done`, `failed`, `cancelled`, with `progress` 0–100. `log` holds the last lines when it failed; after a crash they end with the `--concurrency` to try, and `next` says it too. |
 | `outputs` | All finished MP4s for this video, newest first. Their frame 0 is the video's poster frame, when it has one. |
 | `share` | `SHARE.md`, the ready-to-post caption the Director writes in the build step, or `null` before that |
 | `facts` | `facts.md`, every number, name and claim on screen with where it came from, or `null` before the Director writes it. Worth checking before you approve a brief. |

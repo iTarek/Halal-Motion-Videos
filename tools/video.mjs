@@ -3,7 +3,7 @@
 // Every command takes --json for machine-readable output. Nothing here blocks for long unless you add --wait.
 //
 //   make <brand> <video|next> ["<what the video is about>"] [settings] [--stop-at=brief|storyboard] [--render[=blur]]
-//        [--app-id=<App Store id or URL>]
+//        [--concurrency=N] [--app-id=<App Store id or URL>]
 //        The autopilot: brief → storyboard → build (→ render), approving each step itself. Returns at once;
 //        poll `status`, or add --wait. Creates the brand/video if needed. Run it again to resume or continue.
 //        --app-id first fetches the app's icon, store screenshots and listing (see fetch-assets).
@@ -21,7 +21,8 @@
 //   set <brand> [video] [settings]          brand: --url= --folder=
 //                                           video: --length=<s> --format=vertical|horizontal|both (or 9:16, 16:9) --language="…"
 //                                                  --voice-language="…" --voiceover=on|off --voice-id=<id> --style=<name|id|none>
-//   render <brand> <video> [--format=vertical] [--blur] [--frames=0-89]
+//   render <brand> <video> [--format=vertical] [--blur] [--frames=0-89] [--concurrency=N]
+//                                           --concurrency: Chrome tabs at once (default: what the free memory allows)
 //   voice-settings [--voice-id=<id>] [--model=eleven_v4|eleven_v4_turbo] [--key-stdin] [--clear-key]   (ElevenLabs; key read from stdin)
 //                  [--provider=elevenlabs|gemini] [--gemini-key-stdin] [--clear-gemini-key] [--gemini-voice=<name>] [--gemini-model=<id>]
 //                  (--provider picks who narrates; the Gemini key is read from stdin too, one key per run)
@@ -59,6 +60,12 @@ const fail = (msg, code = 1) => {
   process.exit(code);
 };
 const progress = (msg) => { if (!JSON_OUT) process.stderr.write(`${msg}\n`); };
+/** --concurrency for the server, checked before anything is queued. */
+const concurrencyFlag = () => {
+  if (flags.concurrency === undefined) return {};
+  if (!/^[1-9]\d*$/.test(flags.concurrency)) fail("--concurrency is a whole number of Chrome tabs, 1 or more, e.g. --concurrency=2.");
+  return { concurrency: Number(flags.concurrency) };
+};
 
 // ---------- the dashboard server (started in the background when needed)
 
@@ -69,7 +76,7 @@ const up = async () => {
     return false;
   }
 };
-const AGENT_API = 6; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area. 5: Gemini voice-over. 6: moves
+const AGENT_API = 7; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area. 5: Gemini voice-over. 6: moves. 7: render --concurrency
 const ensureServer = async () => {
   if (await up()) {
     const { agentApi } = await (await fetch(`${BASE}/api/state`)).json();
@@ -119,7 +126,10 @@ const nextStep = (d, render) => {
   if (ap?.status === "blocked") return "The Director asked something (see lastReply). Answer with `ask`; the autopilot then carries on.";
   if (ap?.status === "failed") return "Read lastReply, fix what it says if needed, then run `make` again to retry.";
   if (render && ["queued", "running"].includes(render.status)) return `Rendering (${render.progress}%). Check again shortly.`;
-  if (render?.status === "failed") return "The render failed (see render.log). Fix it, then `render` again.";
+  if (render?.status === "failed") {
+    const fewer = render.log?.join("\n").match(/--concurrency=(\d+)/)?.[1]; // tools/chrome.mjs → crashAdvice
+    return fewer ? `The render crashed, most likely out of memory: \`render\` again with --concurrency=${fewer}.` : "The render failed (see render.log). Fix it, then `render` again.";
+  }
   if (d.phase === "brief" && d.briefExists) return "Brief ready: read BRIEF.md, then `make` (or `approve`) to continue, or `ask` for changes.";
   if (d.phase === "storyboard" && d.storyboard.length) return "Storyboard ready: look at the frames, then `make` (or `approve`) to build, or `ask` for changes.";
   if (d.phase === "brief") return "Start it with `make`.";
@@ -347,6 +357,8 @@ switch (cmd) {
   case "make": {
     const [brand, videoArg, ...words] = pos;
     if (!brand || !videoArg) fail('Usage: npm run video -- make <brand> <video|next> ["<what the video is about>"] [--length=15 --format=both --url=… …]');
+    const tabs = concurrencyFlag();
+    if (tabs.concurrency && !flags.render) fail("--concurrency sets the Chrome tabs of a render: use it with --render.");
     const video = await ensureVideo(brand, videoArg);
     if (flags["app-id"]) progress(storeSummary(fetchStoreAssets(brand, flags["app-id"])));
     await applySettings(brand, video);
@@ -356,6 +368,7 @@ switch (cmd) {
       brand, video, prompt: words.join(" ").trim(),
       ...(flags["stop-at"] ? { stopAt: String(flags["stop-at"]) } : {}),
       ...(flags.render ? { render: flags.render === "blur" ? "blur" : true } : {}),
+      ...tabs,
       ...(flags.effort ? { effort: String(flags.effort) } : {}),
     });
     if (!flags.wait) {
@@ -454,6 +467,7 @@ switch (cmd) {
       ...(flags.format ? { format: String(flags.format) } : {}),
       ...(flags.frames ? { frames: String(flags.frames) } : {}),
       ...(flags.blur ? { blur: true } : {}),
+      ...concurrencyFlag(),
     });
     if (!flags.wait) {
       out(`Render queued (job ${job.id}). Poll with \`status\` — MP4s land in out/${brand}/${video}/.`, { ok: true, job: job.id });

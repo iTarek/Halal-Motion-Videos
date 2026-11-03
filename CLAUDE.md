@@ -113,7 +113,7 @@ tools/dashboard/            the local dashboard: server.mjs, director.mjs (Claud
 | `npm run agent-skill [-- --remove]` | link the Agent Skill into `~/.agents/skills` (OpenClaw, Codex), `~/.hermes/skills/creative` (Hermes), `~/.openclaw/skills` |
 | `npm run new -- <brand> [video]` | new brand + its `video01`, or the next video in an existing brand |
 | `npm run studio` | Remotion Studio: brand folder → video folder → one composition per format |
-| `npm run render -- <brand> [video] [format] [--frames=a-b] [--blur]` | MP4s to `out/<brand>/<video>/`, audio mastered to -16 LUFS; the video's `poster` frame becomes frame 0 (the thumbnail platforms show) and `stills/<name>-poster.jpg`; `--blur` = film-look motion blur (~8× slower) |
+| `npm run render -- <brand> [video] [format] [--frames=a-b] [--blur] [--concurrency=N]` | MP4s to `out/<brand>/<video>/`, audio mastered to -16 LUFS; the video's `poster` frame becomes frame 0 (the thumbnail platforms show) and `stills/<name>-poster.jpg`; `--blur` = film-look motion blur (~8× slower); `--concurrency` = Chrome tabs at once, by default what the free memory allows (a render that crashes says how many to try) |
 | `npm run stills -- <brand> <video> <frame…> [--format=…] [--dir=…]` | JPGs to `out/<brand>/<video>/stills/` (or `--dir`) |
 | `npm run review -- <brand> <video> [--strip=12.5,31] [--safe-area=on|off]` | review sheets for the critique loop → `.director/tmp/<brand>-<video>/review/`; with a voice-over it hears the mix back (speech to text) |
 | `npm run shot -- <brand> [video]` | real screenshots of the live site/app from `shots.json` → `public/<brand>/…/img/shots/`; `--site` needs no recipe: the whole site, plus `site.json` with what it says |
@@ -184,6 +184,7 @@ Another AI agent can run the whole machine from a terminal with `npm run video` 
 - **Autopilot:** `npm run video -- make <brand> <video|next> "<about>" [--url= --folder= --app-id= --length= --format= …] [--render[=blur]]`.
   - `--wait` keeps the command open until the MP4 is mastered. It streams milestones to stderr and ends with the MP4 path (`mp4` in `--json`), for cron jobs and scripts.
   - `--app-id` fetches App Store assets first (`npm run appstore`).
+  - `--concurrency=N`, with `--render`, sets that render's Chrome tabs.
   - The agent approves every step itself: brief, then storyboard, then build, then render.
   - It returns at once. The agent polls `npm run video -- status <brand> <video> --json`.
   - **`blocked`:** you asked a question; the agent answers with `ask` and the autopilot carries on.
