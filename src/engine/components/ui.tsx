@@ -275,10 +275,16 @@ export const LiveDot: React.FC<{ size: number }> = ({ size }) => {
   );
 };
 
+/** The measures of the iPhone shell at a given width. */
+export const phoneSize = (width: number) => {
+  const pad = width * 0.03;
+  const height = width * (2796 / 1290) + width * 0.06;
+  return { height, pad, radius: width * 0.15, screenHeight: height - pad * 2 };
+};
+
 /** iPhone shell (bronze-black) around a screenshot. `src` is a resolved URL, e.g. asset("img/screen.jpg"). */
 export const Phone: React.FC<{
   width: number;
-  src: string;
   style?: React.CSSProperties;
   dim?: number;
   /** "contain" for a screenshot whose ratio differs — never stretch Quran text. */
@@ -287,11 +293,9 @@ export const Phone: React.FC<{
   /** The screenshots were cropped without a status bar: fade the top into the
    *  screen's own colour so the island sits on a clean band, not a clipped line. */
   topFade?: string;
-}> = ({ width, src, style, dim = 0, fit = "cover", screenColor = "#f6f0e6", topFade }) => {
+} & ({ src: string; children?: never } | { src?: never; children: React.ReactNode })> = ({ width, src, children, style, dim = 0, fit = "cover", screenColor = "#f6f0e6", topFade }) => {
   const { colors } = useTheme();
-  const height = width * (2796 / 1290) + width * 0.06;
-  const pad = width * 0.03;
-  const r = width * 0.15;
+  const { height, pad, radius: r } = phoneSize(width);
   return (
     <div
       style={{
@@ -316,10 +320,14 @@ export const Phone: React.FC<{
           background: screenColor,
         }}
       >
-        <Img
-          src={src}
-          style={{ width: "100%", height: "100%", objectFit: fit, objectPosition: fit === "cover" ? "top" : "center" }}
-        />
+        {src ? (
+          <Img
+            src={src}
+            style={{ width: "100%", height: "100%", objectFit: fit, objectPosition: fit === "cover" ? "top" : "center" }}
+          />
+        ) : (
+          children
+        )}
         {topFade && (
           <div
             style={{

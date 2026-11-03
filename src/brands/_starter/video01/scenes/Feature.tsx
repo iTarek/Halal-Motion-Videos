@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame } from "remotion";
-import { Card, ease, Headline, Icon, Kicker, prog, rgba, SceneFrame, useLayout, useTheme } from "../../../../engine";
+import { Card, ease, Headline, Icon, Kicker, lerp, prog, rgba, SceneFrame, useLayout, useTheme } from "../../../../engine";
 import { COPY } from "../copy";
 import { SCENES } from "../timeline";
 
@@ -62,7 +62,8 @@ export const Feature: React.FC = () => {
                 display: "grid",
                 placeItems: "center",
                 background: colors.positive,
-                transform: `scale(${check})`,
+                opacity: check,
+                transform: `scale(${lerp(0.94, 1, check)})`,
                 boxShadow: `0 0 30px ${rgba(colors.positive, 0.45)}`,
                 flex: "none",
               }}

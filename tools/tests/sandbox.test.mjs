@@ -13,6 +13,8 @@ test('the dashboard runs voice and shot only for the run\'s own video, with know
   assert.deepEqual(checkToolRequest('voice', ['demo', 'video01', '--only=intro'], run), ['demo', 'video01', '--only=intro']);
   assert.ok(checkToolRequest('shot', ['demo', '--url=https://example.com', '--id=home'], run)); // brand kit
   assert.ok(checkToolRequest('shot', ['demo', 'video01', '--only=home,settings'], run));
+  assert.ok(checkToolRequest('shot', ['demo', '--site'], run));
+  assert.ok(checkToolRequest('shot', ['demo', '--site', '--url=https://example.com'], run));
   for (const [tool, args] of [
     ['render', ['demo', 'video01']],
     ['voice', ['other', 'video01']],
@@ -20,6 +22,7 @@ test('the dashboard runs voice and shot only for the run\'s own video, with know
     ['voice', ['demo']],
     ['shot', ['demo', 'video02']],
     ['shot', ['demo', '--url=file:///etc/passwd', '--id=x']],
+    ['shot', ['demo', '--site', '--url=file:///etc/passwd']],
     ['shot', ['demo', '--out=/tmp/x']],
     ['voice', 'demo video01'],
     ['review', ['demo', 'video01']], // stays in the sandbox: it bundles the Director's code

@@ -41,6 +41,22 @@ test('Without a picked engine the Director runs Claude with its guardrails, neve
   calls[0].p.emit('close',0);
 });
 
+test('The brief step reads website text, so nothing it reads gets to install code; later steps may',t=>{
+  const {director,calls,root}=fixture(t);
+  const allowed=(c)=>c.args[c.args.indexOf('--allowedTools')+1];
+  const prompt=(c)=>c.args[c.args.indexOf('--append-system-prompt')+1];
+  director.send('demo','video01','Hello');
+  assert.doesNotMatch(allowed(calls[0]),/npm install/);
+  assert.match(allowed(calls[0]),/npm run shot/);
+  assert.match(prompt(calls[0]),/Don't npm install anything in this step/);
+  calls[0].p.emit('close',0);
+  fs.writeFileSync(path.join(root,'src/brands/demo/video01/BRIEF.md'),'# A real brief');
+  director.approve('demo','video01');
+  assert.match(allowed(calls[1]),/npm install/);
+  assert.match(prompt(calls[1]),/You may npm install/);
+  calls[1].p.emit('close',0);
+});
+
 test('On macOS Codex runs in the sandbox, with a ticket that works only while it runs',{skip:!canSandbox()&&'macOS only'},t=>{
   const saved=process.env.ELEVENLABS_API_KEY; process.env.ELEVENLABS_API_KEY='secret';
   t.after(()=>{ if (saved===undefined) delete process.env.ELEVENLABS_API_KEY; else process.env.ELEVENLABS_API_KEY=saved; });

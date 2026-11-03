@@ -108,12 +108,45 @@ test('status hands an agent the MP4s, the caption and the cover images',async t=
   const st=JSON.parse(await run('--json'));
   assert.match(st.share,/src[\\/]brands[\\/]demo[\\/]video01[\\/]SHARE\.md$/);
   assert.match(st.moves.file,/src[\\/]brands[\\/]demo[\\/]video01[\\/]moves\.json$/);
+  assert.equal(st.facts,null);assert.equal(st.site,null); // no such files for this made-up brand
   assert.deepEqual([st.moves.family,st.moves.style,st.moves.core,st.moves.accents],['punch','Paper cut',['Mask rise'],['Rolling counter']]);
   assert.equal(st.posters.length,1);assert.match(st.posters[0],/demo-video01-vertical-poster\.jpg$/);
   assert.match(st.mp4[0],/demo-video01-vertical\.mp4$/);
   const text=(await run()).trim().split('\n');
   assert.ok(text.some(l=>l.startsWith('Caption: '))&&text.some(l=>l==='Posters:'));
   assert.match(text.at(-1),/^MP4: .*demo-video01-vertical\.mp4$/); // last, so `tail -1` still finds it
+});
+
+// facts.md and site.json are files, so status finds them on disk. On a temp copy of the CLI, so no real brand is touched.
+test('status hands an agent the facts and what the website says',async t=>{
+  const server=http.createServer((req,res)=>{
+    const data=new URL(req.url,'http://localhost').pathname==='/api/state'
+      ? {agentApi:AGENT_API,brands:[{brand:'demo',videos:[{video:'video01',outputs:{videos:[],stills:[]}}]}],jobs:[]}
+      : {engine:'claude',claude:{ok:true},phase:'brief',messages:[],storyboard:[],styles:[],voice:{length:10},autopilot:null};
+    res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'hmv-cli-facts-')));
+  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  fs.mkdirSync(path.join(root,'tools'));
+  fs.copyFileSync(fileURLToPath(new URL('../video.mjs',import.meta.url)),path.join(root,'tools','video.mjs'));
+  const brand=path.join(root,'src','brands','demo');
+  for(const d of ['brand','video01']) fs.mkdirSync(path.join(brand,d),{recursive:true});
+  fs.writeFileSync(path.join(brand,'video01','facts.md'),'- 30 prayers: site.json\n');
+  fs.writeFileSync(path.join(brand,'brand','site.json'),'{}');
+  const status=async(...args)=>{
+    const proc=spawn(process.execPath,[path.join(root,'tools','video.mjs'),'status','demo','video01',...args],{env:{...process.env,PORT:String(server.address().port)},windowsHide:true});
+    let out='';proc.stdout.setEncoding('utf8');proc.stdout.on('data',x=>out+=x);
+    assert.equal(await new Promise(resolve=>proc.on('close',resolve)),0);return out;
+  };
+  const st=JSON.parse(await status('--json'));
+  assert.equal(st.facts,path.join(brand,'video01','facts.md'));
+  assert.equal(st.site,path.join(brand,'brand','site.json'));
+  const text=await status();
+  assert.ok(text.includes(`Facts: ${st.facts}`)&&text.includes(`Website says: ${st.site}`),text);
+  fs.writeFileSync(path.join(brand,'video01','site.json'),'{}'); // a video's own comes first
+  assert.equal(JSON.parse(await status('--json')).site,path.join(brand,'video01','site.json'));
 });
 
 // Gemini voice-over, from an agent: the key goes in on stdin (never the command line), the provider and voice as flags,

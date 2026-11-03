@@ -55,7 +55,7 @@ scripts/video make <brand> next "<what the video is about>" \
   --length=30 --format=both --render
 ```
 
-- **`<brand>`:** lowercase letters, digits and dashes, e.g. `ela-salaty`. A new brand is created on first use.
+- **`<brand>`:** lowercase letters, digits and dashes, e.g. `my-app`. A new brand is created on first use.
 - **`next`:** makes the brand's next video (`video01`, `video02`, …). Or name one, e.g. `video01`.
 - **What it's about:** one or two sentences, e.g. "App Store promo showing prayer times and the Qibla finder".
 - **`--url` / `--folder`:** where the Director finds the real product: its website, and its source code (read-only).
@@ -101,7 +101,7 @@ scripts/video make <brand> next "<about>" --format=vertical --render --wait --js
 
 `--stop-at=brief` or `--stop-at=storyboard` makes the autopilot pause there instead of approving.
 
-- **Brief:** read `brief` (the BRIEF.md path in `status`). It holds the story by seconds and the voice-over lines.
+- **Brief:** read `brief` (the BRIEF.md path in `status`). It holds the story by seconds and the voice-over lines. `facts` (facts.md) lists every number, name and claim that will be on screen, with where it came from.
 - **Storyboard:** look at the 4 JPGs in `storyboard` (hook, key feature, climax, end card). `moves` in `status` names the palette of moves the Director chose for it.
 - **To continue:** `make <brand> <video>` again.
 - **To change something:** `ask <brand> <video> "<changes>"`, wait for it, check again, then `make`.
@@ -130,6 +130,8 @@ Pass these to `make`, or change them with `scripts/video set <brand> [video] …
 | `--safe-area` | `on` / `off`. On keeps key text out of the edges TikTok, Reels and Shorts cover (top 12%, bottom 22%, right 12% on 9:16; 5% elsewhere). Turn it off for videos nothing is laid over, like App Store previews or a website hero | `on` |
 | `--style` | a style name from `scripts/video styles` (21 are built in), or `none`, which lets the Director's palette of moves suggest one | none |
 | `--effort` | Claude's thinking: `medium`, `high`, `xhigh` | `high` |
+
+**A website to look at first:** `scripts/video fetch-site <brand> --url=https://…` saves its screenshots, and `site.json` with what it really says (`new <brand>` first, for a new brand). The Director does this itself when a video has a website.
 
 **ElevenLabs key (voice-over):** pipe it in, never put it on the command line:
 `printf %s "$ELEVENLABS_API_KEY" | scripts/video voice-settings --key-stdin`

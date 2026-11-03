@@ -102,6 +102,7 @@ const listVideos = () =>
       return {
         brand,
         brandDoc: readIf(path.join(brandDir, "brand", "BRAND.md")),
+        site: readJson(path.join(brandDir, "brand", "site.json")), // what the website says (npm run shot -- <brand> --site)
         videos: dirs(brandDir)
           .filter((v) => v !== "brand" && v !== "components")
           .sort()
@@ -113,6 +114,8 @@ const listVideos = () =>
               doc: readIf(path.join(vd, "README.md")) ?? readIf(path.join(vd, "BRIEF.md")),
               share: readIf(path.join(vd, "SHARE.md")), // the ready-to-post caption, written in the build step
               moves: readJson(path.join(vd, "moves.json")), // the video's palette of moves (tools/moves.mjs)
+              facts: readIf(path.join(vd, "facts.md")), // every number, name and claim on screen, with its source
+              site: readJson(path.join(vd, "site.json")),
               outputs: outputsOf(brand, video),
             };
           }),

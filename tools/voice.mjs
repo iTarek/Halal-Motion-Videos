@@ -33,7 +33,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { GEMINI_MODELS, readSettings, ROOT, voiceFits, voiceProviderOf } from "./settings.mjs";
+import { GEMINI_MODELS, readSettings, ROOT, voiceFits, voiceProviderOf, saveWhole } from "./settings.mjs";
 import { viaDashboard } from "./broker.mjs";
 import { geminiSpeech } from "./gemini.mjs";
 import { alignWords, heardProblems, problemLine, transcribe } from "./transcribe.mjs";
@@ -229,7 +229,8 @@ const wordsOf = (al) => {
 fs.mkdirSync(outDir, { recursive: true });
 const cache = (() => {
   try {
-    return JSON.parse(fs.readFileSync(cacheFile, "utf8"));
+    // Never through a link: this runs outside the Director's sandbox, and what's read here is written back where it can read it.
+    return fs.lstatSync(cacheFile).isFile() ? JSON.parse(fs.readFileSync(cacheFile, "utf8")) : {};
   } catch {
     return {};
   }
@@ -273,6 +274,7 @@ for (const [i, line] of lines.entries()) {
       const part = path.join(outDir, `${line.id}.part.mp3`);
       try {
         const wav = await geminiSpeech({ key: st.gemini.apiKey, ...g });
+        fs.rmSync(part, { force: true }); // ffmpeg would write through a link left here
         execFileSync("ffmpeg", ["-v", "error", "-y", "-i", "pipe:0", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "192k", part], { input: wav, stdio: ["pipe", "ignore", "pipe"] });
         fs.renameSync(part, file);
       } catch (e) {
@@ -301,7 +303,7 @@ for (const [i, line] of lines.entries()) {
     results[line.id] = result;
     // a line reused under --only keeps the hash it was made with, so a changed line is still made on the next full run
     cache[line.id] = { hash: reused ? cached.hash : hash, result };
-    fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2)); // paid audio is kept even if a later line fails
+    saveWhole(cacheFile, JSON.stringify(cache, null, 2)); // paid audio is kept even if a later line fails
     console.log(note);
     for (const p of problems) console.log(`  ⚠ ${problemLine(p, { take: true })} (word timings may be off: --only=${line.id} --force makes a new take)`);
     continue;
@@ -329,7 +331,7 @@ for (const [i, line] of lines.entries()) {
   }
   process.stdout.write(`… ${line.id}: generating with ${body.model_id} … `);
   const { mp3, alignment } = await synth(body);
-  fs.writeFileSync(file, mp3);
+  saveWhole(file, mp3);
   const words = wordsOf(alignment);
   const seconds = Math.round((durationOf(file) || words.at(-1)?.end || 0) * 1000) / 1000;
   results[line.id] = { src: `vo/${line.id}.mp3`, seconds, words };
@@ -337,7 +339,7 @@ for (const [i, line] of lines.entries()) {
   console.log(`${seconds}s${words.length ? `, ${words.length} words timed` : ""}`);
 }
 
-fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
+saveWhole(cacheFile, JSON.stringify(cache, null, 2));
 
 if (script.adHoc) {
   console.log(`\nWrote public/${brand}/${video}/vo/${lines[0].id}.mp3 (${results[lines[0].id].seconds}s) — not added to voiceover.gen.ts.`);
@@ -349,7 +351,7 @@ export const VO = ${JSON.stringify(Object.fromEntries(lines.map((l) => [l.id, re
 
 export type VoId = keyof typeof VO;
 `;
-  fs.writeFileSync(path.join(srcDir, "voiceover.gen.ts"), gen);
+  saveWhole(path.join(srcDir, "voiceover.gen.ts"), gen);
   const total = lines.reduce((t, l) => t + (results[l.id]?.seconds ?? 0), 0);
   const recorded = lines.filter((l) => l.file).length;
   const made = recorded === lines.length ? "all recorded" : `${gemini ? `Gemini voice ${geminiVoice}` : `voice ${voiceId}`}${recorded ? `, ${recorded} recorded` : ""}`;

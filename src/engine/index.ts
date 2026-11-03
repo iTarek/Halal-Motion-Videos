@@ -12,6 +12,7 @@ export * from "./timeline";
 export * from "./text";
 export * from "./register";
 export * from "./components/ui";
+export * from "./components/Device";
 export * from "./components/Icon";
 export * from "./components/SceneFrame";
 export * from "./components/Sweep";

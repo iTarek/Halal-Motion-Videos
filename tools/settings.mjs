@@ -16,6 +16,17 @@ export const readJson = (file) => {
   }
 };
 
+/**
+ * Writes a file whole or not at all. `voice` and `shot` also run outside the Director's sandbox, for it, so this never goes
+ * through a link it may have left at either path, which would write wherever it points: "wx" refuses one, a rename replaces one.
+ */
+export const saveWhole = (file, data) => {
+  const part = `${file}.part`;
+  fs.rmSync(part, { force: true });
+  fs.writeFileSync(part, data, { flag: "wx" });
+  fs.renameSync(part, file);
+};
+
 export const DEFAULT_VOICE_ID = "NOpBlnGInO9m6vDvFkFC";
 export const VOICE_MODELS = { eleven_v4: "Eleven v4 (best quality)", eleven_v4_turbo: "Eleven v4 Turbo (fast)" };
 

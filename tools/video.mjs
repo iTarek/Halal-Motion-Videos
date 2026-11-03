@@ -9,6 +9,7 @@
 //        --app-id first fetches the app's icon, store screenshots and listing (see fetch-assets).
 //   fetch-assets <brand> <App Store id or URL> [--country=sa] [--no-ipad]
 //                                           iOS apps with no website: icon, screenshots, listing → the brand kit
+//   fetch-site <brand> [--url=https://…]    screenshots of the site, and site.json with what it says (needs no server)
 //   status <brand> <video>                  step, autopilot, Claude's latest reply, storyboard frames, render, what to do next
 //   ask <brand> <video> "<message>"         talk to the Director (answers a question; revisions)
 //   approve <brand> <video>                 approve the brief (→ storyboard) or the storyboard (→ build) by hand
@@ -97,6 +98,7 @@ const api = async (p, body) => {
 };
 const q = (brand, video) => `brand=${encodeURIComponent(brand)}&video=${encodeURIComponent(video)}`;
 const director = (brand, video) => api(`/api/director?${q(brand, video)}`);
+const existing = (file) => (fs.existsSync(file) ? file : null);
 const needVideo = () => {
   const [brand, video] = pos;
   if (!brand || !video) fail(`Usage: npm run video -- ${cmd} <brand> <video> …`);
@@ -149,6 +151,9 @@ const statusOf = async (brand, video) => {
     lastReply: lastReply(d),
     brief: d.briefExists ? path.join(ROOT, "src", "brands", brand, video, "BRIEF.md") : null,
     share: v?.share ? path.join(ROOT, "src", "brands", brand, video, "SHARE.md") : null, // the post caption
+    facts: existing(path.join(ROOT, "src", "brands", brand, video, "facts.md")), // every number, name and claim on screen, with its source
+    // what the product's website says (fetch-site): the brand's, or this video's own from `npm run shot -- <brand> <video> --site`
+    site: existing(path.join(ROOT, "src", "brands", brand, video, "site.json")) ?? existing(path.join(ROOT, "src", "brands", brand, "brand", "site.json")),
     // the palette of moves it's built on: 3 core moves plus accents, chosen unlike the brand's other videos
     moves: v?.moves
       ? { file: path.join(ROOT, "src", "brands", brand, video, "moves.json"), family: v.moves.family, style: v.moves.style?.name ?? null, core: (v.moves.core ?? []).map((m) => m.name), accents: (v.moves.accents ?? []).map((m) => m.name) }
@@ -175,6 +180,8 @@ const printStatus = (st, code = 0) =>
       st.autopilot?.note ? `  ${st.autopilot.note}` : "",
       st.lastReply ? `\nDirector:\n${st.lastReply}\n` : "",
       st.brief ? `Brief: ${st.brief}` : "",
+      st.facts ? `Facts: ${st.facts}` : "",
+      st.site ? `Website says: ${st.site}` : "",
       st.moves ? `Moves (${st.moves.family}): ${st.moves.core.join(", ")} · ${st.moves.file}` : "",
       st.storyboard.length ? `Storyboard frames:\n${st.storyboard.map((f) => `  ${f}`).join("\n")}` : "",
       st.render ? `Render: job ${st.render.job} · ${st.render.status} · ${st.render.progress}%` : "",
@@ -320,7 +327,14 @@ if (cmd === "where") {
   out(ROOT, { ok: true, root: ROOT });
   process.exit(0);
 }
-// A palette is a file and the bank a list: no server to start, and none too old to stop it.
+// Both only read and write files: no server to start, and none too old to stop them.
+if (cmd === "fetch-site") {
+  const [brand] = pos;
+  if (!brand) fail("Usage: npm run video -- fetch-site <brand> [--url=https://…]");
+  if (!fs.existsSync(path.join(ROOT, "src", "brands", brand, "brand"))) fail(`No brand ${brand} yet: make it with \`npm run video -- new ${brand}\`, then run this again.`);
+  const r = spawnSync(process.execPath, [path.join(ROOT, "tools", "shot.mjs"), brand, "--site", ...argv.filter((a) => a.startsWith("--"))], { stdio: "inherit", windowsHide: true });
+  process.exit(r.status ?? 1);
+}
 if (cmd === "moves") {
   const args = flags.list ? [] : Object.values(needVideo());
   const r = spawnSync(process.execPath, [path.join(ROOT, "tools", "moves.mjs"), ...args, ...argv.filter((a) => a.startsWith("--"))], { stdio: "inherit", windowsHide: true });
@@ -501,5 +515,5 @@ switch (cmd) {
     break;
   }
   default:
-    fail("Commands: make · status · ask · approve · stop · fetch-assets · list · new · set · styles · moves · render · outputs · voice-settings · doctor · where\n(see the top of tools/video.mjs)");
+    fail("Commands: make · status · ask · approve · stop · fetch-assets · list · new · set · styles · moves · fetch-site · render · outputs · voice-settings · doctor · where\n(see the top of tools/video.mjs)");
 }

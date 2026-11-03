@@ -10,7 +10,7 @@ import path from "node:path";
 
 const FLAGS = {
   voice: ["only", "force", "id", "text"],
-  shot: ["only", "url", "id", "device", "full", "wait", "fresh", "dark"],
+  shot: ["only", "url", "id", "device", "full", "wait", "fresh", "dark", "site"],
 };
 
 /** Is this tool running inside the Director's sandbox, with a ticket to ask the dashboard? */

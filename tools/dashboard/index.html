@@ -621,6 +621,18 @@ const fmtDur = (ms) => { const s = Math.round(ms / 1000); return s < 60 ? `${s}s
 
 // ---- tiny markdown for BRIEF / README / BRAND
 const inline = (s) => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1");
+/** What a website says (site.json), as a document. */
+const siteDoc = (s) => {
+  // each in its own direction, whatever the page's: a site's English keeps its punctuation in place on the Arabic page
+  const own = (x) => `\u2068${x}\u2069`;
+  const list = (title, items) => (items?.length ? `### ${tr(title)}\n${items.map((x) => `- ${own(x)}`).join("\n")}` : "");
+  return [
+    `### ${own(s.title || s.url)}`, s.description && own(s.description), own(s.url),
+    list("Headings", s.headings), list("Text", s.text), list("Buttons", s.buttons),
+    list("Colours", Object.entries(s.colours ?? {}).flatMap(([k, c]) => (c?.length ? [`${k}: ${[c].flat().join(", ")}`] : []))),
+    list("Fonts", Object.entries(s.fonts ?? {}).flatMap(([k, f]) => (f ? [`${k}: ${f}`] : []))),
+  ].filter(Boolean).join("\n\n");
+};
 const md = (src) => {
   const lines = src.split("\n"); let html = ""; let i = 0;
   while (i < lines.length) {
@@ -802,7 +814,7 @@ function renderDirector() {
   let st = "";
   if (dir.running) st = `<div class="working"><span class="spin"></span><span class="t">${esc(dir.step || "Working…")}</span><span class="el">${fmtDur(dir.elapsed)}</span><button class="ghost" data-dir="stop">Stop</button></div>`;
   else if (dir.phase === "brief" && dir.briefExists && dir.messages.some((m) => m.role === "claude"))
-    st = `<div class="approve"><div class="t"><b>Brief ready for review</b><span>Read it under Docs below, then approve — or reply with changes. Next, the Director shows you 4 key frames before building everything.</span></div><button class="primary" data-dir="approve">${icon("check")}Approve brief</button></div>`;
+    st = `<div class="approve"><div class="t"><b>Brief ready for review</b><span>Read it and its facts under Docs below, then approve — or reply with changes. Next, the Director shows you 4 key frames before building everything.</span></div><button class="primary" data-dir="approve">${icon("check")}Approve brief</button></div>`;
   else if (dir.phase === "storyboard" && !dir.running && dir.storyboard?.length)
     st = `<div class="approve storyboard">
       <div class="t"><b>Storyboard ready: ${dir.storyboard.length} key frames</b><span>Is this the right look? Approve and the Director builds the whole video in this style, or reply with changes.</span></div>
@@ -976,7 +988,8 @@ function renderRest() {
         ${outs.stills.map((o) => `<div class="out"><a href="${o.url}" target="_blank"><img src="${o.url}" alt="${esc(o.name)}" loading="lazy" /></a><div class="meta"><b>${esc(o.name)}</b><span>${fmtTime(o.mtime)}</span></div>${outActions(o)}</div>`).join("")}
       </div>` : `<div class="queue-empty">Nothing rendered yet — renders and stills show up here.</div>`}`;
 
-  const docs = [v.doc && ["brief", "Brief", v.doc], v.share && ["share", "Share", v.share], b.brandDoc && ["brand", "Brand kit", b.brandDoc]].filter(Boolean);
+  const site = v.site ?? b.site;
+  const docs = [v.doc && ["brief", "Brief", v.doc], v.facts && ["facts", "Facts", v.facts], v.share && ["share", "Share", v.share], site && ["site", "Website", siteDoc(site)], b.brandDoc && ["brand", "Brand kit", b.brandDoc]].filter(Boolean);
   if (!docs.find((d) => d[0] === docTab) && docs.length) docTab = docs[0][0];
   const doc = docs.find((d) => d[0] === docTab);
   $("#rest").innerHTML = doc ? `<div class="card">
@@ -1019,7 +1032,7 @@ async function refresh() {
   if (!c) return;
   try { dir = await api(`/api/director?${q()}`); } catch { dir = null; }
   renderDirector(); renderStyle(); renderMaterials();
-  const rk = JSON.stringify([window.dashboardI18n.language, fmt, docTab, c.video.outputs, c.video.doc, c.video.share, c.brand.brandDoc]);
+  const rk = JSON.stringify([window.dashboardI18n.language, fmt, docTab, c.video.outputs, c.video.doc, c.video.facts, c.video.share, c.video.site, c.brand.site, c.brand.brandDoc]);
   if (rk !== restKey) {
     const quick = $("#quick")?.checked, blurOn = $("#blurOn")?.checked, frames = $("#stillFrames")?.value;
     restKey = rk; renderRest();
