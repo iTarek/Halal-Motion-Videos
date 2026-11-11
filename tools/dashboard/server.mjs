@@ -42,7 +42,7 @@ const PORT = Number(process.env.PORT ?? 4000);
 const STUDIO_PORT = Number(process.env.STUDIO_PORT ?? 3000);
 const NAME = /^[a-z][a-z0-9-]*$/;
 let creating = Promise.resolve(); // POST /api/new runs one at a time
-const AGENT_API = 8; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters; 4: safeArea; 5: Gemini voice-over; 6: moves; 7: render concurrency; 8: film styles)
+const AGENT_API = 9; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters; 4: safeArea; 5: Gemini voice-over; 6: moves; 7: render concurrency; 8: film styles; 9: starter styles)
 // The autopilot queues a render when a build ends (renderJob is defined below; called later, at run time).
 const director = createDirector({ root: ROOT, brandsDir: BRANDS, dashboardUrl: `http://127.0.0.1:${PORT}`, onBuilt: (brand, video, opts) => renderJob({ brand, video, ...opts }).id });
 

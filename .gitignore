@@ -14,7 +14,7 @@ src/brands/*
 public/*
 !public/_shared/
 
-# Styles you write in the dashboard stay local; the built-in ones ship in styles/<style>/.
+# Styles you write, change or delete in the dashboard stay local; the built-in ones ship in styles/<style>/, the starters in styles/starters.json.
 styles/library.json*
 
 # Items restored from the Linux Trash come back here

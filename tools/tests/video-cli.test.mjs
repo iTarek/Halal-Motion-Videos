@@ -335,7 +335,7 @@ test('an agent lists the styles with their style sheets, and picks one by name',
   r=await cli('set','demo','video01','--style=mine','--json');assert.equal(r.code,0,r.out);
   r=await cli('set','demo','video01','--style=none','--json');assert.equal(r.code,0,r.out);
   assert.deepEqual(picked,['dark-keynote','mine',null]);
-  r=await cli('set','demo','video01','--style=keynote','--json');assert.equal(r.code,1);assert.match(JSON.parse(r.out).error,/No style "keynote"/); // a style from before the film styles
+  r=await cli('set','demo','video01','--style=keynote','--json');assert.equal(r.code,1);assert.match(JSON.parse(r.out).error,/No style "keynote"/); // a starter the user deleted: it isn't in the list
   assert.equal(picked.length,3);
 });
 
@@ -345,7 +345,7 @@ test('the dashboard serves the film styles and their pictures, and keeps the bui
   const act=(action,body)=>post(`/api/director/${action}`,{brand:'demo',video:'video01',...body});
   let r=await act('style',{styleId:'dark-keynote'});assert.equal(r.status,200,r.text);
   const state=JSON.parse(r.text);
-  assert.equal(state.styleId,'dark-keynote');assert.equal(state.styles.length,66);
+  assert.equal(state.styleId,'dark-keynote');assert.equal(state.styles.filter(s=>s.builtin).length,66);assert.equal(state.styles.filter(s=>!s.builtin).length,21);
   const keynote=state.styles.find(s=>s.id==='dark-keynote');
   assert.equal(keynote.builtin,true);assert.equal(keynote.thumb,true);assert.equal(keynote.file,'styles/dark-keynote/STYLE.md');
   const get=async p=>{const res=await fetch(url+p);await res.arrayBuffer();return {status:res.status,type:res.headers.get('content-type')};};

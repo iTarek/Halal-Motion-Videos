@@ -69,7 +69,7 @@ npm start          # → http://localhost:4000
 
 1. **New brand** → name it after the app or product.
 2. **Materials:** add the product's website, its source folder (read-only for Claude) and any logos, screenshots or fonts.
-3. **Video settings:** format (9:16 / 16:9 / both), length, language, voice, and a **Style**: one of the 66 built-in film styles, or one you write.
+3. **Video settings:** format (9:16 / 16:9 / both), length, language, voice, and a **Style**: one of the 66 built-in film styles, one of the 21 short starter styles, or one you write.
 4. **Director:** say what the video is, e.g. "App Store promo that shows the main features". Approve the brief and it builds.
 5. **Preview** in Remotion Studio, then **Render** MP4s to `out/<brand>/<video>/`.
 
@@ -113,7 +113,8 @@ npm run video -- status my-app video01 --json
 | `src/brands/<brand>/<video>/` + `public/<brand>/<video>/` | one video: brief, copy, timeline, scenes, sound, voice-over |
 | `src/engine/` | shared building blocks (timing, layout, transitions, text, cards, sound) |
 | `styles/<style>/` | the 66 built-in film styles |
-| `styles/library.json` | the styles you wrote yourself |
+| `styles/starters.json` | the 21 short styles every machine starts with, under "Your styles" |
+| `styles/library.json` | the styles you wrote, changed or deleted |
 | `out/<brand>/<video>/` | renders |
 | `.director/` | local state: chats, settings and API keys, browser profiles (git-ignored) |
 

@@ -10,8 +10,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { CUES, FAMILIES, MOVES, planMoves } from '../moves.mjs';
 
 const TOOLS = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-/** The built-in styles, from a copy with no library file: the real styles/library.json stays out of these tests. */
-const builtInStyles = async () => {
+/** The styles a new machine has, from a copy with no library file: the real styles/library.json stays out of these tests. */
+const shippedStyles = async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hmv-moves-styles-'));
   try {
     fs.mkdirSync(path.join(root, 'tools'));
@@ -22,7 +22,7 @@ const builtInStyles = async () => {
     fs.rmSync(root, { recursive: true, force: true });
   }
 };
-const styles = await builtInStyles();
+const styles = await shippedStyles();
 const byId = new Map(MOVES.map((m) => [m.id, m]));
 const all = (plan) => [...plan.core, ...plan.accents].map((m) => byId.get(m.id));
 
@@ -104,7 +104,7 @@ test("a video's own style sets the family and is kept; without one, a style that
     const suggested = styles.find((s) => s.id === open.style.id);
     assert.equal(open.style.suggested, true);
     assert.equal(open.style.text, suggested.text); // a name alone says nothing about the look
-    assert.equal(open.style.file, `styles/${suggested.id}/STYLE.md`); // and the Director needs its whole sheet
+    assert.equal(open.style.file, suggested.builtin ? `styles/${suggested.id}/STYLE.md` : undefined); // a built-in one: the Director needs its whole sheet
     assert.ok(suggested.families.includes(open.family));
     assert.ok(!['Edit & Documentary', 'Evidence Films'].includes(suggested.category), `${suggested.id} needs footage or data only the user has`);
   }

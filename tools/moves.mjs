@@ -152,7 +152,7 @@ const brief = ({ id, name, role, how }) => ({ id, name, role, how });
  * A palette. seed: what makes this video's different from another's. history: the brand's other palettes, oldest first.
  * rtl: Arabic moves are in, and one is always among the accents; otherwise they're out. noSplit: the brand forbids splitting
  * words. cues: the special moments this video has (CUES). styleId: the video's style, whose families it keeps to; without
- * one, a style is suggested, from `styles`: a built-in one that needs nothing but the product.
+ * one, a style is suggested, from `styles`: a film style or a starter that needs nothing but the product.
  */
 export const planMoves = ({ seed, history = [], rtl = false, noSplit = false, family, cues = [], styleId = null, styles = [] }) => {
   const pick = seeded(seed);

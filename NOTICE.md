@@ -71,9 +71,9 @@ SOFTWARE.
 
 The other stills are LemoLab's own drawing, or public-domain archives (NASA, the U.S. Geological Survey, the Library of Congress, the U.S. National Archives).
 
-### Moves
+### Moves and starter styles
 
-The move bank (`tools/moves.mjs`) comes from [video-ad-editor](https://github.com/majedphotos/video-ad-editor), described anew for this engine. Its license:
+The move bank (`tools/moves.mjs`) and 17 of the 21 starter styles (`styles/starters.json`: all but the first four) come from [video-ad-editor](https://github.com/majedphotos/video-ad-editor), described anew for this engine. Its license:
 
 ```text
 MIT License

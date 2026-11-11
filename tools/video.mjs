@@ -76,7 +76,7 @@ const up = async () => {
     return false;
   }
 };
-const AGENT_API = 8; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area. 5: Gemini voice-over. 6: moves. 7: render --concurrency. 8: film styles
+const AGENT_API = 9; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area. 5: Gemini voice-over. 6: moves. 7: render --concurrency. 8: film styles. 9: starter styles
 const ensureServer = async () => {
   if (await up()) {
     const { agentApi } = await (await fetch(`${BASE}/api/state`)).json();
