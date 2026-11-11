@@ -63,7 +63,7 @@ code in `src/`.
     * **Design quality**, for scenes: read `CLAUDE.md` → Design quality. Text held long enough to
       read, springs for anything with weight, no muddy crossfade.
     * **Claims**: on-screen claims come from the product; made-up numbers carry `<ExampleBadge />`.
-      Halal videos only (`AGENTS.md`), and that goes for anything in `_starter`, `tools/styles.mjs` and
+      Halal videos only (`AGENTS.md`), and that goes for anything in `_starter`, `styles/` and
       `tools/moves.mjs` too.
 5.  **Tools and CLI** (`tools/`, `CLAUDE.md` → Agent first):
     * **Reachable**: every dashboard setting and action also works through `npm run video`.

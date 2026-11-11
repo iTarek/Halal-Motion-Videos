@@ -1,0 +1,8 @@
+{
+  "name": "HD-2D",
+  "ar": "إتش دي ثنائي الأبعاد",
+  "category": "Games",
+  "line": "Flat pixel sprites in a lit, fogged miniature diorama, seen from high up through a tilt-shift lens while lamps throw shadows.",
+  "lineAr": "شخصيات بكسل مسطّحة داخل مجسّم مصغّر مضاء يكسوه الضباب، يُرى من أعلى بعدسة تجعله كاللعبة، والمصابيح ترمي الظلال.",
+  "families": ["calm", "onetake"]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Satellite Briefing",
+  "ar": "إحاطة بالأقمار الصناعية",
+  "category": "Evidence Films",
+  "line": "Real satellite imagery graded to an analyst's grey, thin white measurement lines, and one continuous zoom from orbit to the ground.",
+  "lineAr": "صور أقمار صناعية حقيقية بدرجات رمادية تحليلية، وخطوط قياس بيضاء رفيعة، وتقريب واحد متصل من المدار إلى الأرض.",
+  "families": ["onetake", "calm"]
+}

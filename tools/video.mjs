@@ -76,7 +76,7 @@ const up = async () => {
     return false;
   }
 };
-const AGENT_API = 7; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area. 5: Gemini voice-over. 6: moves. 7: render --concurrency
+const AGENT_API = 8; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area. 5: Gemini voice-over. 6: moves. 7: render --concurrency. 8: film styles
 const ensureServer = async () => {
   if (await up()) {
     const { agentApi } = await (await fetch(`${BASE}/api/state`)).json();
@@ -456,8 +456,10 @@ switch (cmd) {
     const s = await api("/api/state");
     const b = s.brands.find((x) => x.videos.length);
     if (!b) fail("Make a video first (npm run video -- new <brand>); styles are listed per video.");
-    const { styles } = await director(b.brand, b.videos[0].video);
-    out(styles.map((x) => `${x.name}  (${x.id})\n  ${x.text}`).join("\n\n"), { ok: true, styles });
+    const d = await director(b.brand, b.videos[0].video);
+    // paths to open as they are: a built-in style's sheet, and its picture to show the human
+    const styles = d.styles.map((x) => (x.file ? { ...x, file: path.join(ROOT, x.file), thumb: x.thumb ? path.join(ROOT, path.dirname(x.file), "thumb.jpg") : null } : x));
+    out(styles.map((x) => `${x.name}  (${x.id})${x.category ? ` · ${x.category}` : ""}\n  ${x.text}${x.file ? `\n  ${x.file}` : ""}`).join("\n\n"), { ok: true, styles });
     break;
   }
   case "render": {

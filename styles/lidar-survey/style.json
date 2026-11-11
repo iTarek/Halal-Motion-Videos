@@ -1,0 +1,8 @@
+{
+  "name": "LiDAR Survey",
+  "ar": "مسح الليدار",
+  "category": "Evidence Films",
+  "line": "A real laser point cloud flown through in the dark; a scan front turns the points into a lit surface measured with hairlines.",
+  "lineAr": "سحابة نقاط ليزرية حقيقية نحلّق خلالها في العتمة، وخطّ مسح يحوّل النقاط إلى سطح مضاء يُقاس بخطوط دقيقة.",
+  "families": ["calm", "onetake"]
+}

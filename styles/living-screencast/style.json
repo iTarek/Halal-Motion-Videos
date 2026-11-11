@@ -1,0 +1,8 @@
+{
+  "name": "Living Screencast",
+  "ar": "تسجيل الشاشة الحيّ",
+  "category": "Information & Keynote",
+  "line": "A walkthrough that looks like a screen recording, with a big-pixel mascot living in the real interface and acting out what it does.",
+  "lineAr": "جولة في المنتج تبدو كتسجيل شاشة، تعيش فيها شخصية من بكسلات كبيرة داخل الواجهة الحقيقية وتمثّل ما يفعله البرنامج.",
+  "families": ["onetake", "punch"]
+}

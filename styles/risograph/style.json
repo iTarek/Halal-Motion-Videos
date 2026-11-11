@@ -1,0 +1,8 @@
+{
+  "name": "Risograph Print",
+  "ar": "طباعة الريزوغراف",
+  "category": "Print & Printmaking",
+  "line": "Two or three translucent inks overprinted on warm paper, with halftone dots, ink grain and plates that never quite line up.",
+  "lineAr": "حبران أو ثلاثة أحبار شفافة تتراكب على ورق دافئ، بنقاط الهافتون وحبيبات الحبر وألواح لا تتطابق تمامًا.",
+  "families": ["punch", "editorial"]
+}

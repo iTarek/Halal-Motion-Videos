@@ -1,0 +1,8 @@
+{
+  "name": "Exploded Teardown",
+  "ar": "تفكيك المنتج إلى أجزائه",
+  "category": "Evidence Films",
+  "line": "A real product lit like a studio packshot and taken apart on one axis, each layer named with the numbers from its own files.",
+  "lineAr": "منتج حقيقي بإضاءة الاستوديو يتفكك على محور واحد، وكل طبقة تحمل اسمها وأرقامها المأخوذة من ملفاته.",
+  "families": ["onetake", "calm"]
+}

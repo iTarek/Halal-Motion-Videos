@@ -84,7 +84,8 @@ public/<brand>/<video>/     files only one video uses: img/shots/, sfx/, vo/ (vo
 public/_shared/             any brand: img/grain.png, sfx/ (fallback sound kit)
 out/<brand>/<video>/        renders + stills (git-ignored)
 
-styles/library.json         your saved video styles (git-ignored; built-in ones are in tools/styles.mjs)
+styles/<style>/             a built-in film style: STYLE.md (its full style sheet), style.json (name, one line, category), thumb.jpg
+styles/library.json         the styles you wrote yourself (git-ignored)
 Start.command               double-click launcher: setup on first run, then the dashboard
 tools/                      CLIs: new, render, stills, shot, synth_sfx.py, voice, copy-asset, setup, doctor,
                             video (the whole machine from a terminal, for AI agents), agent-skill
@@ -136,7 +137,7 @@ Composition ids are `<brand>-<video>-<format>`, e.g. `my-app-video01-vertical`.
 | Card | What's in it |
 | --- | --- |
 | **Director** | Claude chat, thinking level; **Video** row (format 9:16 / 16:9 / both, length, Safe area switch, video language, voice language); **Voice-over** row (on/off, voice ID) |
-| **Style** | pick or save a named style from the shared library |
+| **Style** | pick one of the 66 built-in film styles by its picture, or write and save your own |
 | **Materials** | product website + project folder (per brand); drag-and-drop uploads (brand-wide or this video) |
 | **Preview** | opens each format in Remotion Studio |
 | **Render** | MP4 or stills, optional **film look** (motion blur), with a live queue on the right |
@@ -209,7 +210,10 @@ The dashboard sends these into every Director message; follow them without being
 - **Safe area:** on (default) or off, per video (dashboard switch, or `npm run video -- set … --safe-area=on|off`). On: follow "Safe area" under Design quality, and `review` tints the unsafe edges red. Off: nothing is laid over this video (an App Store preview, a website hero), so the frame is yours edge to edge.
 - **Video language:** default English. All on-screen text is in it; set the theme `direction` to match.
 - **Voice language / accent:** default "English — American accent". See Voice-over below.
-- **Style:** a named description of look and motion from the shared library `styles/library.json` (21 are built in, in `tools/styles.mjs`). Any video of any brand can use it, and it's managed in the Style card. Apply it within the brand kit's colours and fonts, unless it says its own palette is part of the look. It's a language, not a template: 2–3 of its signature moments are enough, and two styles can mix.
+- **Style:** one of 66 built-in film styles, or one the user wrote. Any video of any brand can use it, and it's picked in the Style card.
+  - **A built-in style** is a full style sheet, `styles/<style>/STYLE.md`: its look, colour, type, motion, camera, sound and native moves, how to build it in this engine, and where the brand and the real product go. Read all of it before planning. Where it differs from Design quality below on look or motion (no springs, no grain, its own palette or typeface), the style sheet wins; the Rules and `BRAND.md` win over it.
+  - **One the user wrote** is a short description: apply it within the brand kit's colours and fonts, unless it says its own palette is part of the look.
+  - It's a language, not a template: use the native moves the story needs, and two styles can mix.
 - **Website / project folder / files:** where to find the real product (see Screenshots and the project-folder note above).
 
 ## Design quality (no "mid")

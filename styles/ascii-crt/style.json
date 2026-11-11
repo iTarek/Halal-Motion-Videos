@@ -1,0 +1,8 @@
+{
+  "name": "ASCII / CRT Terminal",
+  "ar": "طرفية ASCII وشاشة CRT",
+  "category": "Graphic & Type",
+  "line": "Everything is real characters on a monospace grid, glowing on an old amber CRT; the camera is the font size.",
+  "lineAr": "كل ما على الشاشة حروف حقيقية على شبكة ثابتة العرض، تتوهج على شاشة CRT كهرمانية قديمة، والكاميرا هي حجم الخط.",
+  "families": ["calm", "editorial"]
+}

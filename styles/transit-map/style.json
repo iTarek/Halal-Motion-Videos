@@ -1,0 +1,8 @@
+{
+  "name": "Transit Map",
+  "ar": "خريطة المترو",
+  "category": "Information & Keynote",
+  "line": "A metro diagram printed on paper, its lines drawn by glowing pen tips while a camera glides and tilts over the sheet.",
+  "lineAr": "مخطط مترو مطبوع على ورق، ترسم خطوطَه رؤوسُ أقلام متوهجة والكاميرا تنساب وتميل فوق الورقة.",
+  "families": ["onetake", "calm"]
+}

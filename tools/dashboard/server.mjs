@@ -42,7 +42,7 @@ const PORT = Number(process.env.PORT ?? 4000);
 const STUDIO_PORT = Number(process.env.STUDIO_PORT ?? 3000);
 const NAME = /^[a-z][a-z0-9-]*$/;
 let creating = Promise.resolve(); // POST /api/new runs one at a time
-const AGENT_API = 7; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters; 4: safeArea; 5: Gemini voice-over; 6: moves; 7: render concurrency)
+const AGENT_API = 8; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters; 4: safeArea; 5: Gemini voice-over; 6: moves; 7: render concurrency; 8: film styles)
 // The autopilot queues a render when a build ends (renderJob is defined below; called later, at run time).
 const director = createDirector({ root: ROOT, brandsDir: BRANDS, dashboardUrl: `http://127.0.0.1:${PORT}`, onBuilt: (brand, video, opts) => renderJob({ brand, video, ...opts }).id });
 
@@ -326,6 +326,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && p === "/selects.js") return send(res, 200, fs.readFileSync(path.join(HERE, "selects.js")), "text/javascript; charset=utf-8");
     if (req.method === "GET" && p.startsWith("/out/")) return serveFile(req, res, OUT, decodeURIComponent(p.slice(5)));
     if (req.method === "GET" && p.startsWith("/public/")) return serveFile(req, res, PUBLIC, decodeURIComponent(p.slice(8)));
+    const thumb = req.method === "GET" && p.match(/^\/styles\/([a-z0-9-]+)\/thumb\.jpg$/); // a built-in style's picture, and nothing else in styles/
+    if (thumb) return serveFile(req, res, path.join(ROOT, "styles"), path.join(thumb[1], "thumb.jpg"));
 
     // ---- Settings (ElevenLabs, and optionally Gemini). The keys never go back to the browser — only a hint.
     if (p === "/api/settings") {

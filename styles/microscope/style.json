@@ -1,0 +1,8 @@
+{
+  "name": "Microscope Story",
+  "ar": "حكاية المجهر",
+  "category": "Evidence Films",
+  "line": "Real microscope images in one continuous dive from the slide to a single cell, with a measured scale bar and readings.",
+  "lineAr": "صور مجهرية حقيقية في غوصة واحدة متصلة من الشريحة إلى خلية واحدة، مع مقياس رسم وقراءات مقيسة.",
+  "families": ["calm", "onetake"]
+}

@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { readJson, ROOT } from "./settings.mjs";
-import { getStyle, listStyles, MOMENT_STYLES, STYLE_FAMILIES } from "./styles.mjs";
+import { getStyle, listStyles, OWN_MATERIAL } from "./styles.mjs";
 
 export const FAMILIES = ["calm", "punch", "editorial", "onetake"];
 export const CUES = ["number", "list", "price", "cta", "contrast", "emphasis", "reveal", "tech", "hit", "captions"];
@@ -152,7 +152,7 @@ const brief = ({ id, name, role, how }) => ({ id, name, role, how });
  * A palette. seed: what makes this video's different from another's. history: the brand's other palettes, oldest first.
  * rtl: Arabic moves are in, and one is always among the accents; otherwise they're out. noSplit: the brand forbids splitting
  * words. cues: the special moments this video has (CUES). styleId: the video's style, whose families it keeps to; without
- * one, a style is suggested, from `styles`.
+ * one, a style is suggested, from `styles`: a built-in one that needs nothing but the product.
  */
 export const planMoves = ({ seed, history = [], rtl = false, noSplit = false, family, cues = [], styleId = null, styles = [] }) => {
   const pick = seeded(seed);
@@ -174,7 +174,8 @@ export const planMoves = ({ seed, history = [], rtl = false, noSplit = false, fa
   };
 
   const lastFamily = history.at(-1)?.family;
-  const allowed = STYLE_FAMILIES[styleId] ?? FAMILIES;
+  const picked = styles.find((s) => s.id === styleId);
+  const allowed = picked?.families ?? FAMILIES; // a style you wrote yourself suits any
   const unlike = allowed.filter((f) => f !== lastFamily);
   const chosenFamily = FAMILIES.includes(family) ? family : (unlike.length ? unlike : allowed)[pick((unlike.length ? unlike : allowed).length)];
   const inFamily = usable.filter((m) => m.families.includes(chosenFamily));
@@ -210,9 +211,8 @@ export const planMoves = ({ seed, history = [], rtl = false, noSplit = false, fa
     if (m) accents.push(m);
   }
 
-  const picked = styles.find((s) => s.id === styleId);
   const recentStyles = new Set(history.slice(-3).map((p) => p.style?.id));
-  const suits = styles.filter((s) => !MOMENT_STYLES.includes(s.id) && STYLE_FAMILIES[s.id]?.includes(chosenFamily));
+  const suits = styles.filter((s) => s.families?.includes(chosenFamily) && !OWN_MATERIAL.includes(s.category));
   const fresh = suits.filter((s) => !recentStyles.has(s.id));
   const suggested = picked ? null : (fresh.length ? fresh : suits)[pick((fresh.length ? fresh : suits).length || 1)];
   const style = picked ?? suggested;
@@ -220,7 +220,7 @@ export const planMoves = ({ seed, history = [], rtl = false, noSplit = false, fa
   return {
     family: chosenFamily,
     // a style the user picked reaches the Director with its text anyway; a suggested one only reaches it from here
-    style: style ? { id: style.id, name: style.name, suggested: !picked, ...(picked ? {} : { text: style.text }) } : null,
+    style: style ? { id: style.id, name: style.name, suggested: !picked, ...(picked ? {} : { text: style.text, ...(style.file ? { file: style.file } : {}) }) } : null,
     core: core.map(brief),
     accents: accents.map((m) => ({ ...brief(m), ...(m.cue ? { cue: m.cue } : {}) })),
     always: MOVES.filter((m) => m.id === "jcut" || m.id === "matchCut").map(brief),
@@ -265,7 +265,7 @@ const isRtl = (brand, saved, flags) => {
 const printPlan = (brand, video, plan) => {
   const line = (m) => `  • ${m.name}${m.cue ? ` (for: ${m.cue})` : ""}: ${m.how}`;
   console.log(`${brand}/${video}: this video's palette (${plan.family})`);
-  if (plan.style) console.log(`Style: ${plan.style.name}${plan.style.suggested ? ` (suggested, as this video has none: use it, or pick another in the Style card or with \`npm run video -- set … --style=\`)\n  ${plan.style.text}` : ""}`);
+  if (plan.style) console.log(`Style: ${plan.style.name}${plan.style.suggested ? ` (suggested, as this video has none: use it, or pick another in the Style card or with \`npm run video -- set … --style=\`)\n  ${plan.style.text}${plan.style.file ? `\n  Read its full style sheet first: ${plan.style.file}` : ""}` : ""}`);
   console.log(`\nCore: build the whole video around these three\n${plan.core.map(line).join("\n")}`);
   if (plan.accents.length) console.log(`\nAccents: for its special moments\n${plan.accents.map(line).join("\n")}`);
   console.log(`\nAlways:\n${plan.always.map(line).join("\n")}`);

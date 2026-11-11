@@ -1,0 +1,8 @@
+{
+  "name": "Sci-fi Hologram HUD",
+  "ar": "واجهة هولوغرام من الخيال العلمي",
+  "category": "Information & Keynote",
+  "line": "A glowing wireframe scanned above a projector pad; target boxes lock onto parts and numbers roll into their real values.",
+  "lineAr": "مجسّم خطّي متوهّج يُمسح فوق منصّة العرض، ومربّعات تحديد تثبت على الأجزاء، وأرقام تدور حتى تستقر على قيمها الحقيقية.",
+  "families": ["punch", "onetake"]
+}

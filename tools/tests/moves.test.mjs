@@ -16,6 +16,7 @@ const builtInStyles = async () => {
   try {
     fs.mkdirSync(path.join(root, 'tools'));
     for (const f of ['styles.mjs', 'settings.mjs']) fs.copyFileSync(path.join(TOOLS, f), path.join(root, 'tools', f));
+    fs.cpSync(path.join(TOOLS, '..', 'styles'), path.join(root, 'styles'), { recursive: true, filter: (src) => !/library\.json$|\.jpg$/.test(src) });
     return (await import(pathToFileURL(path.join(root, 'tools', 'styles.mjs')).href)).listStyles();
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
@@ -93,15 +94,19 @@ test('the moments asked for get accents, at most 4', () => {
   for (const m of plan.accents) assert.ok(byId.get(m.id).cues.includes(m.cue), m.id);
 });
 
-test("a video's own style sets the family and is kept; without one, a whole-film style is suggested", () => {
+test("a video's own style sets the family and is kept; without one, a style that suits the family is suggested", () => {
+  const keynote = styles.find((s) => s.id === 'dark-keynote');
   for (let i = 0; i < 20; i++) {
-    const plan = planMoves({ seed: `p${i}`, styleId: 'keynote', styles });
-    assert.ok(['calm', 'onetake'].includes(plan.family));
-    assert.deepEqual(plan.style, { id: 'keynote', name: 'Keynote', suggested: false });
+    const plan = planMoves({ seed: `p${i}`, styleId: keynote.id, styles });
+    assert.ok(keynote.families.includes(plan.family));
+    assert.deepEqual(plan.style, { id: keynote.id, name: keynote.name, suggested: false });
     const open = planMoves({ seed: `q${i}`, styles });
+    const suggested = styles.find((s) => s.id === open.style.id);
     assert.equal(open.style.suggested, true);
-    assert.equal(open.style.text, styles.find((s) => s.id === open.style.id).text); // a name alone says nothing about the look
-    assert.ok(!['vhs', 'brutalist'].includes(open.style.id));
+    assert.equal(open.style.text, suggested.text); // a name alone says nothing about the look
+    assert.equal(open.style.file, `styles/${suggested.id}/STYLE.md`); // and the Director needs its whole sheet
+    assert.ok(suggested.families.includes(open.family));
+    assert.ok(!['Edit & Documentary', 'Evidence Films'].includes(suggested.category), `${suggested.id} needs footage or data only the user has`);
   }
   assert.equal(planMoves({ seed: 'x', family: 'punch', styles }).family, 'punch');
 });
@@ -112,6 +117,7 @@ const temp = (t, brandDoc = '', theme = 'direction: "ltr"') => {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, 'tools'));
   for (const f of ['moves.mjs', 'styles.mjs', 'settings.mjs']) fs.copyFileSync(path.join(TOOLS, f), path.join(root, 'tools', f));
+  for (const f of ['STYLE.md', 'style.json']) fs.cpSync(path.join(TOOLS, '..', 'styles', 'swiss-motion', f), path.join(root, 'styles', 'swiss-motion', f)); // one built-in style
   const brand = path.join(root, 'src', 'brands', 'demo');
   fs.mkdirSync(path.join(brand, 'brand'), { recursive: true });
   fs.writeFileSync(path.join(brand, 'brand', 'BRAND.md'), brandDoc);
@@ -162,10 +168,10 @@ test("the command reads the direction from the video's language, then the theme,
   assert.ok(all(saved('video01')).some((m) => m.arabic)); // the theme
   assert.ok(!all(saved('video01')).some((m) => m.splits));
   fs.mkdirSync(path.join(root, '.director', 'demo'), { recursive: true });
-  fs.writeFileSync(path.join(root, '.director', 'demo', 'video02.json'), JSON.stringify({ videoLanguage: 'English', styleId: 'swiss' }));
+  fs.writeFileSync(path.join(root, '.director', 'demo', 'video02.json'), JSON.stringify({ videoLanguage: 'English', styleId: 'swiss-motion' }));
   run('demo', 'video02');
   assert.ok(!all(saved('video02')).some((m) => m.arabic)); // the video's language wins
-  assert.deepEqual(saved('video02').style, { id: 'swiss', name: 'Swiss', suggested: false }); // and its style
+  assert.deepEqual(saved('video02').style, { id: 'swiss-motion', name: 'Swiss Motion Graphics', suggested: false }); // and its style
   // Arabic-only moves (kashida, dots, reed pen) need Arabic script, not just right to left
   fs.writeFileSync(path.join(root, '.director', 'demo', 'video02.json'), JSON.stringify({ videoLanguage: 'Hebrew' }));
   run('demo', 'video02', '--again');

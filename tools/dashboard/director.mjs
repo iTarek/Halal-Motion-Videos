@@ -9,7 +9,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { canSandbox, SANDBOX_EXEC, sandboxEnv, sandboxProfile } from "./sandbox.mjs";
 import { GEMINI_VOICES, readSettings as readSettingsFile, SETTINGS_FILE, voiceFits, voiceProviderOf } from "../settings.mjs";
-import { getStyle, listStyles } from "../styles.mjs";
+import { getStyle as styleFromLibrary, listStyles as stylesFromLibrary } from "../styles.mjs";
 import { fixAudio } from "../audiofix.mjs";
 import { cliEnvironment, antigravityBin, codexBin } from "../doctor.mjs";
 
@@ -42,9 +42,11 @@ const ALLOWED_TOOLS = [
 ];
 
 /** onBuilt(brand, video, { blur, concurrency }) → render job id: used by the autopilot to queue a render when the build ends.
- *  dashboardUrl: where a sandboxed engine's voice and shot ask to be run (tools/broker.mjs). */
+ *  dashboardUrl: where a sandboxed engine's voice and shot ask to be run (tools/broker.mjs).
+ *  getStyle, listStyles: the style library (tools/styles.mjs). */
 export const createDirector = ({
   root, brandsDir, onBuilt, spawnProcess = spawn, dashboardUrl = `http://127.0.0.1:${process.env.PORT ?? 4000}`, readSettings = readSettingsFile,
+  getStyle = styleFromLibrary, listStyles = stylesFromLibrary,
 }) => {
   const stateDir = path.join(root, ".director");
   const runs = new Map(); // "<brand>/<video>" → { proc, started, step, gotEvents, stopped, ticket (sandboxed runs) }
@@ -165,9 +167,12 @@ ${v.safeArea
     ? "- SAFE AREA: ON (the user set this). Key text and buttons stay 5% from every edge, and on 9:16 out of the top 12%, the bottom 22% and the right 12%, where TikTok, Reels and Shorts lay their header, caption and buttons. The review's phone sheets tint those edges red."
     : "- SAFE AREA: OFF (the user set this): no app lays its UI over this video, so the frame is yours edge to edge (just keep text off the very edge)."}`;
     const style = getStyle(s.styleId);
-    const styleLine = style
-      ? `\n- VIDEO STYLE "${style.name}" (the user picked this): ${style.text}\n  Apply it to motion, pacing, typography, transitions and sound — within the brand kit's colours and fonts, unless it says its own palette is part of the look. It's a language, not a template: 2–3 of its signature moments are enough, and it may mix with a second style.`
-      : "";
+    // a built-in style is a whole style sheet, too long for every message: the Director reads the file
+    const styleLine = !style
+      ? ""
+      : style.file
+        ? `\n- VIDEO STYLE "${style.name}" (the user picked this): ${style.text}\n  Its full style sheet is ${style.file}: read all of it before you plan anything, and make the video in it — look, motion, camera, on-screen text and sound. It ships with the tool for every brand: never edit it.\n  Where it differs from "Design quality" in CLAUDE.md on look or motion (no springs, no grain, its own palette or typeface), the style sheet wins. The rules on claims, personal data, Arabic, sacred text and BRAND.md win over it. Its "In a product video" section says where the brand's colour, logo and the real product go. Its native moves are a menu: use the ones this story needs.`
+        : `\n- VIDEO STYLE "${style.name}" (the user picked this): ${style.text}\n  Apply it to motion, pacing, typography, transitions and sound — within the brand kit's colours and fonts, unless it says its own palette is part of the look. It's a language, not a template: 2–3 of its signature moments are enough, and it may mix with a second style.`;
     const sound = `- SOUND DESIGN: you are the sound designer too. Invent sounds that fit this video's style and motion — never settle for stock.
   Build them by code (see "Sound design" in CLAUDE.md): layer built-in sounds, shape them with fx (filters, pitch, echo, reverb, drive,
   tremolo, reverse…), or write your own synthesis functions in sfx_custom.py.

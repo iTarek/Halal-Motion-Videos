@@ -1,0 +1,8 @@
+{
+  "name": "Blueprint",
+  "ar": "المخطط الهندسي الأزرق",
+  "category": "Graphic & Type",
+  "line": "White technical lines draw themselves in drafting order on Prussian-blue paper, with dimensions and notes that move.",
+  "lineAr": "خطوط هندسية بيضاء ترسم نفسها بترتيب الرسّام على ورق أزرق بروسي، مع أبعاد وملاحظات تتحرك.",
+  "families": ["calm", "editorial"]
+}

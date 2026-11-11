@@ -128,7 +128,7 @@ Pass these to `make`, or change them with `scripts/video set <brand> [video] …
 | `--voice-language` | e.g. `"Arabic — Egyptian accent"` | English — American accent |
 | `--voice-id` | a voice of the provider that narrates: an ElevenLabs voice ID, or with Gemini a voice name like `Kore` (any other is refused) | the saved default |
 | `--safe-area` | `on` / `off`. On keeps key text out of the edges TikTok, Reels and Shorts cover (top 12%, bottom 22%, right 12% on 9:16; 5% elsewhere). Turn it off for videos nothing is laid over, like App Store previews or a website hero | `on` |
-| `--style` | a style name from `scripts/video styles` (21 are built in), or `none`, which lets the Director's palette of moves suggest one | none |
+| `--style` | a style name or id from `scripts/video styles` (66 film styles are built in, each with a picture to show the human), or `none`, which lets the Director's palette of moves suggest one | none |
 | `--effort` | Claude's thinking: `medium`, `high`, `xhigh` | `high` |
 
 **A website to look at first:** `scripts/video fetch-site <brand> --url=https://…` saves its screenshots, and `site.json` with what it really says (`new <brand>` first, for a new brand). The Director does this itself when a video has a website.

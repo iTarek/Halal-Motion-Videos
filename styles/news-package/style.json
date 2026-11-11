@@ -1,0 +1,8 @@
+{
+  "name": "Broadcast News Package",
+  "ar": "حزمة النشرة الإخبارية",
+  "category": "Edit & Documentary",
+  "line": "A newsroom graphics package: a sting that becomes the channel bug, a rundown, a lower-third strap and one fact per screen.",
+  "lineAr": "حزمة غرافيك لنشرة أخبار: شارة افتتاح تتحوّل إلى شعار القناة، وقائمة عناوين، وشريط سفلي، وحقيقة واحدة في كل لقطة.",
+  "families": ["punch", "editorial"]
+}

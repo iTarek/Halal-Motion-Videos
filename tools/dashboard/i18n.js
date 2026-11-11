@@ -98,7 +98,10 @@
     'running':'قيد التشغيل','queued':'في الانتظار','waiting':'في الانتظار','done':'مكتمل','failed':'فشل','cancelled':'ملغى','paused':'متوقف مؤقتًا','stopped':'متوقف',
     'Renders and stills you start appear here with live progress.':'تظهر هنا مهام تصدير الفيديوهات والصور مع متابعة تقدمها.',
     'Starting Studio…':'جارٍ تشغيل الاستوديو…',"Studio didn't start — try `npm run studio` in a terminal.":'لم يبدأ الاستوديو. جرّب npm run studio في الطرفية.',
-    'Style':'الأسلوب','Saved styles work on any video, any brand':'يمكن تطبيق الأساليب المحفوظة على أي فيديو أو علامة','Choose':'اختيار','— No style (new) —':'— دون أسلوب (جديد) —',
+    'Style':'الأسلوب','A style works on any video, any brand':'يمكن تطبيق الأسلوب على أي فيديو أو علامة','No style':'دون أسلوب','Your styles':'أساليبك','Write your own style':'اكتب أسلوبك الخاص',
+    'No style: the Director chooses the look.':'دون أسلوب: يختار المخرج المظهر.','Built in: the Director reads its full style sheet and makes the video in it.':'أسلوب مدمج: يقرأ المخرج دليله الكامل ويصنع الفيديو به.',
+    'Information & Keynote':'المعلومات والعروض التقديمية','Graphic & Type':'الغرافيك والخطوط','Materials & 3D':'الخامات والمجسمات','Edit & Documentary':'المونتاج والوثائقي','Evidence Films':'أفلام الأدلة','Hand-drawn & Painting':'الرسم اليدوي واللوحات',
+    'Print & Printmaking':'الطباعة وفنونها','Cartoon & Anime':'الكرتون والأنمي','Games':'الألعاب','East Asian Traditions':'تقاليد شرق آسيا','Cinema & Eras':'السينما وعصورها',
     'Choosing moves':'اختيار الحركات',
     'Facts':'الحقائق','Website':'الموقع','Headings':'العناوين','Text':'النصوص','Buttons':'الأزرار','Colours':'الألوان','Fonts':'الخطوط',
     'ElevenLabs rejected the API key.':'رفضت ElevenLabs مفتاح API.','ElevenLabs rejected the API key (Settings).':'رفضت ElevenLabs مفتاح API (الإعدادات).',
@@ -187,7 +190,7 @@
   if (!['ar','en'].includes(lang)) lang = navigator.language.startsWith('ar') ? 'ar' : 'en';
   const original = new WeakMap();
   const attrs = new WeakMap();
-  const excluded = 'script,style,svg,code,pre,.doc,.msg.user,.msg.claude,.log,.bn,.vid>span:first-child,.crumbs,.hero h2,.file .nm,.out .meta b,#confirmWord,#uiLanguage option,#styleSel option:not([value=""]),textarea';
+  const excluded = 'script,style,svg,code,pre,.doc,.msg.user,.msg.claude,.log,.bn,.vid>span:first-child,.crumbs,.hero h2,.file .nm,.out .meta b,#confirmWord,#uiLanguage option,.style-tile,.style-data,textarea';
   function translate(text) {
     if (lang !== 'ar') return text;
     const s = text.trim();

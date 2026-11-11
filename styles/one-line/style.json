@@ -1,0 +1,8 @@
+{
+  "name": "One-line Drawing",
+  "ar": "الرسم بخط واحد",
+  "category": "Hand-drawn & Painting",
+  "line": "One ink line that never leaves the paper draws everything while the camera follows the nib; scenes morph instead of cutting.",
+  "lineAr": "خط حبر واحد لا يفارق الورقة يرسم كل شيء والكاميرا تتبع سنّ القلم، والمشاهد تتحوّل من واحد إلى آخر بلا قطع.",
+  "families": ["calm", "onetake"]
+}

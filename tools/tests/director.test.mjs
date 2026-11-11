@@ -12,6 +12,11 @@ import { canSandbox, SANDBOX_EXEC } from '../dashboard/sandbox.mjs';
 const noKeys=()=>({elevenlabs:{apiKey:'',voiceId:'NOpBlnGInO9m6vDvFkFC',voiceName:'',model:'eleven_v4'},
   gemini:{apiKey:'',voice:'Sadachbia',model:'gemini-3.8-flash-tts'},voiceProvider:'elevenlabs'});
 
+// Its own styles: the real styles/library.json is the user's
+const STYLES=[{id:'house',name:'House',text:'Our look.'},
+  {id:'dark-keynote',name:'Dark Tech Keynote',text:'A dark stage.',builtin:true,file:'styles/dark-keynote/STYLE.md'}];
+const styleLibrary={getStyle:id=>STYLES.find(s=>s.id===id)??null,listStyles:()=>STYLES};
+
 function fixture(t, engine, failSpawn, readSettings = noKeys, onBuilt = () => {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hmv-director-'));
   t.after(() => {
@@ -26,7 +31,7 @@ function fixture(t, engine, failSpawn, readSettings = noKeys, onBuilt = () => {}
     const p=new EventEmitter(); p.stdin=new PassThrough();p.stdout=new PassThrough();p.stderr=new PassThrough();p.kill=()=>{};
     calls.push({bin,args,options,p});return p;
   };
-  const director=createDirector({root,brandsDir:path.join(root,'src/brands'),onBuilt,spawnProcess,readSettings});
+  const director=createDirector({root,brandsDir:path.join(root,'src/brands'),onBuilt,spawnProcess,readSettings,...styleLibrary});
   if (engine) director.setEngine('demo','video01',engine);
   return {director,calls,root};
 }
@@ -39,6 +44,26 @@ test('Without a picked engine the Director runs Claude with its guardrails, neve
   assert.equal(calls[0].bin,process.env.CLAUDE_BIN||'claude');
   assert.ok(calls[0].args.includes('--allowedTools') && calls[0].args.includes('--disallowedTools'));
   calls[0].p.emit('close',0);
+});
+
+test('A built-in style reaches the Director as a style sheet to read in full, with what wins when it differs',t=>{
+  const {director,calls}=fixture(t);
+  director.setStyle('demo','video01','dark-keynote');
+  director.send('demo','video01','Hello');
+  const sent=calls[0].args.join('\n');
+  assert.match(sent,/VIDEO STYLE "Dark Tech Keynote" \(the user picked this\): A dark stage\.\n  Its full style sheet is styles\/dark-keynote\/STYLE\.md: read all of it before you plan anything/);
+  assert.match(sent,/never edit it\.\n/);
+  assert.match(sent,/the style sheet wins\. The rules on claims, personal data, Arabic, sacred text and BRAND\.md win over it/);
+  calls[0].p.emit('close',0);
+  // one the user wrote is a short description, with no sheet to read
+  director.setStyle('demo','video01','house');
+  director.send('demo','video01','Hello');
+  assert.match(calls[1].args.join('\n'),/VIDEO STYLE "House" \(the user picked this\): Our look\.\n  Apply it to motion/);
+  assert.doesNotMatch(calls[1].args.join('\n'),/style sheet/);
+  calls[1].p.emit('close',0);
+  // and one that's gone (deleted, or from before the film styles) is no style
+  director.setStyle('demo','video01','keynote');
+  assert.equal(director.state('demo','video01').styleId,null);
 });
 
 test('The autopilot asks its render for the Chrome tabs it was given, and status shows them',t=>{

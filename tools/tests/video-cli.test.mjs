@@ -203,12 +203,13 @@ test('voice-settings says who really narrates when Gemini is picked without its 
 
 // The real dashboard server, run from a copy of tools/ in a temp folder: its own settings file, so no real key is read
 // and nothing reaches ElevenLabs or Google (every case here stops before any remote check).
-const realDashboard=async t=>{
+const realDashboard=async(t,{styles=false}={})=>{
   const repo=fileURLToPath(new URL('../../',import.meta.url));
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'hmv-server-'));
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   fs.cpSync(path.join(repo,'tools'),path.join(root,'tools'),{recursive:true,filter:src=>!src.includes('__pycache__')});
   fs.symlinkSync(path.join(repo,'node_modules'),path.join(root,'node_modules'),'junction');
+  if(styles) fs.cpSync(path.join(repo,'styles'),path.join(root,'styles'),{recursive:true,filter:src=>!src.endsWith('library.json')}); // the built-in ones, never the real library
   fs.mkdirSync(path.join(root,'src','brands','demo','video01'),{recursive:true});fs.writeFileSync(path.join(root,'src','brands','demo','video01','index.ts'),'');
   const port=await new Promise(resolve=>{const s=net.createServer().listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});
   const proc=spawn(process.execPath,[path.join(root,'tools','dashboard','server.mjs')],{env:{...process.env,PORT:String(port),ELEVENLABS_API_KEY:''},windowsHide:true});
@@ -216,7 +217,7 @@ const realDashboard=async t=>{
   let log='';proc.stdout.setEncoding('utf8');proc.stderr.setEncoding('utf8');proc.stderr.on('data',x=>log+=x);
   await new Promise((resolve,reject)=>{proc.stdout.on('data',x=>{log+=x;if(log.includes('dashboard →')) resolve();});proc.on('close',()=>reject(new Error(log)));});
   const post=async(p,body)=>{const r=await fetch(`http://127.0.0.1:${port}${p}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:r.status,text:await r.text()};};
-  return {root,post};
+  return {root,post,url:`http://127.0.0.1:${port}`};
 };
 
 test('the dashboard takes a Gemini voice per video, and refuses bad models, keys and providers before asking anyone',async t=>{
@@ -297,4 +298,67 @@ test('the dashboard hands the Chrome tabs to the render job, and refuses a bad n
   const r=await post('/api/render',{concurrency:2});assert.equal(r.status,200,r.text);assert.match(JSON.parse(r.text).label,/tabs 2/);
   for(let i=0;i<100&&!(fs.existsSync(seen)&&fs.statSync(seen).size);i++) await new Promise(resolve=>setTimeout(resolve,100));
   assert.deepEqual(JSON.parse(fs.readFileSync(seen,'utf8')),['demo','video01','--concurrency=2']);
+});
+
+// Styles, from an agent: the list says where each built-in style's sheet is, and --style takes a name or an id.
+test('an agent lists the styles with their style sheets, and picks one by name',async t=>{
+  const styles=[{id:'mine',name:'Mine',text:'my own look'},{id:'dark-keynote',name:'Dark Tech Keynote',text:'A dark stage.',builtin:true,category:'Information & Keynote',file:'styles/dark-keynote/STYLE.md',thumb:true},
+    {id:'swiss-motion',name:'Swiss Motion Graphics',text:'A strict grid.',builtin:true,category:'Graphic & Type',file:'styles/swiss-motion/STYLE.md',thumb:false}];
+  const picked=[];
+  const server=http.createServer(async(req,res)=>{
+    let raw='';for await(const c of req) raw+=c;
+    const url=new URL(req.url,'http://localhost');
+    if(url.pathname==='/api/director/style') picked.push(JSON.parse(raw).styleId);
+    const data=url.pathname==='/api/state'
+      ? {agentApi:AGENT_API,brands:[{brand:'demo',videos:[{video:'video01',outputs:{videos:[],stills:[]}}]}],jobs:[]}
+      : {ok:true,engine:'claude',claude:{ok:true},phase:'brief',running:false,messages:[],storyboard:[],styles,styleId:picked.at(-1)??null,voice:{length:10},autopilot:null};
+    res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const cli=async(...args)=>{
+    const proc=spawn(process.execPath,[fileURLToPath(new URL('../video.mjs',import.meta.url)),...args],{env:{...process.env,PORT:String(server.address().port)},windowsHide:true});
+    let out='';proc.stdout.setEncoding('utf8');proc.stdout.on('data',x=>out+=x);
+    return {code:await new Promise(resolve=>proc.on('close',resolve)),out};
+  };
+  let r=await cli('styles');assert.equal(r.code,0);
+  const sheet=fileURLToPath(new URL('../../styles/dark-keynote/STYLE.md',import.meta.url));
+  assert.ok(r.out.includes(`Dark Tech Keynote  (dark-keynote) · Information & Keynote\n  A dark stage.\n  ${sheet}`),r.out);
+  assert.ok(r.out.includes('Mine  (mine)\n  my own look\n\n'),r.out); // one of the user's own: no category, no file
+  // in JSON too, the sheet and the picture are whole paths an agent can open, or hand to the human
+  const folder=fileURLToPath(new URL('../../styles/',import.meta.url));
+  r=await cli('styles','--json');
+  assert.deepEqual(JSON.parse(r.out).styles,[styles[0],
+    {...styles[1],file:sheet,thumb:path.join(folder,'dark-keynote','thumb.jpg')},
+    {...styles[2],file:path.join(folder,'swiss-motion','STYLE.md'),thumb:null}]);
+  r=await cli('set','demo','video01','--style=dark tech keynote','--json');assert.equal(r.code,0,r.out);
+  r=await cli('set','demo','video01','--style=mine','--json');assert.equal(r.code,0,r.out);
+  r=await cli('set','demo','video01','--style=none','--json');assert.equal(r.code,0,r.out);
+  assert.deepEqual(picked,['dark-keynote','mine',null]);
+  r=await cli('set','demo','video01','--style=keynote','--json');assert.equal(r.code,1);assert.match(JSON.parse(r.out).error,/No style "keynote"/); // a style from before the film styles
+  assert.equal(picked.length,3);
+});
+
+// The real server: the page gets every built-in style and its picture, and nothing else from styles/ is served.
+test('the dashboard serves the film styles and their pictures, and keeps the built-in ones as they are',async t=>{
+  const {root,post,url}=await realDashboard(t,{styles:true});
+  const act=(action,body)=>post(`/api/director/${action}`,{brand:'demo',video:'video01',...body});
+  let r=await act('style',{styleId:'dark-keynote'});assert.equal(r.status,200,r.text);
+  const state=JSON.parse(r.text);
+  assert.equal(state.styleId,'dark-keynote');assert.equal(state.styles.length,66);
+  const keynote=state.styles.find(s=>s.id==='dark-keynote');
+  assert.equal(keynote.builtin,true);assert.equal(keynote.thumb,true);assert.equal(keynote.file,'styles/dark-keynote/STYLE.md');
+  const get=async p=>{const res=await fetch(url+p);await res.arrayBuffer();return {status:res.status,type:res.headers.get('content-type')};};
+  assert.deepEqual(await get('/styles/dark-keynote/thumb.jpg'),{status:200,type:'image/jpeg'});
+  fs.writeFileSync(path.join(root,'styles','library.json'),'[]');
+  for(const p of ['/styles/library.json','/styles/dark-keynote/STYLE.md','/styles/dark-keynote/style.json','/styles/no-such-style/thumb.jpg','/styles/..%2Ftools/thumb.jpg','/styles/Dark-Keynote/thumb.jpg'])
+    assert.notEqual((await get(p)).status,200,p);
+  fs.rmSync(path.join(root,'styles','library.json'));
+  r=await act('style-save',{name:'Dark Keynote',text:'mine'});assert.equal(r.status,409);assert.match(r.text,/built-in style/);
+  r=await act('style-delete',{styleId:'dark-keynote'});assert.equal(r.status,409);assert.match(r.text,/can't be deleted/);
+  assert.equal(JSON.parse((await act('style',{styleId:'dark-keynote'})).text).styleId,'dark-keynote'); // the refused delete didn't take it off the video
+  assert.equal(fs.existsSync(path.join(root,'styles','library.json')),false);
+  r=await act('style-save',{name:'House',text:'our look'});assert.equal(r.status,200,r.text);
+  assert.deepEqual(JSON.parse(r.text).styles.slice(0,1),[{id:'house',name:'House',text:'our look'}]); // yours come first
+  assert.equal(JSON.parse(r.text).styleId,'house');
 });

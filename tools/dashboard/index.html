@@ -358,15 +358,27 @@
   .file .th.audio svg { width: 16px; height: 16px; }
 
   /* style card */
-  .style-card select { flex: 1; min-width: 220px; border: 1px solid var(--line2); background: var(--bg2); border-radius: 10px; padding: 8px 10px; }
+  .style-grid { max-height: 440px; overflow-y: auto; border: 1px solid var(--line2); border-radius: 12px; padding: 4px 12px 12px; background: var(--bg2); }
+  .style-group { font-size: 11.5px; font-weight: 650; color: var(--faint); margin: 12px 0 8px; }
+  .style-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .style-tile { display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1px solid var(--line2); border-radius: 10px; background: var(--panel); color: inherit; font: inherit; text-align: center; white-space: normal; cursor: pointer; }
+  .style-tile:hover { border-color: var(--accent); }
+  .style-tile[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .style-tile .pic { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: var(--panel2); }
+  .style-tile span.pic { flex: 1; display: grid; place-items: center; padding: 6px; text-align: center; font-size: 12px; font-weight: 650; color: var(--muted); }
+  .style-tile .nm { padding: 6px 8px 7px; font-size: 12px; font-weight: 600; line-height: 1.3; }
+  .style-now { margin: 12px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+  .style-now b { color: var(--text); }
+  .style-own { margin-top: 12px; }
+  .style-own summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 10px; }
   .style-card textarea { flex: 1; min-width: 220px; border: 1px solid var(--line2); background: var(--bg2); border-radius: 10px; padding: 9px 12px; font: inherit; color: inherit; resize: vertical; min-height: 84px; outline: none; line-height: 1.45; }
-  .style-card textarea:focus, .style-card select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
+  .style-card textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
   .style-card .field { align-items: flex-start; }
   .style-card .field .flabel { padding-top: 9px; }
-  .style-actions { display: flex; align-items: center; gap: 8px; margin: 12px 0 0 118px; flex-wrap: wrap; }
+  .style-actions { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; margin-inline-start: 118px; flex-wrap: wrap; }
   .style-actions .muted-note { flex: 1; font-size: 11.5px; }
   .in-use { font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 99px; background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
-  @media (max-width: 720px) { .style-actions { margin-left: 0; } }
+  @media (max-width: 720px) { .style-actions { margin-inline-start: 0; } }
 
   /* sidebar: preview, render, outputs */
   .card.side { padding: 14px; margin-bottom: 14px; }
@@ -439,7 +451,7 @@
   [dir="rtl"] .stepgroup, [dir="rtl"] .msg.meta { margin-left:0; margin-inline-start:36px; }
   [dir="rtl"] #langSave { margin-left:0; margin-inline-start:auto; }
   input, textarea { text-align:start; }
-  #prompt, .msg, .doc { unicode-bidi:plaintext; }
+  #prompt, .msg, .doc, #styleName, #styleText, .style-data { unicode-bidi:plaintext; }
   #urlInput, #folderInput, #elKey, #gmKey, #elVoice, #voVoice, #newBrand, #newVideo, #confirmInput, #stillFrames, code, pre, .log, .out .meta b, .file .nm { direction:ltr; unicode-bidi:isolate; }
   @media(max-width:1180px) { [dir="rtl"] aside { border-right:0; } }
   @media(max-width:720px) { [dir="rtl"] nav { border-left:0; } }
@@ -1076,9 +1088,10 @@ document.addEventListener("click", async (e) => {
   else if (d.sugg) { const ta = $("#prompt"); ta.value = tr(d.sugg); ta.focus(); ta.dispatchEvent(new Event("input")); }
   else if (t.id === "styleSave") { if (await styleAction("style-save", { name: $("#styleName").value, text: $("#styleText").value })) toast("Style saved and applied"); }
   else if (t.id === "styleDel") {
-    const name = $("#styleSel").selectedOptions[0]?.textContent;
-    if (confirmLocalized(`Delete the style “${name}” from the library? Videos using it go back to no style.`) && (await styleAction("style-delete", { styleId: $("#styleSel").value }))) toast("Style deleted");
+    const cur = dir.styles.find((x) => x.id === dir.styleId);
+    if (confirmLocalized(`Delete the style “${cur.name}” from the library? Videos using it go back to no style.`) && (await styleAction("style-delete", { styleId: cur.id }))) toast("Style deleted");
   }
+  else if (d.style !== undefined) { if (await styleAction("style", { styleId: d.style || null })) toast(d.style ? "Style applied to this video" : "No style for this video"); }
   else if (d.formats) {
     try { dir = await api("/api/director/formats", { ...sel, formats: d.formats }); $("#langRow").dataset.key = ""; renderLangRow(); restKey = ""; refresh(); toast(`Format: ${t.textContent} — Preview and Render updated`); }
     catch (err) { toast(err.message); }
@@ -1133,45 +1146,54 @@ $("#newBrandBtn").onclick = () => openNew();
 
 // ---- video style: a shared library of named styles; each video picks one
 let styleKey = "", styleDirty = false;
+// A built-in style has its name and line in Arabic too; one of yours shows as you wrote it.
+const inArabic = () => window.dashboardI18n.language === "ar";
+const styleName = (x) => (inArabic() && x.nameAr) || x.name;
+const styleLine = (x) => (inArabic() && x.textAr) || x.text;
 function renderStyle() {
   const box = $("#styleCard");
   if (!dir || !box) return;
-  if (styleDirty || ["styleName", "styleText", "styleSel"].includes(document.activeElement?.id)) return;
-  const key = JSON.stringify([dir.styleId, dir.styles]);
+  if (styleDirty || ["styleName", "styleText"].includes(document.activeElement?.id)) return;
+  const key = JSON.stringify([dir.styleId, dir.styles, inArabic()]);
   if (key === styleKey) return;
   styleKey = key;
   const cur = dir.styles.find((x) => x.id === dir.styleId);
+  const mine = dir.styles.filter((x) => !x.builtin);
+  const own = cur && !cur.builtin ? cur : null;
+  const tile = (id, name, x) => `<button type="button" class="style-tile" data-style="${esc(id)}" aria-pressed="${id === (dir.styleId ?? "")}" title="${esc(x ? styleLine(x) : "")}">
+    ${x?.thumb ? `<img class="pic" loading="lazy" alt="" src="/styles/${esc(id)}/thumb.jpg">` : `<span class="pic">${esc(name)}</span>`}
+    ${x?.thumb ? `<span class="nm">${esc(name)}</span>` : ""}</button>`;
+  const group = (title, tiles) => `<div class="style-group">${title}</div><div class="style-tiles">${tiles.join("")}</div>`;
+  const scroll = $("#styleGrid")?.scrollTop ?? null;
   box.innerHTML = `<div class="card style-card">
     <div class="card-head"><h3>${icon("palette")}Style</h3>
-      ${cur ? `<span class="in-use">Using “${esc(cur.name)}”</span>` : `<span class="note">Saved styles work on any video, any brand</span>`}</div>
-    <div class="field">
-      <span class="flabel">${icon("palette")}Choose</span>
-      <select id="styleSel">
-        <option value="">— No style (new) —</option>
-        ${dir.styles.map((x) => `<option value="${esc(x.id)}" ${x.id === dir.styleId ? "selected" : ""}>${esc(x.name)}</option>`).join("")}
-      </select>
+      ${cur ? `<span class="in-use">Using “${esc(styleName(cur))}”</span>` : `<span class="note">A style works on any video, any brand</span>`}</div>
+    <div class="style-grid" id="styleGrid">
+      ${group("Your styles", [tile("", tr("No style")), ...mine.map((x) => tile(x.id, x.name, x))])}
+      ${[...new Set(dir.styles.filter((x) => x.builtin).map((x) => x.category))].map((c) => group(esc(c), dir.styles.filter((x) => x.builtin && x.category === c).map((x) => tile(x.id, styleName(x), x)))).join("")}
     </div>
-    <div class="field" style="margin-top:8px">
-      <span class="flabel">Name</span>
-      <input id="styleName" placeholder="e.g. Calm & cinematic" value="${esc(cur?.name ?? "")}" maxlength="60" />
-    </div>
-    <div class="field" style="margin-top:8px">
-      <span class="flabel">Description</span>
-      <textarea id="styleText" placeholder="Describe the look and feel: motion, pacing, transitions, typography, mood, sound…">${esc(cur?.text ?? "")}</textarea>
-    </div>
-    <div class="style-actions">
-      <span class="muted-note">Save with the same name to update it · a new name makes a new style · the Director uses it from your next message</span>
-      ${cur ? `<button class="ghost danger" type="button" id="styleDel">${icon("trash")}Delete</button>` : ""}
-      <button class="primary" type="button" id="styleSave">${icon("check")}Save style</button>
-    </div>
+    ${cur ? `<p class="style-now"><b class="style-data">${esc(styleName(cur))}</b><br><span class="style-data">${esc(styleLine(cur))}</span>${cur.builtin ? `<br><span>Built in: the Director reads its full style sheet and makes the video in it.</span>` : ""}</p>` : `<p class="style-now">No style: the Director chooses the look.</p>`}
+    <details class="style-own" ${own ? "open" : ""}>
+      <summary>Write your own style</summary>
+      <div class="field">
+        <span class="flabel">Name</span>
+        <input id="styleName" placeholder="e.g. Calm & cinematic" value="${esc(own?.name ?? "")}" maxlength="60" />
+      </div>
+      <div class="field" style="margin-top:8px">
+        <span class="flabel">Description</span>
+        <textarea id="styleText" placeholder="Describe the look and feel: motion, pacing, transitions, typography, mood, sound…">${esc(own?.text ?? "")}</textarea>
+      </div>
+      <div class="style-actions">
+        <span class="muted-note">Save with the same name to update it · a new name makes a new style · the Director uses it from your next message</span>
+        ${own ? `<button class="ghost danger" type="button" id="styleDel">${icon("trash")}Delete</button>` : ""}
+        <button class="primary" type="button" id="styleSave">${icon("check")}Save style</button>
+      </div>
+    </details>
   </div>`;
+  if (scroll !== null) $("#styleGrid").scrollTop = scroll;
   const markDirty = () => { styleDirty = true; };
   $("#styleName").oninput = markDirty;
   $("#styleText").oninput = markDirty;
-  $("#styleSel").onchange = async (e) => {
-    try { dir = await api("/api/director/style", { ...sel, styleId: e.target.value || null }); styleDirty = false; styleKey = ""; e.target.blur(); renderStyle(); toast(e.target.value ? "Style applied to this video" : "No style for this video"); }
-    catch (err) { toast(err.message); }
-  };
 }
 async function styleAction(action, body) {
   try { dir = await api(`/api/director/${action}`, { ...sel, ...body }); styleDirty = false; styleKey = ""; document.activeElement?.blur(); renderStyle(); return true; }
