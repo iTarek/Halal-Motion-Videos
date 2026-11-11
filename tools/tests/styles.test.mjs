@@ -39,10 +39,9 @@ test('a new machine gets the 66 film styles, each complete, in both languages', 
     assert.ok(CATEGORIES.includes(s.category), `${s.id}: ${s.category}`);
     assert.ok(s.families.length >= 1 && s.families.length <= 2 && s.families.every((f) => FAMILIES.includes(f)), `${s.id}: ${s.families}`);
     assert.ok(fs.existsSync(path.join(root, s.file)), s.file);
-    assert.equal(s.thumb, fs.existsSync(path.join(root, 'styles', s.id, 'thumb.jpg')));
-    if (s.thumb) assert.ok(fs.statSync(path.join(root, 'styles', s.id, 'thumb.jpg')).size < 80_000, `${s.id}: a thumbnail stays small`);
+    assert.equal(s.thumb, true, `${s.id} has no picture: the Style card would show an empty tile`);
+    assert.ok(fs.statSync(path.join(root, 'styles', s.id, 'thumb.jpg')).size < 80_000, `${s.id}: a thumbnail stays small`);
   }
-  assert.ok(styles.filter((s) => s.thumb).length >= 60);
   // the page lists them under their category, and translates that heading by its exact English
   const arabic = fs.readFileSync(path.join(TOOLS, 'dashboard', 'i18n.js'), 'utf8');
   for (const c of CATEGORIES) assert.ok(arabic.includes(`'${c}':'`), `"${c}" has no Arabic in i18n.js`);

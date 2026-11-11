@@ -55,7 +55,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-- **Thumbnails** (`thumb.jpg`): stills of its demo films, © LemoLab, under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed here: made smaller. Five styles ship without one.
+- **Thumbnails** (`thumb.jpg`): stills of its demo films, © LemoLab, under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed here: made smaller, and two cropped (`impasto`, `spy-titles`). Three were drawn for this repo and are not LemoLab's: `newsreel`, `stained-glass`, `swiss-motion`.
 - **Other people's work inside those stills** keeps its own licence. Each demo's `CREDITS` file in Lemo-Opuscar (`styles/<style>/demo/CREDITS`) lists it in full, with what LemoLab changed:
 
 | Thumbnail | Shows | Licence |
