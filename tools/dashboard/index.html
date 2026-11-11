@@ -1035,8 +1035,15 @@ function renderStudio() {
   $("#studioState").innerHTML = `<span class="dot"></span><span class="lbl">Studio ${on ? "running" : "off"}</span>`;
 }
 
+let page, staleTold = false; // the page's version when this tab loaded it
 async function refresh() {
   try { state = await api("/api/state"); } catch { return; }
+  // A tab left open through an update still runs the old page on the new server: load the new one. Not over something
+  // being typed: then it says so, once.
+  if (state.page !== (page ??= state.page)) {
+    if (!$("#prompt")?.value && !styleDirty) return location.reload();
+    if (!staleTold) { staleTold = true; toast("The dashboard was updated. Reload this page to see it."); }
+  }
   renderNav(); renderJobs(); renderStudio();
   const c = current();
   const sk = JSON.stringify(c ? [sel.brand, sel.video] : null);

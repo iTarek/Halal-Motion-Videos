@@ -98,7 +98,7 @@
     'running':'قيد التشغيل','queued':'في الانتظار','waiting':'في الانتظار','done':'مكتمل','failed':'فشل','cancelled':'ملغى','paused':'متوقف مؤقتًا','stopped':'متوقف',
     'Renders and stills you start appear here with live progress.':'تظهر هنا مهام تصدير الفيديوهات والصور مع متابعة تقدمها.',
     'Starting Studio…':'جارٍ تشغيل الاستوديو…',"Studio didn't start — try `npm run studio` in a terminal.":'لم يبدأ الاستوديو. جرّب npm run studio في الطرفية.',
-    'Style':'الأسلوب','A style works on any video, any brand':'يمكن تطبيق الأسلوب على أي فيديو أو علامة','No style':'دون أسلوب','Your styles':'أساليبك','Write your own style':'اكتب أسلوبك الخاص',
+    'Style':'الأسلوب','A style works on any video, any brand':'يمكن تطبيق الأسلوب على أي فيديو أو علامة','No style':'دون أسلوب','The dashboard was updated. Reload this page to see it.':'تم تحديث لوحة التحكم. أعد تحميل الصفحة لترى الجديد.','Your styles':'أساليبك','Write your own style':'اكتب أسلوبك الخاص',
     'No style: the Director chooses the look.':'دون أسلوب: يختار المخرج المظهر.','Built in: the Director reads its full style sheet and makes the video in it.':'أسلوب مدمج: يقرأ المخرج دليله الكامل ويصنع الفيديو به.',
     'Information & Keynote':'المعلومات والعروض التقديمية','Graphic & Type':'الغرافيك والخطوط','Materials & 3D':'الخامات والمجسمات','Edit & Documentary':'المونتاج والوثائقي','Evidence Films':'أفلام الأدلة','Hand-drawn & Painting':'الرسم اليدوي واللوحات',
     'Print & Printmaking':'الطباعة وفنونها','Cartoon & Anime':'الكرتون والأنمي','Games':'الألعاب','East Asian Traditions':'تقاليد شرق آسيا','Cinema & Eras':'السينما وعصورها',

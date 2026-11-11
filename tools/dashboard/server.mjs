@@ -317,6 +317,9 @@ const serveFile = (req, res, base, rel) => {
 const validVideo = (brand, video) =>
   NAME.test(brand ?? "") && NAME.test(video ?? "") && fs.existsSync(path.join(BRANDS, brand, video, "index.ts"));
 
+/** Changes when the page's own files do: a tab left open through an update can tell it's still showing the old page. */
+const pageVersion = () => ["index.html", "i18n.js", "selects.js"].map((f) => fs.statSync(path.join(HERE, f)).mtimeMs).join("-");
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   const p = url.pathname;
@@ -586,7 +589,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
     if (req.method === "GET" && p === "/api/state")
-      return send(res, 200, { brands: listVideos(), jobs: jobs.map(publicJob), studio: studioState(), directing: director.runningCount(), agentApi: AGENT_API });
+      return send(res, 200, { brands: listVideos(), jobs: jobs.map(publicJob), studio: studioState(), directing: director.runningCount(), agentApi: AGENT_API, page: pageVersion() });
 
     if (req.method === "POST" && p === "/api/new") {
       const { brand, video } = await readBody(req);

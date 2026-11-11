@@ -362,3 +362,17 @@ test('the dashboard serves the film styles and their pictures, and keeps the bui
   assert.deepEqual(JSON.parse(r.text).styles.slice(0,1),[{id:'house',name:'House',text:'our look'}]); // yours come first
   assert.equal(JSON.parse(r.text).styleId,'house');
 });
+
+// A tab left open through an update: the state it polls carries the page's version, which changes when a page file does.
+test('the dashboard tells an open tab when its page files change',async t=>{
+  const {root,url}=await realDashboard(t);
+  const page=async()=>(await (await fetch(url+'/api/state')).json()).page;
+  const first=await page();
+  assert.equal(typeof first,'string');assert.equal(await page(),first); // steady while nothing changes
+  for(const f of ['index.html','i18n.js','selects.js']){
+    const before=await page();
+    const file=path.join(root,'tools','dashboard',f);const later=new Date(fs.statSync(file).mtimeMs+5000);
+    fs.utimesSync(file,later,later);
+    assert.notEqual(await page(),before,f);
+  }
+});
