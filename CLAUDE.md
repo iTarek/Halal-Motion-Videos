@@ -118,6 +118,7 @@ tools/dashboard/            the local dashboard: server.mjs, director.mjs (Claud
 | `npm run render -- <brand> [video] [format] [--frames=a-b] [--blur] [--concurrency=N]` | MP4s to `out/<brand>/<video>/`, audio mastered to -16 LUFS; the video's `poster` frame becomes frame 0 (the thumbnail platforms show) and `stills/<name>-poster.jpg`; `--blur` = film-look motion blur (~8× slower); `--concurrency` = Chrome tabs at once, by default what the free memory allows (a render that crashes says how many to try) |
 | `npm run stills -- <brand> <video> <frame…> [--format=…] [--dir=…]` | JPGs to `out/<brand>/<video>/stills/` (or `--dir`) |
 | `npm run review -- <brand> <video> [--strip=12.5,31] [--safe-area=on|off]` | review sheets for the critique loop → `.director/tmp/<brand>-<video>/review/`; with a voice-over it hears the mix back (speech to text) |
+| `npm run look -- <clip under public/<brand>/> [--every=<s>] [--from=<s>] [--to=<s>]` | see what's in a video file: labelled sheets of its frames → `.director/tmp/<brand>-<video\|brand>/look/` |
 | `npm run shot -- <brand> [video]` | real screenshots of the live site/app from `shots.json` → `public/<brand>/…/img/shots/`; `--site` needs no recipe: the whole site, plus `site.json` with what it says |
 | `npm run appstore -- <brand> <app id or App Store URL>` | iOS apps: 1024 icon + full-size store screenshots → `public/<brand>/brand/img/store/`, the listing → `BRAND.md` |
 | `npm run sfx -- <brand> [video] [--look]` | design sounds by code: the brand's kit (no video) or one video's → `public/<brand>/…/sfx/` |
@@ -161,7 +162,7 @@ Each video page has a **Director** chat. It runs Claude Code headless in this re
 - **Allowed without asking** (Claude's permission rules; Codex gets the sandbox below instead):
   - Read, edit and search files in the repo; web fetch and search.
   - Download assets with `curl`.
-  - `npm run copy-asset`, `shot`, `sfx`, `voice`, `moves`, `stills`, `typecheck`; `npm install`, except in the brief step, which reads text from websites.
+  - `npm run copy-asset`, `shot`, `look`, `sfx`, `voice`, `moves`, `stills`, `review`, `appstore`, `typecheck`; `npm install`, except in the brief step, which reads text from websites.
   - Basic file commands: `ls`, `mkdir`, `cp`, `file`, `sips` (macOS), `ffprobe`, `unzip`.
   - Everything else is denied: no git, no MP4 renders, never `.director/settings.json` or the browser profiles.
 - **Sandbox for Codex (macOS):** it brings no permission rules, so `tools/dashboard/sandbox.mjs` runs it under `sandbox-exec`.
@@ -318,6 +319,14 @@ Fix the 3 biggest problems, re-run, and repeat until every score is 8+ (at most 
 **Browser memory:** the browser profile is kept per brand in `.director/browser/<brand>/`, so language choices, logins and big first-load downloads survive between runs. `--fresh` starts clean. Useful when an app downloads a large model or data on first load.
 
 **What screenshots can't do:** screens that need a microphone, camera or a real device (live recitation, for example). A screen recording shows them for real: the user uploads it under Materials, or for an app they build, they record the iOS Simulator on a Mac with `xcrun simctl io booted recordVideo --codec=h264 <file>` (Ctrl+C stops it); play it with `<Device video={…} />`. Without one, rebuild those screens in React, matching the captured screens exactly.
+
+**Look at a clip before you use it:** you can't play a video, so `npm run look -- public/<brand>/<video>/video/<file>` shows it to you.
+
+- **Sheets:** a frame every second (fewer on a long clip), each labelled with its time, in `.director/tmp/<brand>-<video|brand>/look/<clip>-N.png`. Read them.
+- **It also prints** the clip's length, its size as it plays (a phone clip stored sideways or with narrow pixels is shown upright) and whether it has sound.
+- **A closer look:** `--from=<s> --to=<s> --every=0.5`. Eight frames or fewer are drawn large, to read what's on the screen.
+- **Use it to:** find where the action is and where to trim (`trim`, `videoAt`), and check for real names, private data and other people's logos before it goes on screen.
+- **It only opens** a video file inside `public/<brand>/brand/` or `public/<brand>/<video>/`.
 
 **iOS apps without a website:** `npm run appstore -- <brand> <App Store id or apps.apple.com URL>` asks Apple's public lookup API.
 

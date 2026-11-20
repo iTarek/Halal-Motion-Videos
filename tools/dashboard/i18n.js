@@ -102,7 +102,7 @@
     'No style: the Director chooses the look.':'دون أسلوب: يختار المخرج المظهر.','Built in: the Director reads its full style sheet and makes the video in it.':'أسلوب مدمج: يقرأ المخرج دليله الكامل ويصنع الفيديو به.',
     'Information & Keynote':'المعلومات والعروض التقديمية','Graphic & Type':'الغرافيك والخطوط','Materials & 3D':'الخامات والمجسمات','Edit & Documentary':'المونتاج والوثائقي','Evidence Films':'أفلام الأدلة','Hand-drawn & Painting':'الرسم اليدوي واللوحات',
     'Print & Printmaking':'الطباعة وفنونها','Cartoon & Anime':'الكرتون والأنمي','Games':'الألعاب','East Asian Traditions':'تقاليد شرق آسيا','Cinema & Eras':'السينما وعصورها',
-    'Choosing moves':'اختيار الحركات',
+    'Choosing moves':'اختيار الحركات','Looking at a clip':'مشاهدة مقطع',
     'Facts':'الحقائق','Website':'الموقع','Headings':'العناوين','Text':'النصوص','Buttons':'الأزرار','Colours':'الألوان','Fonts':'الخطوط',
     'ElevenLabs rejected the API key.':'رفضت ElevenLabs مفتاح API.','ElevenLabs rejected the API key (Settings).':'رفضت ElevenLabs مفتاح API (الإعدادات).',
     "The key works, but that voice ID wasn't found.":'المفتاح يعمل، لكن معرّف الصوت غير موجود.',

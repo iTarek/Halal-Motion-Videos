@@ -36,7 +36,7 @@ export const DEFAULT_VOICE_LANGUAGE = "English — American accent";
 const NPM_INSTALL = "Bash(npm install:*)";
 const ALLOWED_TOOLS = [
   "Read", "Glob", "Grep", "Edit", "Write", "MultiEdit", "NotebookEdit", "TodoWrite", "WebFetch", "WebSearch", "Skill",
-  "Bash(npm run typecheck)", "Bash(npm run stills:*)", "Bash(npm run copy-asset:*)", "Bash(npm run voice:*)", "Bash(npm run sfx:*)", "Bash(npm run moves:*)", "Bash(npm run shot:*)", "Bash(npm run appstore:*)", "Bash(npm run review:*)", NPM_INSTALL, "Bash(npx tsc:*)",
+  "Bash(npm run typecheck)", "Bash(npm run stills:*)", "Bash(npm run copy-asset:*)", "Bash(npm run voice:*)", "Bash(npm run sfx:*)", "Bash(npm run moves:*)", "Bash(npm run shot:*)", "Bash(npm run appstore:*)", "Bash(npm run review:*)", "Bash(npm run look:*)", NPM_INSTALL, "Bash(npx tsc:*)",
   "Bash(curl:*)", "Bash(unzip:*)",
   "Bash(ls:*)", "Bash(mkdir:*)", "Bash(cp:*)", "Bash(file:*)", "Bash(sips:*)", "Bash(ffprobe:*)",
 ];
@@ -273,6 +273,9 @@ You are working on ONE video: brand "${brand}", video "${video}".
   \`curl -L -o public/${brand}/brand/img/<name> <url>\` (brand-wide) or public/${brand}/${video}/img/ (this video only).
   Check each download with \`file\` and \`ffprobe\` (image size: \`ffprobe -v error -show_entries stream=width,height -of csv=p=0 <img>\`), and list every file with its source URL in BRAND.md.
 - The user can also upload files through the page; if you can't find something (e.g. app screenshots), ask for it.
+- To see what's in a video file (an upload, a screen recording): \`npm run look -- public/${brand}/<brand|${video}>/video/<file>\` makes labelled
+  sheets of its frames in .director/tmp/. Read them before you place or trim the clip, and check them for real names, private data and
+  other people's logos. \`--from=<s> --to=<s> --every=0.5\` looks closer at a moment. Never build a scene just to look at a clip.
 ${voiceBlock(brand, video, s)}
 Reply style for the user: short. First line = what happened. Then a few bullets. No long prose.`;
     const quality = `QUALITY BAR — follow "Design quality (no 'mid')" in CLAUDE.md: no centered-text-on-a-gradient-fading-in;
@@ -353,6 +356,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
       case "Bash": {
         const c = String(input.command ?? "");
         if (c.includes("npm run stills")) return "Checking frames (stills)";
+        if (c.includes("npm run look")) return "Looking at a clip";
         if (c.includes("npm run moves")) return "Choosing moves";
         if (c.includes("typecheck") || c.includes("tsc")) return "Typechecking";
         if (c.startsWith("npm install")) return `Installing ${c.replace("npm install", "").trim()}`;

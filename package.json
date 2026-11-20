@@ -16,6 +16,7 @@
     "render": "node tools/render.mjs",
     "stills": "node tools/stills.mjs",
     "review": "node tools/review.mjs",
+    "look": "node tools/look.mjs",
     "shot": "node tools/shot.mjs",
     "appstore": "node tools/appstore.mjs",
     "sfx": "node tools/run-python.mjs tools/synth_sfx.py",

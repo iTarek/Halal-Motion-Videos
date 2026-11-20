@@ -21,8 +21,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { browserExecutable, findCompositions, parseArgs, quit, ROOT } from "./lib.mjs";
-import { CHROME_ARGS, findChrome, renderBudget } from "./chrome.mjs";
+import { renderBudget } from "./chrome.mjs";
 import { readJson } from "./settings.mjs";
+import { chrome, esc, PAGE_CSS, sheet, shoot } from "./sheets.mjs";
 import { heardProblems, phrasesOf, problemLine, transcribe } from "./transcribe.mjs";
 
 const { pos, flags } = parseArgs(process.argv.slice(2));
@@ -43,29 +44,12 @@ const OURS = /^((contact|phone|strip|voice|grid)-.+\.png|wave\.png|soundtrack\.w
 fs.mkdirSync(outDir, { recursive: true });
 for (const n of fs.readdirSync(outDir)) if (OURS.test(n)) fs.rmSync(path.join(outDir, n), { recursive: true, force: true });
 
-const chrome = findChrome(); // lays out the sheets
 if (!chrome) {
   console.error("No headless Chrome found — run `npm run setup`.");
   process.exit(1);
 }
 const browser = browserExecutable(); // Remotion's, for the frames
 const budget = renderBudget();
-
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-
-const PAGE_CSS = "body{margin:0;background:#141210;color:#f3ede4;font:15px Helvetica,Arial,sans-serif}";
-
-/** Screenshots an HTML page of W×H into out (a PNG). */
-const shoot = (html, W, H, out) => {
-  const htmlFile = out.replace(/\.png$/, ".html");
-  fs.writeFileSync(htmlFile, html);
-  execFileSync(chrome, [
-    "--headless", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1", "--allow-file-access-from-files", ...CHROME_ARGS,
-    `--window-size=${W},${H}`, `--screenshot=${out}`, pathToFileURL(htmlFile).href,
-  ], { stdio: "ignore", timeout: 120000 }); // a hung Chrome must not freeze the critique loop
-  fs.rmSync(htmlFile);
-  return out;
-};
 
 /**
  * The unsafe edges of a frame, in % of its size. 9:16 is posted to TikTok, Reels and Shorts, which cover the top
@@ -74,32 +58,6 @@ const shoot = (html, W, H, out) => {
  */
 const unsafeEdges = (width, height) =>
   height / width > 1.7 ? { top: 12, bottom: 22, left: 6, right: 12 } : { top: 5, bottom: 5, left: 5, right: 5 };
-
-/** Lays out images in a labelled grid page and screenshots it. items: [{ file, label }]. zone: unsafeEdges() to tint.
- *  labelLines: room for longer labels (e.g. a spoken phrase). */
-const sheet = (items, { cols, cellW, cellH, title, zone, labelLines = 1 }, out) => {
-  const gap = 8, pad = 16, labelH = labelLines > 1 ? 4 + 18 * labelLines : 26, titleH = 40; // multi-line: 4 px + 18 px lines
-  const rows = Math.ceil(items.length / cols);
-  const W = pad * 2 + cols * cellW + (cols - 1) * gap;
-  const H = pad * 2 + titleH + rows * (cellH + labelH) + (rows - 1) * gap;
-  const tint = zone
-    ? `<i style="top:0;left:0;right:0;height:${zone.top}%"></i><i style="bottom:0;left:0;right:0;height:${zone.bottom}%"></i>` +
-      `<i style="top:${zone.top}%;bottom:${zone.bottom}%;left:0;width:${zone.left}%"></i><i style="top:${zone.top}%;bottom:${zone.bottom}%;right:0;width:${zone.right}%"></i>`
-    : "";
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>${PAGE_CSS}
-    .t{padding:${pad}px ${pad}px 0;height:${titleH}px;font-size:18px;font-weight:bold}
-    .g{display:grid;grid-template-columns:repeat(${cols},${cellW}px);gap:${gap}px;padding:0 ${pad}px ${pad}px}
-    .f{position:relative;width:${cellW}px;height:${cellH}px}
-    .f img{display:block;width:100%;height:100%;object-fit:contain;background:#000}
-    .f i{position:absolute;background:rgba(255,40,40,.28)}
-    .c>div:last-child{height:${labelH}px;color:#e0a860;font-weight:bold;${labelLines > 1
-      ? `box-sizing:border-box;padding-top:4px;line-height:18px;font-size:14px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:${labelLines};overflow:hidden`
-      : `line-height:${labelH}px`}}
-  </style></head><body><div class="t">${esc(title)}</div><div class="g">${items
-    .map((it) => `<div class="c"><div class="f"><img src="${esc(pathToFileURL(it.file).href)}">${tint}</div><div>${esc(it.label)}</div></div>`)
-    .join("")}</div></body></html>`;
-  return shoot(html, W, H, out);
-};
 
 /** Where a poster is really seen, at the size it's seen there. Each crops to its own shape around the middle. */
 const posterTiles = (width, height) => {

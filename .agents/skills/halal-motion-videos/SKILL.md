@@ -171,4 +171,4 @@ More commands and every JSON field: [references/commands.md](references/commands
 
 The autopilot needs one signed-in CLI: Codex (`codex`), Claude Code (`claude`) or Antigravity (`agy`). Without it, build by hand following `CLAUDE.md` in the repo root, the full manual.
 
-- **Tools:** `npm run new`, `moves` (the video's palette of moves), `shot` (screenshots), `sfx` (sound), `voice`, `stills`, `review` (self-critique sheets), `typecheck`, `render`.
+- **Tools:** `npm run new`, `moves` (the video's palette of moves), `shot` (screenshots), `look` (sheets of a clip's frames, to see what's in an upload; `--json` gives their paths), `sfx` (sound), `voice`, `stills`, `review` (self-critique sheets), `typecheck`, `render`.

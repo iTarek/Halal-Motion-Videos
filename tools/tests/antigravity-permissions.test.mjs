@@ -26,3 +26,18 @@ test('permission setup preserves unrelated settings, deny/ask rules and a backup
   assert.throws(() => configurePermissions(file));
   assert.equal(fs.readFileSync(file, 'utf8'), '{invalid');
 });
+
+// The Director's tools are named in three places, which must agree: Claude's rules, Antigravity's, and CLAUDE.md, which
+// tells every Director what it may run.
+test('the three lists of tools the Director may run name the same ones', () => {
+  const read = (rel) => fs.readFileSync(new URL(`../../${rel}`, import.meta.url), 'utf8');
+  const sorted = (list) => [...new Set(list)].sort();
+  const antigravity = sorted(VIDEO_PERMISSION_RULES.map((r) => r.match(/^command\(npm run ([\w-]+)\)$/)?.[1]).filter(Boolean));
+  const allowed = read('tools/dashboard/director.mjs').match(/const ALLOWED_TOOLS = \[[\s\S]*?\n\];/)[0];
+  const claude = sorted([...allowed.matchAll(/"Bash\(npm run ([\w-]+)[:)]/g)].map((m) => m[1]));
+  const line = read('CLAUDE.md').split('\n').find((l) => l.includes('`npm run copy-asset`') && l.includes('`npm install`'));
+  const guide = sorted([...line.split(';')[0].matchAll(/`(?:npm run )?([\w-]+)`/g)].map((m) => m[1]));
+  assert.ok(claude.includes('look') && claude.length >= 9, String(claude));
+  assert.deepEqual(antigravity, claude);
+  assert.deepEqual(guide, claude);
+});

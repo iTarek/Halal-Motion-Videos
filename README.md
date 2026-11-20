@@ -82,6 +82,7 @@ npm start          # → http://localhost:4000
 | `npm run studio` | Remotion Studio |
 | `npm run render -- <brand> [video] [format] [--frames=a-b] [--blur] [--concurrency=N]` | render MP4s (audio mastered to -16 LUFS; `--blur` adds motion blur; `--concurrency` sets the Chrome tabs, by default what the free memory allows) |
 | `npm run review -- <brand> <video>` | review sheets for checking a video |
+| `npm run look -- <clip under public/<brand>/>` | sheets of a video file's frames, to see what's in it |
 | `npm run shot -- <brand> [video]` | real screenshots from `shots.json` |
 | `npm run shot -- <brand> --site` | a whole site with no recipe: screenshots on a phone and a desktop, and `site.json` with what it says |
 | `npm run appstore -- <brand> <app id>` | an iOS app's icon, store screenshots and listing from the App Store |
