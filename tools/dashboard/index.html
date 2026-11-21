@@ -1246,7 +1246,7 @@ function renderVoiceRow() {
     ${!v.configured ? `<span class="warn">Add your key in <button class="ghost" type="button" data-open-settings="1" style="padding:0 2px;color:var(--accent2)">Settings</button> to turn it on.</span>` : ""}
     ${v.enabled && v.provider === "gemini" ? `
       <span class="note">Voice</span>
-      <input id="voVoice" list="gmVoiceList" placeholder="${esc(v.defaultVoiceId)}" value="${esc(v.voiceId)}" title="Gemini voice for this video — leave empty to use the default from Settings" />
+      <input id="voVoice" list="gmVoiceList" placeholder="${esc(v.defaultVoiceId)}" value="${esc(v.voiceId)}" title="Gemini voice for this video: a name, or the ID of a voice you made (voice_…) — leave empty to use the default from Settings" />
       <datalist id="gmVoiceList">${(settings?.gemini.voices ?? []).map((x) => `<option value="${esc(x)}">`).join("")}</datalist>
       <span class="note">empty = default</span>
       <button class="ghost" id="voSave" type="button">Save</button>
@@ -1346,7 +1346,7 @@ function fillGemini() {
   $("#gmKey").placeholder = gm.hasKey ? `Saved (${gm.keyHint}) — paste a new key to replace it` : "AIza…";
   $("#gmKeyRemove").hidden = !gm.hasKey;
   $("#gmKeyHint").textContent = gm.hasKey ? "" : "Get it at aistudio.google.com → Get API key.";
-  $("#gmVoice").innerHTML = gm.voices.map((v) => `<option value="${esc(v)}" ${v === gm.voice ? "selected" : ""}>${esc(v)}</option>`).join("");
+  $("#gmVoice").innerHTML = [...gm.voices, ...(gm.voices.includes(gm.voice) ? [] : [gm.voice])].map((v) => `<option value="${esc(v)}" ${v === gm.voice ? "selected" : ""}>${esc(v)}</option>`).join("");
   $("#gmModel").innerHTML = Object.entries(gm.models).map(([k, l]) => `<option value="${k}" ${k === gm.model ? "selected" : ""}>${esc(l)}</option>`).join("");
   $("#gmPick").hidden = !(gm.hasKey && settings.elevenlabs.hasKey);
   $("#voProvider").value = settings.voiceProvider;

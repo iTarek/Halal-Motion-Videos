@@ -76,6 +76,25 @@ test("a saved ElevenLabs key that stopped working doesn't block saving anything 
   assert.deepEqual(box.calls(), []); // nobody asked
 });
 
+test('a Gemini voice of your own becomes the default voice by its ID, from the page or the CLI', async (t) => {
+  const box = sandbox(t);
+  box.write({ gemini: { apiKey: 'gemini-key' } });
+  const { port, save } = await startDashboard(t, box);
+  let r = await save({ geminiVoice: 'voice_example0001' });
+  assert.equal(r.status, 200, r.error);
+  assert.equal(r.gemini.voice, 'voice_example0001'); // what Settings then shows as the default
+  assert.equal(box.read().gemini.voice, 'voice_example0001');
+  r = await save({ geminiVoice: 'voice_' }); // not an ID: refused, with what would be taken
+  assert.equal(r.status, 400);
+  assert.match(r.error, /^No Gemini voice "voice_"\. Voices: Zephyr, .+ Or the ID of a voice you made in Google AI Studio \(voice_…\)\.$/);
+  assert.equal(box.read().gemini.voice, 'voice_example0001');
+  const cli = spawnSync(process.execPath, [path.join(box.root, 'tools', 'video.mjs'), 'voice-settings', '--gemini-voice=voice_example0002', '--json'],
+    { env: { ...process.env, PORT: String(port) }, encoding: 'utf8', windowsHide: true });
+  assert.equal(cli.status, 0, cli.stderr);
+  assert.equal(JSON.parse(cli.stdout).gemini.voice, 'voice_example0002');
+  assert.deepEqual(box.calls(), []); // a new voice asks nobody: Google is only asked when the key or the model changes
+});
+
 test('a new key, or a new voice on a saved key, is still checked', async (t) => {
   const box = sandbox(t);
   box.write({ elevenlabs: { apiKey: 'dead-key' } });

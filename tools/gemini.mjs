@@ -7,6 +7,8 @@ const API = "https://generativelanguage.googleapis.com/v1beta";
 const errorOf = (status, body) => {
   if (status === 401 || /API_KEY_INVALID|API key not valid/i.test(body)) return new Error("Google rejected the Gemini API key (Settings).");
   if (status === 403) return new Error("This Gemini API key isn't allowed to do that (403): check it in Google AI Studio.");
+  // a voice of your own that's been deleted, or was made under another key's project
+  if (status === 404 && /voice/i.test(body)) return new Error("Gemini doesn't know that voice (404): check its ID in Google AI Studio, and that it was made in this API key's project.");
   if (status === 404) return new Error("Gemini doesn't know that model (404).");
   if (status === 429) return new Error("Gemini rate limit or quota reached: try again later, or check your Google AI Studio plan.");
   // Google's errors are JSON ({ error: { message } }): show the message, not the JSON around it

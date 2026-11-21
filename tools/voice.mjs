@@ -12,7 +12,7 @@
 // voiceover.json (in src/brands/<brand>/<video>/):
 //   {
 //     "provider": "elevenlabs" | "gemini",   // optional: default is the one in use in Settings
-//     "voice": "optional voice id (default: Settings, then the video's Director setting); a voice name for Gemini",
+//     "voice": "optional voice id (default: Settings, then the video's Director setting); for Gemini a voice name, or the ID of a voice of your own (voice_…)",
 //     "model": "eleven_v4" | "eleven_v4_turbo" | "gemini-3.8-flash-tts" | "gemini-3.8-flash-lite-tts",
 //     "language": "ar",                      // optional ISO 639-1 code
 //     "stability": 0.5, "similarity": 0.75,  // optional defaults for every line (0–1; ElevenLabs only)
@@ -123,7 +123,7 @@ for (const l of lines) {
 const isGeminiModel = (m) => typeof m === "string" && Object.hasOwn(GEMINI_MODELS, m);
 const voiceId = voiceFits("elevenlabs", script.voice) || voiceFits("elevenlabs", directorState.voiceId) || settings.voiceId;
 const elevenModel = (m) => (m && !isGeminiModel(m) ? m : script.model && !isGeminiModel(script.model) ? script.model : settings.model);
-// Gemini: a voice name and a Gemini model
+// Gemini: a voice name or the ID of one of your own, and a Gemini model
 const geminiVoice = voiceFits("gemini", script.voice) || voiceFits("gemini", directorState.voiceId) || st.gemini.voice;
 const geminiModel = (m) => (isGeminiModel(m) ? m : isGeminiModel(script.model) ? script.model : st.gemini.model);
 const clamp = (v, d) => (typeof v === "number" && v >= 0 && v <= 1 ? v : d);

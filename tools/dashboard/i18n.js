@@ -139,10 +139,11 @@
     "That doesn't look like an API key.":'هذا لا يبدو مفتاح API صحيحًا.',
     'Get it at aistudio.google.com → Get API key.':'احصل عليه من aistudio.google.com ← Get API key.',
     'Needs an ElevenLabs or Gemini API key':'يتطلب مفتاح ElevenLabs أو Gemini','Off — needs an ElevenLabs or Gemini key':'متوقف — يتطلب مفتاح ElevenLabs أو Gemini',
-    'Gemini voice for this video — leave empty to use the default from Settings':'صوت Gemini لهذا الفيديو — اتركه فارغًا لاستخدام الصوت الافتراضي من الإعدادات',
+    'Gemini voice for this video: a name, or the ID of a voice you made (voice_…) — leave empty to use the default from Settings':'صوت Gemini لهذا الفيديو: اسم، أو معرّف صوت أنشأته (voice_…\u200e) — اتركه فارغًا لاستخدام الصوت الافتراضي من الإعدادات',
     '✓ Saved':'✓ محفوظ','✓ Saved · narrates your videos':'✓ محفوظ · يعلّق على فيديوهاتك',
     'Gemini 3.8 Flash TTS (best quality)':'Gemini 3.8 Flash TTS (أفضل جودة)','Gemini 3.8 Flash-Lite TTS (fast)':'Gemini 3.8 Flash-Lite TTS (سريع)',
     'Checking with Google…':'جارٍ التحقق لدى Google…','Checking with ElevenLabs and Google…':'جارٍ التحقق لدى ElevenLabs وGoogle…','Saving…':'جارٍ الحفظ…',
+    "Gemini doesn't know that voice (404): check its ID in Google AI Studio, and that it was made in this API key's project.":'لا يعرف Gemini هذا الصوت (404): تحقق من معرّفه في Google AI Studio، ومن أنه أُنشئ في مشروع مفتاح API هذا.',
     'Add your Gemini API key first.':'أضف مفتاح Gemini أولًا.','Add your ElevenLabs or Gemini API key in Settings first.':'أضف مفتاح ElevenLabs أو Gemini من الإعدادات أولًا.',
     'Remotion skill (remotion-best-practices)':'مهارة Remotion ‏(remotion-best-practices)',"the Director's Remotion know-how":'خبرة المخرج في Remotion',
     'The Director can read it and copy assets out — never changes it.':'يقرأ المخرج المجلد وينسخ مواده دون تعديله.',
@@ -178,7 +179,8 @@
     [/^Saved \((.+)\) — paste a new key to replace it$/,(_,x)=>`محفوظ (${x}) — الصق مفتاحًا جديدًا لاستبداله`],
     [/^✓ Saved · default voice: (.+)$/,(_,x)=>`✓ محفوظ · الصوت الافتراضي: ${x}`],
     [/^(custom voice|using default)( · .+)$/,(_,x,y)=>ar[x]+y], // the voice row's note: "using default · Kore · Gemini Flash"
-    [/^"(.+)" isn't a Gemini voice\. Voices: (.+)\.$/,(_,x,y)=>`«${x}» ليس من أصوات Gemini. الأصوات: ${y}.`],
+    // \u200e keeps "voice_…" in its own order inside Arabic: without it the "_…" lands before "voice"
+    [/^"(.+)" isn't a Gemini voice\. Voices: (.+)\. Or the ID of a voice you made in Google AI Studio \(voice_…\)\.$/,(_,x,y)=>`«${x}» ليس من أصوات Gemini. الأصوات: ${y}. أو معرّف صوت أنشأته في Google AI Studio (voice_…\u200e).`],
     [/^"(.+)" is a Gemini voice, but ElevenLabs narrates: use an ElevenLabs voice ID\.$/,(_,x)=>`«${x}» من أصوات Gemini، لكن التعليق الصوتي عبر ElevenLabs: استخدم معرّف صوت من ElevenLabs.`],
     [/^Format: (.+) — Preview and Render updated$/,(_,x)=>`الأبعاد: ${x} — تم تحديث المعاينة والتصدير`],
     [/^Open (.+) in Studio$/,(_,x)=>`فتح ${ar[x] || x} في الاستوديو`],

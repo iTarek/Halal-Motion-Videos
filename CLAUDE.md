@@ -427,7 +427,7 @@ The dashboard's **Settings** holds the ElevenLabs API key, default voice ID (`NO
 Each video's Director panel has:
 
 - **Voice-over on/off:** locked off until an ElevenLabs or Gemini key is saved, then on by default. Settings checks a key only when it or its voice changes, so a key that stops working blocks nothing else, and each key has a **Remove** button (`npm run video -- voice-settings --clear-key`, `--clear-gemini-key`)
-- **A voice ID override** for that video: a voice of the provider that narrates (with Gemini, a name such as `Kore`); any other is refused
+- **A voice ID override** for that video: a voice of the provider that narrates (with Gemini, a name such as `Kore`, or the ID of a voice of your own, `voice_…`); any other is refused
 - **Two free-text fields:** video language (default "English") and voice language (default "English — American accent")
 
 When voice-over is on, plan narration in the brief and generate it in the build without being asked.
@@ -500,7 +500,7 @@ Settings can hold a Google AI Studio key for Gemini text to speech (`gemini-3.8-
 - **Text is spoken word for word.** No `[tags]`: `npm run voice` refuses them for Gemini, since they'd be read out.
 - **Delivery goes in `"style"`**, per line or for the whole file, e.g. `"warm, unhurried, American accent"`.
 - **Inline cues use angle brackets:** `<short pause>`, `<long pause>`, `<laugh>`, `<sigh>`, `<whispers>`. CAPITALS stress a word; an ellipsis hesitates.
-- **Voices:** a name such as `Kore`, `Puck` or `Charon` (30 in all, listed in Settings). `stability`, `similarity` and `seed` don't apply.
+- **Voices:** a name such as `Kore`, `Puck` or `Charon` (30 in all, listed in Settings), or the ID of a voice the user designed or replicated in Google AI Studio (`voice_…`). `stability`, `similarity` and `seed` don't apply.
 
 ```json
 { "language": "en", "style": "warm, unhurried",

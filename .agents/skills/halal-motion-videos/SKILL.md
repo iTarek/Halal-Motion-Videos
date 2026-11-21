@@ -126,7 +126,7 @@ Pass these to `make`, or change them with `scripts/video set <brand> [video] …
 | `--language` | on-screen language, e.g. `Arabic` | English |
 | `--voiceover` | `on` / `off` (needs an ElevenLabs or Gemini key) | on when a key is saved |
 | `--voice-language` | e.g. `"Arabic — Egyptian accent"` | English — American accent |
-| `--voice-id` | a voice of the provider that narrates: an ElevenLabs voice ID, or with Gemini a voice name like `Kore` (any other is refused) | the saved default |
+| `--voice-id` | a voice of the provider that narrates: an ElevenLabs voice ID, or with Gemini a voice name like `Kore`, or the ID of a voice the human made in Google AI Studio (`voice_…`); any other is refused | the saved default |
 | `--safe-area` | `on` / `off`. On keeps key text out of the edges TikTok, Reels and Shorts cover (top 12%, bottom 22%, right 12% on 9:16; 5% elsewhere). Turn it off for videos nothing is laid over, like App Store previews or a website hero | `on` |
 | `--style` | a style name or id from `scripts/video styles` (66 film styles are built in, each with a picture to show the human; 21 short starter styles come first), or `none`, which lets the Director's palette of moves suggest one | none |
 | `--effort` | Claude's thinking: `medium`, `high`, `xhigh` | `high` |
@@ -137,7 +137,7 @@ Pass these to `make`, or change them with `scripts/video set <brand> [video] …
 `printf %s "$ELEVENLABS_API_KEY" | scripts/video voice-settings --key-stdin`
 
 **Or Gemini (optional, for a human without ElevenLabs):** a Google AI Studio key, piped in the same way:
-`printf %s "$GEMINI_API_KEY" | scripts/video voice-settings --gemini-key-stdin` (`--gemini-voice=Kore`, and `--provider=gemini` if an ElevenLabs key is saved too).
+`printf %s "$GEMINI_API_KEY" | scripts/video voice-settings --gemini-key-stdin` (`--gemini-voice=Kore`, or a voice of their own by its ID, `--gemini-voice=voice_…`; and `--provider=gemini` if an ElevenLabs key is saved too).
 
 **A key that stopped working:** it blocks nothing else, and `scripts/video voice-settings --clear-key` (or `--clear-gemini-key`) removes it.
 

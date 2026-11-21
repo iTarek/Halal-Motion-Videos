@@ -24,7 +24,7 @@
 //   render <brand> <video> [--format=vertical] [--blur] [--frames=0-89] [--concurrency=N]
 //                                           --concurrency: Chrome tabs at once (default: what the free memory allows)
 //   voice-settings [--voice-id=<id>] [--model=eleven_v4|eleven_v4_turbo] [--key-stdin] [--clear-key]   (ElevenLabs; key read from stdin)
-//                  [--provider=elevenlabs|gemini] [--gemini-key-stdin] [--clear-gemini-key] [--gemini-voice=<name>] [--gemini-model=<id>]
+//                  [--provider=elevenlabs|gemini] [--gemini-key-stdin] [--clear-gemini-key] [--gemini-voice=<name|voice_…>] [--gemini-model=<id>]
 //                  (--provider picks who narrates; the Gemini key is read from stdin too, one key per run)
 //
 // --wait makes make/ask/approve/render stay open until everything is finished — rendering and audio mastering
@@ -76,7 +76,7 @@ const up = async () => {
     return false;
   }
 };
-const AGENT_API = 9; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area. 5: Gemini voice-over. 6: moves. 7: render --concurrency. 8: film styles. 9: starter styles
+const AGENT_API = 10; // must match the server's (tools/dashboard/server.mjs). 2: --engine. 3: share caption, posters. 4: --safe-area. 5: Gemini voice-over. 6: moves. 7: render --concurrency. 8: film styles. 9: starter styles. 10: your own Gemini voices
 const ensureServer = async () => {
   if (await up()) {
     const { agentApi } = await (await fetch(`${BASE}/api/state`)).json();

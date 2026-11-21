@@ -29,7 +29,7 @@ const engineReadyNow = (id) => {
   if (engineCache.value) engineCache.value[id] = status;
   return status;
 };
-import { checkVoice, DEFAULT_VOICE_ID, GEMINI_MODELS, GEMINI_VOICES, readJson, readSettings, VOICE_MODELS, voiceFits, voiceProviderOf, writeSettings } from "../settings.mjs";
+import { checkVoice, DEFAULT_VOICE_ID, GEMINI_MODELS, GEMINI_VOICE_CHOICES, GEMINI_VOICES, readJson, readSettings, VOICE_MODELS, voiceFits, voiceProviderOf, writeSettings } from "../settings.mjs";
 import { checkGemini, geminiSpeech } from "../gemini.mjs";
 
 import { fileURLToPath } from "node:url";
@@ -42,7 +42,7 @@ const PORT = Number(process.env.PORT ?? 4000);
 const STUDIO_PORT = Number(process.env.STUDIO_PORT ?? 3000);
 const NAME = /^[a-z][a-z0-9-]*$/;
 let creating = Promise.resolve(); // POST /api/new runs one at a time
-const AGENT_API = 9; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters; 4: safeArea; 5: Gemini voice-over; 6: moves; 7: render concurrency; 8: film styles; 9: starter styles)
+const AGENT_API = 10; // bump when tools/video.mjs needs something new from this server (2: /api/director/engine; 3: share, posters; 4: safeArea; 5: Gemini voice-over; 6: moves; 7: render concurrency; 8: film styles; 9: starter styles; 10: your own Gemini voices)
 // The autopilot queues a render when a build ends (renderJob is defined below; called later, at run time).
 const director = createDirector({ root: ROOT, brandsDir: BRANDS, dashboardUrl: `http://127.0.0.1:${PORT}`, onBuilt: (brand, video, opts) => renderJob({ brand, video, ...opts }).id });
 
@@ -357,7 +357,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method !== "POST") return send(res, 404, { error: "not found" });
       const b = await readBody(req);
       // the free checks first, before asking ElevenLabs or Google anything
-      if (b.geminiVoice !== undefined && !voiceFits("gemini", b.geminiVoice)) return send(res, 400, { error: `No Gemini voice "${b.geminiVoice}". Voices: ${GEMINI_VOICES.join(", ")}` });
+      if (b.geminiVoice !== undefined && !voiceFits("gemini", b.geminiVoice)) return send(res, 400, { error: `No Gemini voice "${b.geminiVoice}". ${GEMINI_VOICE_CHOICES}` });
       if (b.geminiModel !== undefined && !(typeof b.geminiModel === "string" && Object.hasOwn(GEMINI_MODELS, b.geminiModel))) // not "constructor"
         return send(res, 400, { error: `No Gemini model "${b.geminiModel}". Models: ${Object.keys(GEMINI_MODELS).join(", ")}` });
       if (b.voiceProvider !== undefined && !["elevenlabs", "gemini"].includes(b.voiceProvider)) return send(res, 400, { error: "Voice-over is by elevenlabs or gemini." });
@@ -510,7 +510,7 @@ const server = http.createServer(async (req, res) => {
           director.setStyle(brand, video, null);
         } else if (action === "/engine") director.setEngine(brand, video, q.engine);
         else if (action === "/voiceover") {
-          // An ElevenLabs voice ID keeps its format check. A Gemini name ("Kore") isn't one: setVoiceover checks it against the provider in use.
+          // An ElevenLabs voice ID keeps its format check. A Gemini voice ("Kore", or voice_… of your own) isn't one: setVoiceover checks it against the provider in use.
           const v = typeof q.voiceId === "string" ? q.voiceId.trim() : "";
           if (v && !voiceFits("gemini", v) && voiceProviderOf(readSettings()) !== "gemini" && !/^[A-Za-z0-9]{8,64}$/.test(v))
             return send(res, 400, { error: "A voice ID is letters and numbers, like NOpBlnGInO9m6vDvFkFC." });

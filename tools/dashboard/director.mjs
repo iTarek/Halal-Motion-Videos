@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { canSandbox, SANDBOX_EXEC, sandboxEnv, sandboxProfile } from "./sandbox.mjs";
-import { GEMINI_VOICES, readSettings as readSettingsFile, SETTINGS_FILE, voiceFits, voiceProviderOf } from "../settings.mjs";
+import { GEMINI_VOICE_CHOICES, readSettings as readSettingsFile, SETTINGS_FILE, voiceFits, voiceProviderOf } from "../settings.mjs";
 import { getStyle as styleFromLibrary, listStyles as stylesFromLibrary } from "../styles.mjs";
 import { fixAudio } from "../audiofix.mjs";
 import { cliEnvironment, antigravityBin, codexBin } from "../doctor.mjs";
@@ -896,7 +896,7 @@ PHASE 3 of 3: BUILD (the user approved the brief and the storyboard — keep tha
         const fit = provider ? voiceFits(provider, v) : v;
         if (v && !fit)
           throw new Error(provider === "gemini"
-            ? `"${v}" isn't a Gemini voice. Voices: ${GEMINI_VOICES.join(", ")}.`
+            ? `"${v}" isn't a Gemini voice. ${GEMINI_VOICE_CHOICES}`
             : `"${v}" is a Gemini voice, but ElevenLabs narrates: use an ElevenLabs voice ID.`);
         s.voiceId = fit;
       }

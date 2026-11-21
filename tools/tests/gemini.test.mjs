@@ -7,7 +7,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { voiceFits, voiceProviderOf } from '../settings.mjs';
+import vm from 'node:vm';
+import { GEMINI_VOICE_CHOICES, voiceFits, voiceProviderOf } from '../settings.mjs';
 import { checkGemini, geminiSpeech } from '../gemini.mjs';
 import { alignWords, heardProblems, problemLine } from '../transcribe.mjs';
 
@@ -28,6 +29,35 @@ test('a video keeps a voice only for the provider it belongs to', () => {
   assert.equal(voiceFits('elevenlabs', 'NOpBlnGInO9m6vDvFkFC'), 'NOpBlnGInO9m6vDvFkFC');
   assert.equal(voiceFits('elevenlabs', 'Achernar'), ''); // a Gemini name never reaches ElevenLabs
   assert.equal(voiceFits('elevenlabs', ''), '');
+  // a voice of your own, designed or replicated in Google AI Studio: its ID, kept as typed
+  assert.equal(voiceFits('gemini', ' voice_example0001 '), 'voice_example0001');
+  assert.equal(voiceFits('elevenlabs', 'voice_example0001'), ''); // and it never reaches ElevenLabs either
+  for (const not of ['voice_', 'voice_ab cd', 'voice_"x"', 'Voice_example0001', 'myvoice_example0001']) assert.equal(voiceFits('gemini', not), '', not);
+});
+
+test('the dashboard says in Arabic, to the last word, which Gemini voices it takes', async t => {
+  const dashboard = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
+  const element = { addEventListener() {} };
+  const page = {
+    localStorage: { getItem: () => 'ar', setItem() {} }, navigator: { language: 'ar' }, NodeFilter: {},
+    MutationObserver: class { observe() {} disconnect() {} },
+    document: { documentElement: {}, body: {}, querySelector: () => element, querySelectorAll: () => [], createTreeWalker: () => ({ nextNode: () => false }) },
+  };
+  page.window = page;
+  vm.runInNewContext(fs.readFileSync(path.join(dashboard, 'i18n.js'), 'utf8'), page);
+  const { translate } = page.dashboardI18n;
+  // the refusal, as the server words it: \u200e keeps "voice_…" in its own order inside the Arabic line
+  assert.match(translate(`"Nobody" isn't a Gemini voice. ${GEMINI_VOICE_CHOICES}`),
+    /^«Nobody» ليس من أصوات Gemini\. الأصوات: Zephyr, .+, Sulafat\. أو معرّف صوت أنشأته في Google AI Studio \(voice_…\u200e\)\.$/);
+  // the voice box's hint, as the page words it
+  const hint = fs.readFileSync(path.join(dashboard, 'index.html'), 'utf8').match(/title="(Gemini voice for this video[^"]+)"/)[1];
+  assert.match(translate(hint), /^صوت Gemini لهذا الفيديو: .+ \(voice_…\u200e\) — /);
+  // a voice Google doesn't know, as tools/gemini.mjs words it when the voice test plays it
+  const saved = globalThis.fetch;
+  t.after(() => { globalThis.fetch = saved; });
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: { message: 'Voice voice_gone1234 was not found.' } }), { status: 404 });
+  const unknown = await geminiSpeech({ key: 'k', text: 'Hi.', voice: 'voice_gone1234', model: 'gemini-3.8-flash-tts' }).catch((e) => e.message);
+  assert.match(translate(unknown), /^لا يعرف Gemini هذا الصوت \(404\): /);
 });
 
 // settings.mjs finds its file from where it lives, so a copy in a temp folder reads and writes there: never the real keys
@@ -55,6 +85,11 @@ test('saving settings keeps both keys, adds Gemini only once it is used, and rea
   m.writeSettings({ gemini: undefined, voiceProvider: 'gemini' });
   assert.deepEqual(onDisk(), { elevenlabs: { apiKey: 'el-key' }, gemini: { apiKey: 'gm-key', voice: 'Puck' }, voiceProvider: 'gemini' });
   assert.equal(m.voiceProviderOf(), 'gemini');
+  // a voice of your own stays the default voice once saved; a built-in name typed by hand reads in its own case
+  m.writeSettings({ gemini: { voice: 'voice_example0001' } });
+  assert.equal(m.readSettings().gemini.voice, 'voice_example0001');
+  m.writeSettings({ gemini: { voice: 'kore' } });
+  assert.equal(m.readSettings().gemini.voice, 'Kore');
 
   // hand-broken values fall back to the defaults instead of reaching a caller
   const broken = (gemini) => {
@@ -117,6 +152,8 @@ test('every Gemini failure reads plainly: Google says why, not its JSON; no bare
   await assert.rejects(speak(), /isn't allowed to do that \(403\)/);
   failWith(404, google(404, 'NOT_FOUND', 'models/nope is not found.'));
   await assert.rejects(speak(), { message: "Gemini doesn't know that model (404)." });
+  failWith(404, google(404, 'NOT_FOUND', 'Voice voice_gone1234 was not found.')); // one of your own, deleted or made under another key
+  await assert.rejects(speak(), /doesn't know that voice \(404\): check its ID in Google AI Studio/);
   failWith(429, google(429, 'RESOURCE_EXHAUSTED', 'Quota exceeded.'));
   await assert.rejects(speak(), /rate limit or quota/);
   // any other status: Google's own message, not the JSON around it
@@ -245,6 +282,18 @@ globalThis.fetch = async (url, init = {}) => {
   assert.deepEqual(run('--only=a').made, ['Hello uno.']);
   assert.deepEqual(run().made, ['Hello dos.']);
   assert.deepEqual(run().made, []);
+
+  // a voice of your own reaches Google by its ID: from voiceover.json, else the video's own voice, else Settings
+  const voices = (r) => r.calls.filter((c) => c.url.includes(':generateContent')).map((c) => c.body.generationConfig.speechConfig.voiceConfig.voice);
+  writeScript({ voice: 'voice_example0001', lines: [{ id: 'a', text: 'Hello uno.' }] });
+  assert.deepEqual(voices(run()), ['voice_example0001']); // the same words, made again in the new voice
+  writeScript({ lines: [{ id: 'a', text: 'Hello uno.' }] });
+  fs.mkdirSync(path.join(root, '.director', 'demo'));
+  fs.writeFileSync(path.join(root, '.director', 'demo', 'video01.json'), JSON.stringify({ voiceId: 'voice_example0002' }));
+  assert.deepEqual(voices(run()), ['voice_example0002']);
+  fs.rmSync(path.join(root, '.director', 'demo'), { recursive: true });
+  setKeys({ elevenlabs: { apiKey: 'el-test' }, gemini: { apiKey: 'gm-test', voice: 'voice_example0003' }, voiceProvider: 'gemini' });
+  assert.deepEqual(voices(run()), ['voice_example0003']);
 
   // ElevenLabs pinned: another provider's voice and model never reach it
   writeScript({ provider: 'elevenlabs', voice: 'Kore', model: 'gemini-3.8-flash-tts', lines: [{ id: 'el', text: 'Hello.' }] });

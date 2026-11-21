@@ -228,11 +228,13 @@ test('the dashboard takes a Gemini voice per video, and refuses bad models, keys
   const saved=()=>JSON.parse(readFileSync(path.join(root,'.director','demo','video01.json'),'utf8')).voiceId;
   // Gemini in use: a 4-letter name passes, in its own case; an ElevenLabs ID doesn't
   let r=await voice('kore');assert.equal(r.status,200,r.text);assert.equal(saved(),'Kore');
-  r=await voice('NOpBlnGInO9m6vDvFkFC');assert.equal(r.status,409);assert.match(r.text,/isn't a Gemini voice/);
+  r=await voice('voice_example0001');assert.equal(r.status,200,r.text);assert.equal(saved(),'voice_example0001'); // a voice of your own, by its ID
+  r=await voice('NOpBlnGInO9m6vDvFkFC');assert.equal(r.status,409);assert.match(r.text,/isn't a Gemini voice/);assert.match(r.text,/Or the ID of a voice you made in Google AI Studio \(voice_…\)/);
   // ElevenLabs in use: the ID format check still holds, and a Gemini name is refused
   settings({elevenlabs:{apiKey:'test-elevenlabs-key'}});
   r=await voice('bad id!');assert.equal(r.status,400);assert.match(r.text,/letters and numbers/);
   r=await voice('Kore');assert.equal(r.status,409);assert.match(r.text,/is a Gemini voice/);
+  r=await voice('voice_example0001');assert.equal(r.status,409);assert.match(r.text,/is a Gemini voice, but ElevenLabs narrates/);
   r=await voice('NOpBlnGInO9m6vDvFkFC');assert.equal(r.status,200,r.text);assert.equal(saved(),'NOpBlnGInO9m6vDvFkFC');
   // Settings: not a model, and not a key (one with a line break would come back in fetch's header error)
   r=await post('/api/settings',{geminiModel:'constructor'});assert.equal(r.status,400);assert.match(r.text,/No Gemini model/);
